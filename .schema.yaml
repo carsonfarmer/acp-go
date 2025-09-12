@@ -1,0 +1,11 @@
+# Schema generation configuration
+input: schema/schema.json
+meta: schema/meta.json
+output: schema.go
+package: acp
+ignoreErrors: true
+ignoreTypes: 
+ - ClientRequest
+ - ClientResponse
+ - AgentRequest
+ - AgentResponse
