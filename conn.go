@@ -31,10 +31,10 @@ type Transport interface {
 	// ReadMessage reads the next JSON-RPC message from the transport.
 	// Returns io.EOF when the transport is closed.
 	// May return nil data for empty/skip messages (e.g., empty lines in stdio).
-	ReadMessage() (json.RawMessage, error)
+	ReadMessage(ctx context.Context) (json.RawMessage, error)
 
 	// WriteMessage sends a JSON-RPC message over the transport.
-	WriteMessage(data json.RawMessage) error
+	WriteMessage(ctx context.Context, data json.RawMessage) error
 
 	// Close closes the transport and releases resources.
 	Close() error
@@ -44,6 +44,10 @@ type Transport interface {
 //
 // This is the default transport used by ACP connections. Messages are separated by newlines,
 // with a 50MB buffer to handle large payloads (e.g., base64-encoded images).
+//
+// Note: ReadMessage and WriteMessage do not respect context cancellation because
+// the underlying io.Reader/io.Writer have no cancellation mechanism. The connection's
+// readLoop pre-checks context cancellation between reads as a workaround.
 type StdioTransport struct {
 	reader  io.Reader
 	scanner *bufio.Scanner
@@ -62,7 +66,7 @@ func NewStdioTransport(reader io.Reader, writer io.Writer) *StdioTransport {
 	}
 }
 
-func (t *StdioTransport) ReadMessage() (json.RawMessage, error) {
+func (t *StdioTransport) ReadMessage(_ context.Context) (json.RawMessage, error) {
 	if !t.scanner.Scan() {
 		if err := t.scanner.Err(); err != nil {
 			return nil, err
@@ -80,7 +84,7 @@ func (t *StdioTransport) ReadMessage() (json.RawMessage, error) {
 
 var newline = []byte{'\n'}
 
-func (t *StdioTransport) WriteMessage(data json.RawMessage) error {
+func (t *StdioTransport) WriteMessage(_ context.Context, data json.RawMessage) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if _, err := t.writer.Write(data); err != nil {
@@ -321,7 +325,7 @@ func (c *Connection) readLoop() error {
 		default:
 		}
 
-		data, err := c.transport.ReadMessage()
+		data, err := c.transport.ReadMessage(c.ctx)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -366,7 +370,7 @@ func (c *Connection) writeLoop() {
 				continue
 			}
 
-			if err := c.transport.WriteMessage(data); err != nil {
+			if err := c.transport.WriteMessage(c.ctx, data); err != nil {
 				c.logError(fmt.Errorf("failed to write JSON-RPC message: %w", err))
 				c.cancel() // close connection on write failure
 				return

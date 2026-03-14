@@ -198,9 +198,9 @@ func main() {
 
 	// Create connection with session store and middleware
 	conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
-		acp.WithSessionStore(store, func(ctx context.Context, id acp.SessionID, params *acp.NewSessionRequest) (*AgentSession, error) {
+		acp.WithSessionStore(store, func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *AgentSession, error) {
 			sessionCtx, cancelFunc := context.WithCancel(context.Background())
-			return &AgentSession{
+			return acp.GenerateSessionID(), &AgentSession{
 				cancelContext: sessionCtx,
 				cancelFunc:    cancelFunc,
 			}, nil

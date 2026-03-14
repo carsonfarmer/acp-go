@@ -82,9 +82,9 @@ type sessionStoreHandler interface {
 	handleListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
 }
 
-// SessionFactory creates a new session value when a NewSession request is received.
-// The SessionID is auto-generated and passed to the factory along with the request params.
-type SessionFactory[T any] func(ctx context.Context, id SessionID, params *NewSessionRequest) (T, error)
+// SessionFactory creates a new session value and its ID when a NewSession request is received.
+// Use [GenerateSessionID] for default random ID generation, or provide your own ID scheme.
+type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) (SessionID, T, error)
 
 // sessionStoreAdapter adapts a typed SessionStore into a sessionStoreHandler.
 type sessionStoreAdapter[T any] struct {
@@ -93,8 +93,7 @@ type sessionStoreAdapter[T any] struct {
 }
 
 func (a *sessionStoreAdapter[T]) handleNewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
-	id := generateSessionID()
-	session, err := a.factory(ctx, id, params)
+	id, session, err := a.factory(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +130,9 @@ func (a *sessionStoreAdapter[T]) handleListSessions(_ context.Context, _ *ListSe
 //
 //	store := acp.NewMemoryStore[*MySession]()
 //	conn := acp.NewAgentSideConnection(agent, reader, writer,
-//	    acp.WithSessionStore(store, func(ctx context.Context, id acp.SessionID, params *acp.NewSessionRequest) (*MySession, error) {
-//	        return &MySession{ID: id}, nil
+//	    acp.WithSessionStore(store, func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
+//	        id := acp.GenerateSessionID()
+//	        return id, &MySession{ID: id}, nil
 //	    }),
 //	)
 func WithSessionStore[T any](store SessionStore[T], factory SessionFactory[T]) ConnectionOption {
@@ -144,8 +144,15 @@ func WithSessionStore[T any](store SessionStore[T], factory SessionFactory[T]) C
 	}
 }
 
-func generateSessionID() SessionID {
+// GenerateSessionID generates a cryptographically random session ID
+// with the format "session_<32 hex chars>".
+//
+// Use this in your [SessionFactory] for default ID generation,
+// or provide your own ID scheme.
+func GenerateSessionID() SessionID {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("acp: failed to generate session ID: " + err.Error())
+	}
 	return SessionID("session_" + hex.EncodeToString(b))
 }

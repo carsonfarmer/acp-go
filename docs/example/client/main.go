@@ -151,16 +151,13 @@ func main() {
 		agentBinary += ".exe"
 	}
 
-	if _, err := os.Stat(agentBinary); os.IsNotExist(err) {
-		fmt.Println("Building agent...")
-		buildCmd := exec.Command("go", "build", "-o", agentBinary, "main.go")
-		buildCmd.Dir = agentDir
-		buildCmd.Stderr = os.Stderr
-		if err := buildCmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to build agent: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Agent built successfully.")
+	fmt.Println("Building agent...")
+	buildCmd := exec.Command("go", "build", "-o", agentBinary, ".")
+	buildCmd.Dir = agentDir
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to build agent: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Spawn the agent using the helper
@@ -170,6 +167,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to spawn agent: %v\n", err)
 		os.Exit(1)
 	}
+	defer connection.Close()
 
 	// Start the connection in background
 	go func() {

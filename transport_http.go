@@ -5,12 +5,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 )
+
+// maxErrorBodySize is the maximum number of bytes read from an HTTP error response body.
+const maxErrorBodySize = 1024
+
+// ErrTransportClosed is returned when a message is sent on a closed transport.
+var ErrTransportClosed = errors.New("transport closed")
 
 // SSE framing constants, allocated once to avoid per-message allocations.
 var (
@@ -46,21 +53,25 @@ func NewHTTPServerTransport() *HTTPServerTransport {
 	}
 }
 
-func (t *HTTPServerTransport) ReadMessage() (json.RawMessage, error) {
+func (t *HTTPServerTransport) ReadMessage(ctx context.Context) (json.RawMessage, error) {
 	select {
 	case msg := <-t.inbox:
 		return msg, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-t.done:
 		return nil, io.EOF
 	}
 }
 
-func (t *HTTPServerTransport) WriteMessage(data json.RawMessage) error {
+func (t *HTTPServerTransport) WriteMessage(ctx context.Context, data json.RawMessage) error {
 	select {
 	case t.outbox <- data:
 		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-t.done:
-		return fmt.Errorf("transport closed")
+		return ErrTransportClosed
 	}
 }
 
@@ -130,14 +141,17 @@ func (t *HTTPServerTransport) handleSSE(w http.ResponseWriter, r *http.Request) 
 //
 // The client sends JSON-RPC messages via HTTP POST and receives
 // agent-to-client messages via an SSE stream.
+//
+// Call Connect before using the transport with a Connection.
 type HTTPClientTransport struct {
-	postURL   string
-	sseURL    string
-	client    *http.Client
-	inbox     chan json.RawMessage
-	done      chan struct{}
-	closeOnce sync.Once
-	cancel    context.CancelFunc
+	postURL     string
+	sseURL      string
+	client      *http.Client
+	inbox       chan json.RawMessage
+	done        chan struct{}
+	closeOnce   sync.Once
+	connectOnce sync.Once
+	cancel      context.CancelFunc // cancels the SSE connection context
 }
 
 // HTTPClientOption configures an HTTPClientTransport.
@@ -161,10 +175,10 @@ func NewHTTPClientTransport(baseURL string, opts ...HTTPClientOption) *HTTPClien
 	t := &HTTPClientTransport{
 		postURL: baseURL + "/message",
 		sseURL:  baseURL + "/events",
-		client:  http.DefaultClient,
-		inbox:   make(chan json.RawMessage, 100),
-		done:    make(chan struct{}),
-		cancel:  func() {}, // no-op until Connect is called
+		client: http.DefaultClient,
+		inbox:  make(chan json.RawMessage, 100),
+		done:   make(chan struct{}),
+		cancel: func() {}, // no-op until Connect is called
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -173,28 +187,38 @@ func NewHTTPClientTransport(baseURL string, opts ...HTTPClientOption) *HTTPClien
 }
 
 // Connect starts the SSE listener for receiving agent-to-client messages.
-// This must be called before using the transport with a Connection.
+// This must be called exactly once before using the transport with a Connection.
 // The provided context controls the SSE connection lifecycle.
 func (t *HTTPClientTransport) Connect(ctx context.Context) error {
-	ctx, t.cancel = context.WithCancel(ctx)
+	var connectErr error
+	t.connectOnce.Do(func() {
+		sseCtx, cancel := context.WithCancel(ctx)
+		t.cancel = cancel
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, t.sseURL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create SSE request: %w", err)
-	}
-	req.Header.Set("Accept", "text/event-stream")
+		req, err := http.NewRequestWithContext(sseCtx, http.MethodGet, t.sseURL, nil)
+		if err != nil {
+			cancel()
+			connectErr = fmt.Errorf("failed to create SSE request: %w", err)
+			return
+		}
+		req.Header.Set("Accept", "text/event-stream")
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to connect to SSE: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return fmt.Errorf("SSE connection returned status %d", resp.StatusCode)
-	}
+		resp, err := t.client.Do(req)
+		if err != nil {
+			cancel()
+			connectErr = fmt.Errorf("failed to connect to SSE: %w", err)
+			return
+		}
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			cancel()
+			connectErr = fmt.Errorf("SSE connection returned status %d", resp.StatusCode)
+			return
+		}
 
-	go t.readSSE(resp.Body)
-	return nil
+		go t.readSSE(resp.Body)
+	})
+	return connectErr
 }
 
 func (t *HTTPClientTransport) readSSE(body io.ReadCloser) {
@@ -217,20 +241,21 @@ func (t *HTTPClientTransport) readSSE(body io.ReadCloser) {
 	}
 }
 
-func (t *HTTPClientTransport) ReadMessage() (json.RawMessage, error) {
+func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (json.RawMessage, error) {
 	select {
 	case msg := <-t.inbox:
 		return msg, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case <-t.done:
 		return nil, io.EOF
 	}
 }
 
-func (t *HTTPClientTransport) WriteMessage(data json.RawMessage) error {
-	ctx := context.Background()
+func (t *HTTPClientTransport) WriteMessage(ctx context.Context, data json.RawMessage) error {
 	select {
 	case <-t.done:
-		return fmt.Errorf("transport closed")
+		return ErrTransportClosed
 	default:
 	}
 
@@ -244,19 +269,28 @@ func (t *HTTPClientTransport) WriteMessage(data json.RawMessage) error {
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted {
+		io.Copy(io.Discard, resp.Body)
+		return nil
 	}
-	return nil
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+	switch {
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		return fmt.Errorf("client error %d: %s", resp.StatusCode, body)
+	case resp.StatusCode >= 500:
+		return fmt.Errorf("server error %d: %s", resp.StatusCode, body)
+	default:
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
 }
 
 func (t *HTTPClientTransport) Close() error {
 	t.closeOnce.Do(func() {
+		t.cancel() // cancel SSE context first to unblock readSSE
 		close(t.done)
-		t.cancel()
 	})
 	return nil
 }
