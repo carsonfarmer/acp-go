@@ -148,11 +148,29 @@ func (c *AgentSideConnection) handleIncomingMethod(ctx context.Context, method s
 	case AgentMethods.Authenticate:
 		return unmarshalAndCall(ctx, params, c.agent.Authenticate)
 	case AgentMethods.SessionNew:
-		return unmarshalAndCall(ctx, params, c.agent.NewSession)
+		if creator, ok := c.agent.(SessionCreator); ok {
+			return unmarshalAndCall(ctx, params, creator.NewSession)
+		}
+		if c.conn.sessionStore != nil {
+			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleNewSession)
+		}
+		return nil, ErrMethodNotFound(method)
 	case AgentMethods.SessionLoad:
-		return unmarshalAndCall(ctx, params, c.agent.LoadSession)
+		if loader, ok := c.agent.(SessionLoader); ok {
+			return unmarshalAndCall(ctx, params, loader.LoadSession)
+		}
+		if c.conn.sessionStore != nil {
+			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleLoadSession)
+		}
+		return nil, ErrMethodNotFound(method)
 	case AgentMethods.SessionList:
-		return unmarshalAndCall(ctx, params, c.agent.ListSessions)
+		if lister, ok := c.agent.(SessionLister); ok {
+			return unmarshalAndCall(ctx, params, lister.ListSessions)
+		}
+		if c.conn.sessionStore != nil {
+			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleListSessions)
+		}
+		return nil, ErrMethodNotFound(method)
 	case AgentMethods.SessionSetMode:
 		return unmarshalAndCall(ctx, params, c.agent.SetSessionMode)
 	case AgentMethods.SessionSetConfigOption:

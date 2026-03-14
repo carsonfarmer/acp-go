@@ -9,10 +9,15 @@ import (
 
 // Agent represents the interface that agents must implement to handle client requests.
 //
-// This interface defines all the stable methods that an agent can receive from a client
-// according to the Agent Client Protocol specification.
+// This interface defines the core methods that an agent must implement.
+// Session lifecycle methods (NewSession, LoadSession, ListSessions) are handled
+// automatically when a SessionStore is configured via [WithSessionStore].
+// To override the default session management, implement the optional interfaces:
+//   - [SessionCreator] for custom session/new handling
+//   - [SessionLoader] for custom session/load handling
+//   - [SessionLister] for custom session/list handling
 //
-// Optional capabilities can be advertised by implementing additional interfaces:
+// Other optional capabilities:
 //   - [SessionForker] for session/fork (unstable)
 //   - [SessionResumer] for session/resume (unstable)
 //   - [SessionCloser] for session/close (unstable)
@@ -37,27 +42,6 @@ type Agent interface {
 	// See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)
 	Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error)
 
-	// NewSession creates a new conversation session.
-	//
-	// Sets up a new session with the specified working directory and MCP servers.
-	//
-	// See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)
-	NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
-
-	// LoadSession loads an existing conversation session.
-	//
-	// Only called if the agent advertises the loadSession capability.
-	//
-	// See protocol docs: [Loading Sessions](https://agentclientprotocol.com/protocol/session-setup#loading-sessions)
-	LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
-
-	// ListSessions lists available sessions.
-	//
-	// Only called if the agent advertises the sessionCapabilities.list capability.
-	//
-	// See protocol docs: [Listing Sessions](https://agentclientprotocol.com/protocol/session-setup#listing-sessions)
-	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
-
 	// SetSessionMode changes the current session mode.
 	//
 	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
@@ -81,6 +65,30 @@ type Agent interface {
 	//
 	// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
 	Cancel(ctx context.Context, params *CancelNotification) error
+}
+
+// SessionCreator is an optional interface for agents that handle session creation.
+//
+// If not implemented and a SessionStore is configured via [WithSessionStore],
+// session creation is handled automatically by the store.
+type SessionCreator interface {
+	NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
+}
+
+// SessionLoader is an optional interface for agents that handle session loading.
+//
+// If not implemented and a SessionStore is configured via [WithSessionStore],
+// session loading is handled automatically by the store.
+type SessionLoader interface {
+	LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
+}
+
+// SessionLister is an optional interface for agents that handle session listing.
+//
+// If not implemented and a SessionStore is configured via [WithSessionStore],
+// session listing is handled automatically by the store.
+type SessionLister interface {
+	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
 }
 
 // SessionForker is an optional interface for agents that support session forking (unstable).

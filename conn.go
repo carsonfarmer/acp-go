@@ -137,6 +137,7 @@ type Connection struct {
 	writeQueueSize   int
 	requestTimeout   time.Duration
 	shutdownTimeout  time.Duration
+	sessionStore     sessionStoreHandler // optional, set by WithSessionStore
 }
 
 // ConnectionOption configures a Connection.

@@ -2,9 +2,10 @@ ACP(Agent Client Protocol) for golang
 
 ## reference for implement
 
-### 문서
+### Docs
 
-- reference/agent-client-protocol/docs
+- What is ACP `reference/agent-client-protocol/docs/get-started/introduction.mdx`
+- Protocol Details `reference/agent-client-protocol/docs/protocol`
 
 ### json schema
 

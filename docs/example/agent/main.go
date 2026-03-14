@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"time"
 
@@ -13,26 +12,20 @@ import (
 // ExampleAgent implements the acp.Agent interface with full session update capabilities.
 //
 // This example demonstrates:
+//   - SessionStore for automatic session lifecycle management
 //   - SessionStream for convenient update sending
 //   - Middleware for logging and panic recovery
 //   - Tool call lifecycle (start → complete/fail)
 //   - Permission requests
 type ExampleAgent struct {
-	client   acp.Client
-	sessions map[acp.SessionID]*AgentSession
+	client acp.Client
+	store  acp.SessionStore[*AgentSession]
 }
 
 // AgentSession holds session state
 type AgentSession struct {
-	sessionId     acp.SessionID
 	cancelContext context.Context
 	cancelFunc    context.CancelFunc
-}
-
-func NewExampleAgent() *ExampleAgent {
-	return &ExampleAgent{
-		sessions: make(map[acp.SessionID]*AgentSession),
-	}
 }
 
 func (a *ExampleAgent) Initialize(ctx context.Context, params *acp.InitializeRequest) (*acp.InitializeResponse, error) {
@@ -58,31 +51,6 @@ func (a *ExampleAgent) Authenticate(ctx context.Context, params *acp.Authenticat
 	return &acp.AuthenticateResponse{}, nil
 }
 
-func (a *ExampleAgent) NewSession(ctx context.Context, params *acp.NewSessionRequest) (*acp.NewSessionResponse, error) {
-	sessionId := acp.SessionID(fmt.Sprintf("session_%s", generateRandomID()))
-
-	sessionCtx, cancelFunc := context.WithCancel(context.Background())
-	session := &AgentSession{
-		sessionId:     sessionId,
-		cancelContext: sessionCtx,
-		cancelFunc:    cancelFunc,
-	}
-	a.sessions[sessionId] = session
-
-	return &acp.NewSessionResponse{
-		SessionID: sessionId,
-		Modes:     nil,
-	}, nil
-}
-
-func (a *ExampleAgent) LoadSession(ctx context.Context, params *acp.LoadSessionRequest) (*acp.LoadSessionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/load")
-}
-
-func (a *ExampleAgent) ListSessions(ctx context.Context, params *acp.ListSessionsRequest) (*acp.ListSessionsResponse, error) {
-	return &acp.ListSessionsResponse{}, nil
-}
-
 func (a *ExampleAgent) SetSessionMode(ctx context.Context, params *acp.SetSessionModeRequest) (*acp.SetSessionModeResponse, error) {
 	return &acp.SetSessionModeResponse{}, nil
 }
@@ -92,8 +60,8 @@ func (a *ExampleAgent) SetSessionConfigOption(ctx context.Context, params *acp.S
 }
 
 func (a *ExampleAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*acp.PromptResponse, error) {
-	session, exists := a.sessions[params.SessionID]
-	if !exists {
+	session, ok := a.store.Get(params.SessionID)
+	if !ok {
 		return nil, fmt.Errorf("session %s not found", params.SessionID)
 	}
 
@@ -119,7 +87,7 @@ func (a *ExampleAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*
 }
 
 func (a *ExampleAgent) Cancel(ctx context.Context, params *acp.CancelNotification) error {
-	if session, exists := a.sessions[params.SessionID]; exists {
+	if session, ok := a.store.Get(params.SessionID); ok {
 		session.cancelFunc()
 	}
 	return nil
@@ -224,20 +192,19 @@ func simulateDelay(ctx context.Context) error {
 	}
 }
 
-func generateRandomID() string {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, 8)
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
-	}
-	return string(b)
-}
-
 func main() {
-	agent := NewExampleAgent()
+	store := acp.NewMemoryStore[*AgentSession]()
+	agent := &ExampleAgent{store: store}
 
-	// Create connection with middleware
+	// Create connection with session store and middleware
 	conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
+		acp.WithSessionStore(store, func(ctx context.Context, id acp.SessionID, params *acp.NewSessionRequest) (*AgentSession, error) {
+			sessionCtx, cancelFunc := context.WithCancel(context.Background())
+			return &AgentSession{
+				cancelContext: sessionCtx,
+				cancelFunc:    cancelFunc,
+			}, nil
+		}),
 		acp.WithMiddleware(acp.RecoveryMiddleware()),
 	)
 
