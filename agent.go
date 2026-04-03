@@ -117,7 +117,7 @@ func (c *AgentSideConnection) ExtMethod(ctx context.Context, method string, para
 }
 
 // ExtNotification sends a custom extension notification to the client.
-func (c *AgentSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
+func (c *AgentSideConnection) ExtNotification(ctx context.Context, method string, params json.RawMessage) error {
 	return c.conn.SendNotification(ctx, method, params)
 }
 
