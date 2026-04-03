@@ -1,0 +1,13 @@
+package: acp
+ignoreErrors: true
+
+targets:
+  - input: schema/schema.json
+    meta: schema/meta.json
+    output: schema.gen.go
+
+  - input: schema/schema.unstable.json
+    meta: schema/meta.unstable.json
+    output: schema.gen.unstable.go
+    excludeFrom: schema/schema.json
+    excludeMetaFrom: schema/meta.json
