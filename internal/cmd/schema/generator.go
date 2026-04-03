@@ -56,6 +56,16 @@ func (g *Generator) LoadSchema() error {
 	}
 	g.schema = schema
 
+	// Merge additional properties from extended schema if configured.
+	// This allows the base target to pick up new properties that the
+	// extended schema adds to types already defined in the base schema
+	// (e.g., unstable properties on stable types).
+	if g.config.MergePropertiesFrom != "" {
+		if err := g.mergeExtendedProperties(); err != nil {
+			return fmt.Errorf("failed to merge properties from extended schema: %w", err)
+		}
+	}
+
 	// Build exclude set from base schema if configured
 	if g.config.ExcludeFrom != "" {
 		if err := g.loadExcludedDefs(); err != nil {
@@ -78,6 +88,37 @@ func (g *Generator) loadExcludedDefs() error {
 	for name := range baseSchema.Defs {
 		g.excludedDefNames[name] = true
 	}
+	return nil
+}
+
+// mergeExtendedProperties loads an extended schema (e.g., the unstable schema)
+// and merges any new properties it defines on types that also exist in the base
+// schema. This allows the base output to include fields added by the extended
+// schema without requiring manual edits to the generated file.
+func (g *Generator) mergeExtendedProperties() error {
+	extSchema, err := jsondef.LoadSchema(g.config.MergePropertiesFrom)
+	if err != nil {
+		return err
+	}
+
+	for name, extDef := range extSchema.Defs {
+		baseDef, exists := g.schema.Defs[name]
+		if !exists {
+			// Type only exists in extended schema; not our concern here.
+			continue
+		}
+		if extDef.Properties == nil || baseDef.Properties == nil {
+			continue
+		}
+		// Merge any properties from the extended def that are not in the base def.
+		for propName, propSchema := range extDef.Properties {
+			if _, alreadyExists := baseDef.Properties[propName]; !alreadyExists {
+				baseDef.Properties[propName] = propSchema
+				fmt.Printf("Merged property %q from extended schema into %s\n", propName, name)
+			}
+		}
+	}
+
 	return nil
 }
 
