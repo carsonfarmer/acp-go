@@ -17,6 +17,7 @@ type SessionUpdateMatcher[T any] struct {
 	CurrentModeUpdate       func(SessionUpdateCurrentModeUpdate) T
 	ConfigOptionUpdate      func(SessionUpdateConfigOptionUpdate) T
 	SessionInfoUpdate       func(SessionUpdateSessionInfoUpdate) T
+	UsageUpdate             func(SessionUpdateUsageUpdate) T
 	Default                 func() T
 }
 
@@ -84,6 +85,12 @@ func MatchSessionUpdate[T any](u *SessionUpdate, m SessionUpdateMatcher[T]) T {
 			return m.SessionInfoUpdate(v)
 		}
 		return matchDefault(m.Default, "SessionInfoUpdate")
+	}
+	if v, ok := u.AsUsageUpdate(); ok {
+		if m.UsageUpdate != nil {
+			return m.UsageUpdate(v)
+		}
+		return matchDefault(m.Default, "UsageUpdate")
 	}
 	panic("SessionUpdate has no variant set")
 }
