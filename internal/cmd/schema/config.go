@@ -13,8 +13,9 @@ type Target struct {
 	InputFile   string `yaml:"input"`       // Path to input JSON schema file
 	MetaFile    string `yaml:"meta"`        // Path to meta.json file (optional)
 	OutputFile  string `yaml:"output"`      // Path to output Go file
-	ExcludeFrom     string `yaml:"excludeFrom"`     // Path to base schema; identical definitions are skipped
-	ExcludeMetaFrom string `yaml:"excludeMetaFrom"` // Path to base meta; identical constants are skipped
+	ExcludeFrom         string `yaml:"excludeFrom"`         // Path to base schema; identical definitions are skipped
+	ExcludeMetaFrom     string `yaml:"excludeMetaFrom"`     // Path to base meta; identical constants are skipped
+	MergePropertiesFrom string `yaml:"mergePropertiesFrom"` // Path to extended schema; new properties on existing types are merged in
 }
 
 // Config holds configuration for schema generation
@@ -22,8 +23,9 @@ type Config struct {
 	InputFile    string   `yaml:"input"`        // Path to input JSON schema file (single target, legacy)
 	MetaFile     string   `yaml:"meta"`         // Path to meta.json file (single target, legacy)
 	OutputFile   string   `yaml:"output"`       // Path to output Go file (single target, legacy)
-	ExcludeFrom     string `yaml:"-"` // Path to base schema to exclude definitions from
-	ExcludeMetaFrom string `yaml:"-"` // Path to base meta to exclude constants from
+	ExcludeFrom         string `yaml:"-"` // Path to base schema to exclude definitions from
+	ExcludeMetaFrom     string `yaml:"-"` // Path to base meta to exclude constants from
+	MergePropertiesFrom string `yaml:"-"` // Path to extended schema to merge new properties from
 	PackageName     string `yaml:"package"` // Go package name for generated code
 	IgnoreErrors bool     `yaml:"ignoreErrors"` // Skip definitions that cause generation errors
 	IgnoreTypes  []string `yaml:"ignoreTypes"`  // List of type names to ignore during generation
@@ -125,6 +127,9 @@ func LoadConfigFromFile(configPath string) (*Config, error) {
 		}
 		if config.Targets[i].ExcludeMetaFrom != "" && !filepath.IsAbs(config.Targets[i].ExcludeMetaFrom) {
 			config.Targets[i].ExcludeMetaFrom = filepath.Join(configDir, config.Targets[i].ExcludeMetaFrom)
+		}
+		if config.Targets[i].MergePropertiesFrom != "" && !filepath.IsAbs(config.Targets[i].MergePropertiesFrom) {
+			config.Targets[i].MergePropertiesFrom = filepath.Join(configDir, config.Targets[i].MergePropertiesFrom)
 		}
 	}
 
