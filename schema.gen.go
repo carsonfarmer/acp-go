@@ -1029,8 +1029,9 @@ type Content struct {
 
 // A streamed item of content
 type ContentChunk struct {
-	Meta    map[string]any `json:"_meta,omitempty"`
-	Content ContentBlock   `json:"content"`
+	Meta      map[string]any `json:"_meta,omitempty"`
+	Content   ContentBlock   `json:"content"`
+	MessageID string         `json:"messageId,omitempty"`
 }
 
 // Request to create a new terminal and execute a command.
@@ -1312,6 +1313,7 @@ type PromptCapabilities struct {
 // See protocol docs: [User Message](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message)
 type PromptRequest struct {
 	Meta      map[string]any `json:"_meta,omitempty"`
+	MessageID string         `json:"messageId,omitempty"`
 	Prompt    []ContentBlock `json:"prompt"`
 	SessionID SessionID      `json:"sessionId"`
 }
@@ -1320,8 +1322,9 @@ type PromptRequest struct {
 //
 // See protocol docs: [Check for Completion](https://agentclientprotocol.com/protocol/prompt-turn#4-check-for-completion)
 type PromptResponse struct {
-	Meta       map[string]any `json:"_meta,omitempty"`
-	StopReason StopReason     `json:"stopReason"`
+	Meta          map[string]any `json:"_meta,omitempty"`
+	StopReason    StopReason     `json:"stopReason"`
+	UserMessageID string         `json:"userMessageId,omitempty"`
 }
 
 // Request to read content from a text file.
