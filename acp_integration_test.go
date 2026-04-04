@@ -577,7 +577,7 @@ func TestNotifications(t *testing.T) {
 	err := clientConnection.Client().SessionUpdate(ctx, &SessionNotification{
 		SessionID: SessionID("test-session"),
 		Update: NewSessionUpdateAgentMessageChunk(
-			NewContentBlockText("Hello from agent"),
+			NewContentBlockText("Hello from agent"), "",
 		),
 	})
 	if err != nil {
@@ -746,7 +746,7 @@ func TestNewHelperConstructors(t *testing.T) {
 
 	// Test new session update constructors
 	t.Run("SessionUpdateUserMessageChunk", func(t *testing.T) {
-		update := NewSessionUpdateUserMessageChunk(NewContentBlockText("user input"))
+		update := NewSessionUpdateUserMessageChunk(NewContentBlockText("user input"), "")
 		chunk, ok := update.AsUserMessageChunk()
 		if !ok {
 			t.Fatal("Expected user message chunk")

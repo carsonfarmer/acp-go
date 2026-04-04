@@ -47,7 +47,7 @@ func TestNewContentBlockText(t *testing.T) {
 func TestNewSessionUpdateAgentMessageChunk(t *testing.T) {
 	text := "Agent response"
 	contentBlock := NewContentBlockText(text)
-	update := NewSessionUpdateAgentMessageChunk(contentBlock)
+	update := NewSessionUpdateAgentMessageChunk(contentBlock, "")
 
 	chunk, ok := update.AsAgentMessageChunk()
 	if !ok {
