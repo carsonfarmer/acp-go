@@ -1154,7 +1154,7 @@ type InitializeResponse struct {
 	Meta              map[string]any     `json:"_meta,omitempty"`
 	AgentCapabilities *AgentCapabilities `json:"agentCapabilities,omitempty"`
 	AgentInfo         *Implementation    `json:"agentInfo,omitempty"`
-	AuthMethods       []AuthMethod       `json:"authMethods,omitempty"`
+	AuthMethods       []AuthMethod       `json:"authMethods"`
 	ProtocolVersion   ProtocolVersion    `json:"protocolVersion"`
 }
 
