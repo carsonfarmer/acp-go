@@ -132,14 +132,15 @@ func executeGenerate(_ context.Context, cmd *cli.Command) error {
 	targets := config.GetTargets()
 	for _, target := range targets {
 		targetConfig := &Config{
-			InputFile:       target.InputFile,
-			MetaFile:        target.MetaFile,
-			OutputFile:      target.OutputFile,
-			ExcludeFrom:     target.ExcludeFrom,
-			ExcludeMetaFrom: target.ExcludeMetaFrom,
-			PackageName:     config.PackageName,
-			IgnoreErrors:    config.IgnoreErrors,
-			IgnoreTypes:     config.IgnoreTypes,
+			InputFile:           target.InputFile,
+			MetaFile:            target.MetaFile,
+			OutputFile:          target.OutputFile,
+			ExcludeFrom:         target.ExcludeFrom,
+			ExcludeMetaFrom:     target.ExcludeMetaFrom,
+			MergePropertiesFrom: target.MergePropertiesFrom,
+			PackageName:         config.PackageName,
+			IgnoreErrors:        config.IgnoreErrors,
+			IgnoreTypes:         config.IgnoreTypes,
 		}
 
 		if err := generateTarget(targetConfig); err != nil {

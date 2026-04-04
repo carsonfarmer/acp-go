@@ -1011,6 +1011,7 @@ type CancelNotification struct {
 // See protocol docs: [Client Capabilities](https://agentclientprotocol.com/protocol/initialization#client-capabilities)
 type ClientCapabilities struct {
 	Meta     map[string]any          `json:"_meta,omitempty"`
+	Auth     *AuthCapabilities       `json:"auth,omitempty"`
 	FS       *FileSystemCapabilities `json:"fs,omitempty"`
 	Terminal bool                    `json:"terminal,omitempty"`
 }
@@ -1201,6 +1202,7 @@ type LoadSessionRequest struct {
 type LoadSessionResponse struct {
 	Meta          map[string]any        `json:"_meta,omitempty"`
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitempty"`
+	Models        *SessionModelState    `json:"models,omitempty"`
 	Modes         *SessionModeState     `json:"modes,omitempty"`
 }
 
@@ -1251,6 +1253,7 @@ type NewSessionRequest struct {
 type NewSessionResponse struct {
 	Meta          map[string]any        `json:"_meta,omitempty"`
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitempty"`
+	Models        *SessionModelState    `json:"models,omitempty"`
 	Modes         *SessionModeState     `json:"modes,omitempty"`
 	SessionID     SessionID             `json:"sessionId"`
 }
@@ -1324,6 +1327,7 @@ type PromptRequest struct {
 type PromptResponse struct {
 	Meta          map[string]any `json:"_meta,omitempty"`
 	StopReason    StopReason     `json:"stopReason"`
+	Usage         *Usage         `json:"usage,omitempty"`
 	UserMessageID string         `json:"userMessageId,omitempty"`
 }
 
@@ -1402,8 +1406,11 @@ type SelectedPermissionOutcome struct {
 //
 // See protocol docs: [Session Capabilities](https://agentclientprotocol.com/protocol/initialization#session-capabilities)
 type SessionCapabilities struct {
-	Meta map[string]any           `json:"_meta,omitempty"`
-	List *SessionListCapabilities `json:"list,omitempty"`
+	Meta   map[string]any             `json:"_meta,omitempty"`
+	Close  *SessionCloseCapabilities  `json:"close,omitempty"`
+	Fork   *SessionForkCapabilities   `json:"fork,omitempty"`
+	List   *SessionListCapabilities   `json:"list,omitempty"`
+	Resume *SessionResumeCapabilities `json:"resume,omitempty"`
 }
 
 // A session configuration option selector and its current state.
