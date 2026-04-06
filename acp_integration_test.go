@@ -1,7 +1,9 @@
 package acp
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -809,4 +811,119 @@ func TestNewHelperConstructors(t *testing.T) {
 			t.Errorf("Expected ToolCallStatusPending, got %s", *status)
 		}
 	})
+}
+
+// TestEOFDoesNotDropInFlightResponses verifies that when stdin closes (EOF)
+// while a request handler is still running, the response is still written
+// to stdout before the connection shuts down.
+func TestEOFDoesNotDropInFlightResponses(t *testing.T) {
+	// Set up pipes: we write JSON-RPC requests to stdinWriter,
+	// the connection reads from stdinReader. Responses go to stdoutWriter,
+	// we read them from stdoutReader.
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+
+	handlerStarted := make(chan struct{})
+
+	// Create a connection with a handler that takes some time to respond.
+	handler := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
+		if method == "initialize" {
+			close(handlerStarted)
+			// Simulate a slow handler
+			time.Sleep(100 * time.Millisecond)
+			return &InitializeResponse{
+				ProtocolVersion:   ProtocolVersion(CurrentProtocolVersion),
+				AgentCapabilities: &AgentCapabilities{LoadSession: false},
+				AuthMethods:       []AuthMethod{},
+			}, nil
+		}
+		return nil, fmt.Errorf("unknown method: %s", method)
+	}
+
+	conn := NewConnection(handler, stdinReader, stdoutWriter)
+
+	// Start the connection in a goroutine.
+	startErr := make(chan error, 1)
+	go func() {
+		startErr <- conn.Start(context.Background())
+	}()
+
+	// Send an initialize request, then immediately close stdin.
+	reqID := int64(1)
+	reqMsg := jsonRpcMessage{
+		Jsonrpc: jsonrpcVersion,
+		ID:      &reqID,
+		Method:  "initialize",
+		Params:  json.RawMessage(`{"protocolVersion":1,"clientCapabilities":{}}`),
+	}
+	reqData, err := json.Marshal(reqMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+	reqData = append(reqData, '\n')
+
+	// Write the request.
+	if _, err := stdinWriter.Write(reqData); err != nil {
+		t.Fatalf("Failed to write request: %v", err)
+	}
+
+	// Wait for the handler to start processing, then close stdin (EOF).
+	<-handlerStarted
+	stdinWriter.Close()
+
+	// Read the response from stdout. The bug would cause this to hang
+	// or return EOF without a response.
+	responseCh := make(chan json.RawMessage, 1)
+	readErrCh := make(chan error, 1)
+	go func() {
+		scanner := bufio.NewScanner(stdoutReader)
+		scanner.Buffer(make([]byte, 0, initialBufSize), maxMessageSize)
+		if scanner.Scan() {
+			data := make([]byte, len(scanner.Bytes()))
+			copy(data, scanner.Bytes())
+			responseCh <- json.RawMessage(data)
+		} else {
+			if scanner.Err() != nil {
+				readErrCh <- scanner.Err()
+			} else {
+				readErrCh <- fmt.Errorf("stdout closed (EOF) without response")
+			}
+		}
+	}()
+
+	// Wait for the response with a timeout.
+	select {
+	case resp := <-responseCh:
+		// Verify it's a valid JSON-RPC response with our request ID.
+		var msg jsonRpcMessage
+		if err := json.Unmarshal(resp, &msg); err != nil {
+			t.Fatalf("Failed to parse response: %v", err)
+		}
+		if msg.ID == nil || *msg.ID != reqID {
+			t.Fatalf("Expected response ID %d, got %v", reqID, msg.ID)
+		}
+		if msg.Error != nil {
+			t.Fatalf("Expected successful response, got error: %s", msg.Error.Message)
+		}
+		if msg.Result == nil {
+			t.Fatal("Expected result in response, got nil")
+		}
+	case readErr := <-readErrCh:
+		t.Fatalf("Failed to read response (in-flight response was dropped): %v", readErr)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for response — in-flight response was likely dropped")
+	}
+
+	// Verify Start returned cleanly.
+	select {
+	case err := <-startErr:
+		if err != nil {
+			t.Fatalf("Start returned unexpected error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for Start to return")
+	}
+
+	stdoutWriter.Close()
+	stdoutReader.Close()
 }

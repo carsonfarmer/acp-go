@@ -134,7 +134,8 @@ type Connection struct {
 	writeQueue       chan jsonRpcMessage
 	ctx              context.Context
 	cancel           context.CancelFunc
-	wg               sync.WaitGroup // tracks in-flight handlers
+	wg               sync.WaitGroup // tracks writeLoop goroutine
+	handlerWg        sync.WaitGroup // tracks in-flight request/notification handlers
 	errorHandler     func(error)
 	middlewares      []Middleware
 	handler          MethodHandler // raw handler, used only during construction
@@ -271,8 +272,12 @@ func (c *Connection) Start(ctx context.Context) error {
 
 	// Start reader loop (blocks until done)
 	err := c.readLoop()
-	// Reader exited — shut down the connection
+	// Reader exited (e.g., EOF) — wait for in-flight handlers to finish
+	// so their responses get queued to the write loop before we shut down.
+	c.handlerWg.Wait()
+	// Now cancel the context to stop the write loop, and wait for it to drain.
 	c.cancel()
+	c.wg.Wait()
 	return err
 }
 
@@ -281,10 +286,14 @@ func (c *Connection) Start(ctx context.Context) error {
 // If a shutdown timeout is configured, Close returns an error if handlers don't finish in time.
 func (c *Connection) Close() error {
 	c.cancel()
+	waitAll := func() {
+		c.handlerWg.Wait()
+		c.wg.Wait()
+	}
 	if c.shutdownTimeout > 0 {
 		done := make(chan struct{})
 		go func() {
-			c.wg.Wait()
+			waitAll()
 			close(done)
 		}()
 		select {
@@ -294,7 +303,7 @@ func (c *Connection) Close() error {
 			return fmt.Errorf("shutdown timed out after %s", c.shutdownTimeout)
 		}
 	}
-	c.wg.Wait()
+	waitAll()
 	return nil
 }
 
@@ -344,12 +353,12 @@ func (c *Connection) readLoop() error {
 
 		if msg.ID != nil && msg.Method != "" {
 			// It's a request — dispatch handler in goroutine
-			c.wg.Go(func() {
+			c.handlerWg.Go(func() {
 				c.handleRequest(msg)
 			})
 		} else if msg.Method != "" {
 			// It's a notification — dispatch handler in goroutine
-			c.wg.Go(func() {
+			c.handlerWg.Go(func() {
 				c.handleNotification(msg)
 			})
 		} else if msg.ID != nil {
@@ -377,7 +386,24 @@ func (c *Connection) writeLoop() {
 			}
 
 		case <-c.ctx.Done():
-			return
+			// Drain any remaining messages in the queue before exiting.
+			for {
+				select {
+				case msg := <-c.writeQueue:
+					data, err := json.Marshal(msg)
+					if err != nil {
+						c.logError(fmt.Errorf("failed to marshal JSON-RPC message: %w", err))
+						continue
+					}
+					// Use context.Background() since our context is cancelled.
+					if err := c.transport.WriteMessage(context.Background(), data); err != nil {
+						c.logError(fmt.Errorf("failed to write JSON-RPC message during drain: %w", err))
+						return
+					}
+				default:
+					return
+				}
+			}
 		}
 	}
 }
