@@ -183,6 +183,9 @@ const (
 	ToolKindOther ToolKind = "other"
 )
 
+type AgentResponse any
+type ClientResponse any
+
 // Text content. May be plain text or formatted with Markdown.
 //
 // All agents MUST support text content blocks in prompts.
@@ -489,6 +492,58 @@ func (r *RequestPermissionOutcome) AsCancelled() (RequestPermissionOutcomeCancel
 }
 func (r *RequestPermissionOutcome) AsSelected() (RequestPermissionOutcomeSelected, bool) {
 	v, ok := r.variant.(RequestPermissionOutcomeSelected)
+	return v, ok
+}
+
+// Single-value selector (dropdown).
+type SessionConfigOptionSelect struct {
+	SessionConfigSelect
+	Type        string                       `json:"type"`
+	Name        string                       `json:"name"`
+	Meta        map[string]any               `json:"_meta,omitempty"`
+	Category    *SessionConfigOptionCategory `json:"category,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	ID          SessionConfigID              `json:"id"`
+}
+
+func (SessionConfigOptionSelect) isSessionConfigOptionVariant() string {
+	return "select"
+}
+
+type sessionConfigOptionVariant interface{ isSessionConfigOptionVariant() string }
+
+// A session configuration option selector and its current state.
+type SessionConfigOption struct {
+	variant sessionConfigOptionVariant
+}
+
+func (s SessionConfigOption) MarshalJSON() ([]byte, error) {
+	if s.variant == nil {
+		return nil, fmt.Errorf("no variant is set for SessionConfigOption")
+	}
+	return json.Marshal(s.variant)
+}
+func (s *SessionConfigOption) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case "select":
+		var v SessionConfigOptionSelect
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		s.variant = v
+		return nil
+	default:
+		return fmt.Errorf("unknown discriminator value: %s", disc.Type)
+	}
+}
+func (s *SessionConfigOption) AsSelect() (SessionConfigOptionSelect, bool) {
+	v, ok := s.variant.(SessionConfigOptionSelect)
 	return v, ok
 }
 
@@ -1306,15 +1361,6 @@ type SelectedPermissionOutcome struct {
 type SessionCapabilities struct {
 	Meta map[string]any           `json:"_meta,omitempty"`
 	List *SessionListCapabilities `json:"list,omitempty"`
-}
-
-// A session configuration option selector and its current state.
-type SessionConfigOption struct {
-	Meta        map[string]any               `json:"_meta,omitempty"`
-	Category    *SessionConfigOptionCategory `json:"category,omitempty"`
-	Description string                       `json:"description,omitempty"`
-	ID          SessionConfigID              `json:"id"`
-	Name        string                       `json:"name"`
 }
 
 // A single-value selector (dropdown) session configuration option payload.

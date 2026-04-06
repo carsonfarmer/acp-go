@@ -104,6 +104,21 @@ func NewSessionUpdateSessionInfoUpdate(title string, updatedAt string) SessionUp
 	}}
 }
 
+// --- SessionConfigOption constructors ---
+
+// NewSessionConfigOptionSelect creates a select-type session config option.
+func NewSessionConfigOptionSelect(id SessionConfigID, name string, currentValue SessionConfigValueID, options SessionConfigSelectOptions) SessionConfigOption {
+	return SessionConfigOption{variant: SessionConfigOptionSelect{
+		SessionConfigSelect: SessionConfigSelect{
+			CurrentValue: currentValue,
+			Options:      options,
+		},
+		Type: "select",
+		ID:   id,
+		Name: name,
+	}}
+}
+
 // --- ContentBlock constructors ---
 
 // NewContentBlockText creates a text content block.
