@@ -116,6 +116,14 @@ func NewSessionUpdateSessionInfoUpdate(title string, updatedAt string) SessionUp
 	}}
 }
 
+// NewSessionUpdateUsageUpdate creates a SessionUpdate with a usage update.
+func NewSessionUpdateUsageUpdate(usage UsageUpdate) SessionUpdate {
+	return SessionUpdate{variant: SessionUpdateUsageUpdate{
+		UsageUpdate:   usage,
+		SessionUpdate: "usage_update",
+	}}
+}
+
 // --- ContentBlock constructors ---
 
 // NewContentBlockText creates a text content block.

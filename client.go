@@ -115,7 +115,7 @@ func (c *ClientSideConnection) ExtMethod(ctx context.Context, method string, par
 	return c.conn.SendRequest(ctx, method, params)
 }
 
-func (c *ClientSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
+func (c *ClientSideConnection) ExtNotification(ctx context.Context, method string, params json.RawMessage) error {
 	return c.conn.SendNotification(ctx, method, params)
 }
 

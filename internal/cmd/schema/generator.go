@@ -34,7 +34,8 @@ type Generator struct {
 	builder          *astgen.FileBuilder
 	generatedCode    []byte
 	skippedItems     []string
-	excludedDefNames map[string]bool // definitions to exclude (from base schema)
+	excludedDefNames map[string]bool   // definitions to exclude (from base schema)
+	baseSchema       *jsondef.Schema   // base schema for comparing union variants
 }
 
 // NewGenerator creates a new generator instance.
@@ -55,6 +56,16 @@ func (g *Generator) LoadSchema() error {
 	}
 	g.schema = schema
 
+	// Merge additional properties from extended schema if configured.
+	// This allows the base target to pick up new properties that the
+	// extended schema adds to types already defined in the base schema
+	// (e.g., unstable properties on stable types).
+	if g.config.MergePropertiesFrom != "" {
+		if err := g.mergeExtendedProperties(); err != nil {
+			return fmt.Errorf("failed to merge properties from extended schema: %w", err)
+		}
+	}
+
 	// Build exclude set from base schema if configured
 	if g.config.ExcludeFrom != "" {
 		if err := g.loadExcludedDefs(); err != nil {
@@ -71,11 +82,43 @@ func (g *Generator) loadExcludedDefs() error {
 	if err != nil {
 		return err
 	}
+	g.baseSchema = baseSchema
 
 	g.excludedDefNames = make(map[string]bool, len(baseSchema.Defs))
 	for name := range baseSchema.Defs {
 		g.excludedDefNames[name] = true
 	}
+	return nil
+}
+
+// mergeExtendedProperties loads an extended schema (e.g., the unstable schema)
+// and merges any new properties it defines on types that also exist in the base
+// schema. This allows the base output to include fields added by the extended
+// schema without requiring manual edits to the generated file.
+func (g *Generator) mergeExtendedProperties() error {
+	extSchema, err := jsondef.LoadSchema(g.config.MergePropertiesFrom)
+	if err != nil {
+		return err
+	}
+
+	for name, extDef := range extSchema.Defs {
+		baseDef, exists := g.schema.Defs[name]
+		if !exists {
+			// Type only exists in extended schema; not our concern here.
+			continue
+		}
+		if extDef.Properties == nil || baseDef.Properties == nil {
+			continue
+		}
+		// Merge any properties from the extended def that are not in the base def.
+		for propName, propSchema := range extDef.Properties {
+			if _, alreadyExists := baseDef.Properties[propName]; !alreadyExists {
+				baseDef.Properties[propName] = propSchema
+				fmt.Printf("Merged property %q from extended schema into %s\n", propName, name)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -102,6 +145,20 @@ func (g *Generator) Generate() error {
 
 	for _, definition := range definitions {
 		if g.isTypeIgnored(definition.Name) {
+			// For excluded discriminated unions, check if the current schema
+			// has new variants not present in the base schema. If so, generate
+			// only the new variant wrapper structs and their marker methods.
+			if g.baseSchema != nil && definition.Type == jsondef.ComplexStruct {
+				defName := definition.Name
+				definition.Name = toTitleCase(definition.Name)
+				if err := g.generateExtendedUnionVariants(definition); err != nil {
+					if g.config.IgnoreErrors {
+						fmt.Printf("Warning: Skipping extended variants for %s: %v\n", defName, err)
+					} else {
+						return fmt.Errorf("failed to generate extended variants for %s: %w", defName, err)
+					}
+				}
+			}
 			g.addSkippedItem(definition.Name)
 			continue
 		}
@@ -599,6 +656,126 @@ func (g *Generator) generateComplexStruct(name string, schema *jsondef.Schema) e
 	return nil
 }
 
+// generateExtendedUnionVariants generates only the new variant structs and marker
+// methods for a discriminated union that exists in the base schema but has
+// additional variants in the current (unstable) schema. It also generates an
+// init() function that registers the new variants for deserialization.
+func (g *Generator) generateExtendedUnionVariants(def jsondef.Definition) error {
+	schema := def.Schema
+	baseDef, baseExists := g.baseSchema.Defs[strings.ToLower(def.Name[:1])+def.Name[1:]]
+	if !baseExists {
+		// Try the original name before title-casing
+		for name, s := range g.baseSchema.Defs {
+			if toTitleCase(name) == def.Name {
+				baseDef = s
+				baseExists = true
+				break
+			}
+		}
+	}
+	if !baseExists {
+		return nil // Not in base schema, nothing to extend
+	}
+
+	// Only extend if the base definition is also a discriminated union (ComplexStruct).
+	// If the base type is e.g. a Ref/alias, it doesn't have the variant registry.
+	baseDefined := jsondef.Classify("", baseDef)
+	if baseDefined.Type != jsondef.ComplexStruct {
+		return nil
+	}
+
+	// Determine discriminator field
+	allVariants := make([]*jsondef.Schema, 0, len(schema.AnyOf)+len(schema.OneOf))
+	allVariants = append(allVariants, schema.AnyOf...)
+	allVariants = append(allVariants, schema.OneOf...)
+
+	var discriminatorField string
+	if schema.Discriminator != nil && schema.Discriminator.PropertyName != "" {
+		discriminatorField = schema.Discriminator.PropertyName
+	} else {
+		discriminatorField = jsondef.DetectDiscriminator(allVariants)
+	}
+	if discriminatorField == "" {
+		return nil
+	}
+
+	// Collect base variant discriminator values
+	baseAllVariants := make([]*jsondef.Schema, 0, len(baseDef.AnyOf)+len(baseDef.OneOf))
+	baseAllVariants = append(baseAllVariants, baseDef.AnyOf...)
+	baseAllVariants = append(baseAllVariants, baseDef.OneOf...)
+	baseDiscValues := make(map[string]bool)
+	for _, v := range baseAllVariants {
+		if v.Properties != nil {
+			if dp, ok := v.Properties[discriminatorField]; ok && dp.Const != nil {
+				if val, ok := dp.Const.StringValue(); ok {
+					baseDiscValues[val] = true
+				}
+			}
+		}
+	}
+
+	// Filter to only new variants
+	var newVariants []*jsondef.Schema
+	for _, v := range allVariants {
+		if v.Properties != nil {
+			if dp, ok := v.Properties[discriminatorField]; ok && dp.Const != nil {
+				if val, ok := dp.Const.StringValue(); ok {
+					if !baseDiscValues[val] {
+						newVariants = append(newVariants, v)
+					}
+				}
+			}
+		}
+	}
+
+	if len(newVariants) == 0 {
+		return nil
+	}
+
+	// Generate the new variant structs and marker methods
+	name := def.Name
+	markerMethodName := "is" + name + "Variant"
+	variants := g.collectVariants(name, schema, newVariants, discriminatorField)
+
+	for _, v := range variants {
+		methodSrc := fmt.Sprintf(`func (%s) %s() string { return "%s" }`,
+			v.TypeName, markerMethodName, v.DiscValue)
+		fn, err := astgen.CreateMethodFromSource(methodSrc)
+		if err != nil {
+			return fmt.Errorf("failed to create marker method for %s: %w", v.TypeName, err)
+		}
+		g.builder.AddDecl(fn)
+	}
+
+	// Generate init() function to register new variants
+	g.builder.AddImport("encoding/json")
+	var registrations []string
+	for _, v := range variants {
+		registrations = append(registrations,
+			fmt.Sprintf(`	Register%sVariant("%s", func(data []byte) (%sVariant, error) {
+		var v %s
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+	})`, name, v.DiscValue, strings.ToLower(name[:1])+name[1:], v.TypeName))
+	}
+
+	initSrc := fmt.Sprintf("func init() {\n%s\n}", strings.Join(registrations, "\n"))
+	decls, err := astgen.CreateDeclsFromSource(initSrc)
+	if err != nil {
+		return fmt.Errorf("failed to create init function: %w", err)
+	}
+	for _, d := range decls {
+		g.builder.AddDecl(d)
+	}
+
+	// Generate As* accessor methods for the new variants
+	g.generateAccessors(name, variants)
+
+	return nil
+}
+
 func (g *Generator) collectVariants(parentName string, _ *jsondef.Schema, allVariants []*jsondef.Schema, discriminatorField string) []OneOfVariant {
 	var variants []OneOfVariant
 
@@ -821,8 +998,18 @@ func (g *Generator) generateUnmarshalJSON(typeName string, variants []OneOfVaria
 		return nil`, v.DiscValue, v.TypeName, recv))
 	}
 
-	// Add default case
-	defaultCase := fmt.Sprintf(`	return fmt.Errorf("unknown discriminator value: %%s", disc.%s)`, discFieldName)
+	// Add default case: try extension registry first, then fall back
+	markerName := strings.ToLower(typeName[:1]) + typeName[1:] + "Variant"
+	registryFn := "try" + typeName + "Extension"
+	defaultCase := fmt.Sprintf(`	if fn, ok := %s(disc.%s); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			%s.variant = v
+			return nil
+		}
+		return fmt.Errorf("unknown discriminator value: %%s", disc.%s)`, registryFn, discFieldName, recv, discFieldName)
 	if defaultVariant != nil {
 		defaultCase = fmt.Sprintf(`	var v %s
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -830,6 +1017,11 @@ func (g *Generator) generateUnmarshalJSON(typeName string, variants []OneOfVaria
 		}
 		%s.variant = v
 		return nil`, defaultVariant.TypeName, recv)
+	}
+
+	// Generate the extension registry types and functions for this union
+	if defaultVariant == nil {
+		g.generateVariantRegistry(typeName, markerName, registryFn)
 	}
 
 	src := fmt.Sprintf(`func (%s *%s) UnmarshalJSON(data []byte) error {
@@ -852,6 +1044,45 @@ func (g *Generator) generateUnmarshalJSON(typeName string, variants []OneOfVaria
 		return
 	}
 	g.builder.AddDecl(fn)
+}
+
+// generateVariantRegistry generates the extension registry for a discriminated union.
+// This allows new variants to be registered at init time (e.g., from unstable schema).
+func (g *Generator) generateVariantRegistry(typeName, markerName, lookupFn string) {
+	registerFn := "Register" + typeName + "Variant"
+	factoryType := typeName + "VariantFactory"
+	registryVar := strings.ToLower(typeName[:1]) + typeName[1:] + "ExtVariants"
+
+	src := fmt.Sprintf(`// %s is a factory function that deserializes a variant from JSON.
+type %s func(data []byte) (%s, error)
+
+var %s = map[string]%s{}
+
+// %s registers a new variant factory for the %s union.
+// Call this from init() to extend the union with additional variants.
+func %s(discriminator string, factory %s) {
+	%s[discriminator] = factory
+}
+
+func %s(discriminator string) (%s, bool) {
+	fn, ok := %s[discriminator]
+	return fn, ok
+}`, factoryType, factoryType, markerName,
+		registryVar, factoryType,
+		registerFn, typeName,
+		registerFn, factoryType,
+		registryVar,
+		lookupFn, factoryType,
+		registryVar)
+
+	decls, err := astgen.CreateDeclsFromSource(src)
+	if err != nil {
+		fmt.Printf("Warning: failed to generate variant registry for %s: %v\n", typeName, err)
+		return
+	}
+	for _, d := range decls {
+		g.builder.AddDecl(d)
+	}
 }
 
 func (g *Generator) generateAccessors(typeName string, variants []OneOfVariant) {

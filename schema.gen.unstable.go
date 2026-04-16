@@ -2,6 +2,37 @@
 
 package acp
 
+import (
+	"encoding/json"
+)
+
+// **UNSTABLE**
+//
+// This capability is not part of the spec yet, and may be removed or changed at any point.
+//
+// Context window and cost update for the session.
+type SessionUpdateUsageUpdate struct {
+	UsageUpdate
+	SessionUpdate string `json:"sessionUpdate"`
+}
+
+func (SessionUpdateUsageUpdate) isSessionUpdateVariant() string {
+	return "usage_update"
+}
+func init() {
+	RegisterSessionUpdateVariant("usage_update", func(data []byte) (sessionUpdateVariant, error) {
+		var v SessionUpdateUsageUpdate
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, err
+		}
+		return v, nil
+	})
+}
+func (s *SessionUpdate) AsUsageUpdate() (SessionUpdateUsageUpdate, bool) {
+	v, ok := s.variant.(SessionUpdateUsageUpdate)
+	return v, ok
+}
+
 // **UNSTABLE**
 //
 // This capability is not part of the spec yet, and may be removed or changed at any point.

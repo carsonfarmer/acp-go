@@ -183,6 +183,9 @@ const (
 	ToolKindOther ToolKind = "other"
 )
 
+type AgentResponse any
+type ClientResponse any
+
 // Text content. May be plain text or formatted with Markdown.
 //
 // All agents MUST support text content blocks in prompts.
@@ -268,6 +271,21 @@ func (c ContentBlock) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(c.variant)
 }
+
+// ContentBlockVariantFactory is a factory function that deserializes a variant from JSON.
+type ContentBlockVariantFactory func(data []byte) (contentBlockVariant, error)
+
+var contentBlockExtVariants = map[string]ContentBlockVariantFactory{}
+
+// RegisterContentBlockVariant registers a new variant factory for the ContentBlock union.
+// Call this from init() to extend the union with additional variants.
+func RegisterContentBlockVariant(discriminator string, factory ContentBlockVariantFactory) {
+	contentBlockExtVariants[discriminator] = factory
+}
+func tryContentBlockExtension(discriminator string) (ContentBlockVariantFactory, bool) {
+	fn, ok := contentBlockExtVariants[discriminator]
+	return fn, ok
+}
 func (c *ContentBlock) UnmarshalJSON(data []byte) error {
 	var disc struct {
 		Type string `json:"type"`
@@ -312,6 +330,14 @@ func (c *ContentBlock) UnmarshalJSON(data []byte) error {
 		c.variant = v
 		return nil
 	default:
+		if fn, ok := tryContentBlockExtension(disc.Type); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			c.variant = v
+			return nil
+		}
 		return fmt.Errorf("unknown discriminator value: %s", disc.Type)
 	}
 }
@@ -457,6 +483,21 @@ func (r RequestPermissionOutcome) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(r.variant)
 }
+
+// RequestPermissionOutcomeVariantFactory is a factory function that deserializes a variant from JSON.
+type RequestPermissionOutcomeVariantFactory func(data []byte) (requestPermissionOutcomeVariant, error)
+
+var requestPermissionOutcomeExtVariants = map[string]RequestPermissionOutcomeVariantFactory{}
+
+// RegisterRequestPermissionOutcomeVariant registers a new variant factory for the RequestPermissionOutcome union.
+// Call this from init() to extend the union with additional variants.
+func RegisterRequestPermissionOutcomeVariant(discriminator string, factory RequestPermissionOutcomeVariantFactory) {
+	requestPermissionOutcomeExtVariants[discriminator] = factory
+}
+func tryRequestPermissionOutcomeExtension(discriminator string) (RequestPermissionOutcomeVariantFactory, bool) {
+	fn, ok := requestPermissionOutcomeExtVariants[discriminator]
+	return fn, ok
+}
 func (r *RequestPermissionOutcome) UnmarshalJSON(data []byte) error {
 	var disc struct {
 		Outcome string `json:"outcome"`
@@ -480,6 +521,14 @@ func (r *RequestPermissionOutcome) UnmarshalJSON(data []byte) error {
 		r.variant = v
 		return nil
 	default:
+		if fn, ok := tryRequestPermissionOutcomeExtension(disc.Outcome); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			r.variant = v
+			return nil
+		}
 		return fmt.Errorf("unknown discriminator value: %s", disc.Outcome)
 	}
 }
@@ -606,6 +655,21 @@ func (s SessionUpdate) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(s.variant)
 }
+
+// SessionUpdateVariantFactory is a factory function that deserializes a variant from JSON.
+type SessionUpdateVariantFactory func(data []byte) (sessionUpdateVariant, error)
+
+var sessionUpdateExtVariants = map[string]SessionUpdateVariantFactory{}
+
+// RegisterSessionUpdateVariant registers a new variant factory for the SessionUpdate union.
+// Call this from init() to extend the union with additional variants.
+func RegisterSessionUpdateVariant(discriminator string, factory SessionUpdateVariantFactory) {
+	sessionUpdateExtVariants[discriminator] = factory
+}
+func trySessionUpdateExtension(discriminator string) (SessionUpdateVariantFactory, bool) {
+	fn, ok := sessionUpdateExtVariants[discriminator]
+	return fn, ok
+}
 func (s *SessionUpdate) UnmarshalJSON(data []byte) error {
 	var disc struct {
 		SessionUpdate string `json:"sessionUpdate"`
@@ -685,6 +749,14 @@ func (s *SessionUpdate) UnmarshalJSON(data []byte) error {
 		s.variant = v
 		return nil
 	default:
+		if fn, ok := trySessionUpdateExtension(disc.SessionUpdate); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			s.variant = v
+			return nil
+		}
 		return fmt.Errorf("unknown discriminator value: %s", disc.SessionUpdate)
 	}
 }
@@ -779,6 +851,21 @@ func (t ToolCallContent) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(t.variant)
 }
+
+// ToolCallContentVariantFactory is a factory function that deserializes a variant from JSON.
+type ToolCallContentVariantFactory func(data []byte) (toolCallContentVariant, error)
+
+var toolCallContentExtVariants = map[string]ToolCallContentVariantFactory{}
+
+// RegisterToolCallContentVariant registers a new variant factory for the ToolCallContent union.
+// Call this from init() to extend the union with additional variants.
+func RegisterToolCallContentVariant(discriminator string, factory ToolCallContentVariantFactory) {
+	toolCallContentExtVariants[discriminator] = factory
+}
+func tryToolCallContentExtension(discriminator string) (ToolCallContentVariantFactory, bool) {
+	fn, ok := toolCallContentExtVariants[discriminator]
+	return fn, ok
+}
 func (t *ToolCallContent) UnmarshalJSON(data []byte) error {
 	var disc struct {
 		Type string `json:"type"`
@@ -809,6 +896,14 @@ func (t *ToolCallContent) UnmarshalJSON(data []byte) error {
 		t.variant = v
 		return nil
 	default:
+		if fn, ok := tryToolCallContentExtension(disc.Type); ok {
+			v, err := fn(data)
+			if err != nil {
+				return err
+			}
+			t.variant = v
+			return nil
+		}
 		return fmt.Errorf("unknown discriminator value: %s", disc.Type)
 	}
 }
@@ -916,6 +1011,7 @@ type CancelNotification struct {
 // See protocol docs: [Client Capabilities](https://agentclientprotocol.com/protocol/initialization#client-capabilities)
 type ClientCapabilities struct {
 	Meta     map[string]any          `json:"_meta,omitempty"`
+	Auth     *AuthCapabilities       `json:"auth,omitempty"`
 	FS       *FileSystemCapabilities `json:"fs,omitempty"`
 	Terminal bool                    `json:"terminal,omitempty"`
 }
@@ -1106,6 +1202,7 @@ type LoadSessionRequest struct {
 type LoadSessionResponse struct {
 	Meta          map[string]any        `json:"_meta,omitempty"`
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitempty"`
+	Models        *SessionModelState    `json:"models,omitempty"`
 	Modes         *SessionModeState     `json:"modes,omitempty"`
 }
 
@@ -1156,6 +1253,7 @@ type NewSessionRequest struct {
 type NewSessionResponse struct {
 	Meta          map[string]any        `json:"_meta,omitempty"`
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitempty"`
+	Models        *SessionModelState    `json:"models,omitempty"`
 	Modes         *SessionModeState     `json:"modes,omitempty"`
 	SessionID     SessionID             `json:"sessionId"`
 }
@@ -1229,6 +1327,7 @@ type PromptRequest struct {
 type PromptResponse struct {
 	Meta          map[string]any `json:"_meta,omitempty"`
 	StopReason    StopReason     `json:"stopReason"`
+	Usage         *Usage         `json:"usage,omitempty"`
 	UserMessageID string         `json:"userMessageId,omitempty"`
 }
 
@@ -1307,8 +1406,11 @@ type SelectedPermissionOutcome struct {
 //
 // See protocol docs: [Session Capabilities](https://agentclientprotocol.com/protocol/initialization#session-capabilities)
 type SessionCapabilities struct {
-	Meta map[string]any           `json:"_meta,omitempty"`
-	List *SessionListCapabilities `json:"list,omitempty"`
+	Meta   map[string]any             `json:"_meta,omitempty"`
+	Close  *SessionCloseCapabilities  `json:"close,omitempty"`
+	Fork   *SessionForkCapabilities   `json:"fork,omitempty"`
+	List   *SessionListCapabilities   `json:"list,omitempty"`
+	Resume *SessionResumeCapabilities `json:"resume,omitempty"`
 }
 
 // A session configuration option selector and its current state.
