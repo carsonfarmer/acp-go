@@ -8,31 +8,43 @@ package acp
 // --- SessionUpdate constructors ---
 
 // NewSessionUpdateAgentMessageChunk creates a SessionUpdate with an agent message chunk.
-func NewSessionUpdateAgentMessageChunk(content ContentBlock) SessionUpdate {
+// If messageID is non-empty it is attached to the chunk to group related chunks
+// into a single logical message.
+func NewSessionUpdateAgentMessageChunk(content ContentBlock, messageID string) SessionUpdate {
+	chunk := ContentChunk{Content: content}
+	if messageID != "" {
+		chunk.MessageID = messageID
+	}
 	return SessionUpdate{variant: SessionUpdateAgentMessageChunk{
-		ContentChunk: ContentChunk{
-			Content: content,
-		},
+		ContentChunk:  chunk,
 		SessionUpdate: "agent_message_chunk",
 	}}
 }
 
 // NewSessionUpdateUserMessageChunk creates a SessionUpdate with a user message chunk.
-func NewSessionUpdateUserMessageChunk(content ContentBlock) SessionUpdate {
+// If messageID is non-empty it is attached to the chunk to group related chunks
+// into a single logical message.
+func NewSessionUpdateUserMessageChunk(content ContentBlock, messageID string) SessionUpdate {
+	chunk := ContentChunk{Content: content}
+	if messageID != "" {
+		chunk.MessageID = messageID
+	}
 	return SessionUpdate{variant: SessionUpdateUserMessageChunk{
-		ContentChunk: ContentChunk{
-			Content: content,
-		},
+		ContentChunk:  chunk,
 		SessionUpdate: "user_message_chunk",
 	}}
 }
 
 // NewSessionUpdateAgentThoughtChunk creates a SessionUpdate with an agent thought chunk.
-func NewSessionUpdateAgentThoughtChunk(content ContentBlock) SessionUpdate {
+// If messageID is non-empty it is attached to the chunk to group related chunks
+// into a single logical message.
+func NewSessionUpdateAgentThoughtChunk(content ContentBlock, messageID string) SessionUpdate {
+	chunk := ContentChunk{Content: content}
+	if messageID != "" {
+		chunk.MessageID = messageID
+	}
 	return SessionUpdate{variant: SessionUpdateAgentThoughtChunk{
-		ContentChunk: ContentChunk{
-			Content: content,
-		},
+		ContentChunk:  chunk,
 		SessionUpdate: "agent_thought_chunk",
 	}}
 }

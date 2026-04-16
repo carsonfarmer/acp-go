@@ -2,6 +2,26 @@ package acp
 
 import "context"
 
+// SendOption configures optional fields on session update notifications.
+type SendOption func(*sendOptions)
+
+type sendOptions struct {
+	messageID string
+}
+
+// WithMessageID sets the message ID on the content chunk.
+func WithMessageID(id string) SendOption {
+	return func(o *sendOptions) { o.messageID = id }
+}
+
+func applySendOptions(opts []SendOption) sendOptions {
+	var o sendOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
+
 // SessionStream provides convenience methods for sending session updates.
 //
 // It wraps a Client and a session ID to reduce boilerplate when sending
@@ -28,23 +48,31 @@ func NewSessionStream(client Client, sessionID SessionID) *SessionStream {
 }
 
 // SendText sends an agent message chunk with text content.
-func (s *SessionStream) SendText(ctx context.Context, text string) error {
-	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockText(text)))
+// Use WithMessageID to attach a message ID to the chunk.
+func (s *SessionStream) SendText(ctx context.Context, text string, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockText(text), o.messageID))
 }
 
 // SendImage sends an agent message chunk with image content.
-func (s *SessionStream) SendImage(ctx context.Context, data, mimeType, uri string) error {
-	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockImage(data, mimeType, uri)))
+// Use WithMessageID to attach a message ID to the chunk.
+func (s *SessionStream) SendImage(ctx context.Context, data, mimeType, uri string, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockImage(data, mimeType, uri), o.messageID))
 }
 
 // SendThought sends an agent thought chunk with text content.
-func (s *SessionStream) SendThought(ctx context.Context, text string) error {
-	return s.send(ctx, NewSessionUpdateAgentThoughtChunk(NewContentBlockText(text)))
+// Use WithMessageID to attach a message ID to the chunk.
+func (s *SessionStream) SendThought(ctx context.Context, text string, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.send(ctx, NewSessionUpdateAgentThoughtChunk(NewContentBlockText(text), o.messageID))
 }
 
 // SendUserMessage sends a user message chunk with text content.
-func (s *SessionStream) SendUserMessage(ctx context.Context, text string) error {
-	return s.send(ctx, NewSessionUpdateUserMessageChunk(NewContentBlockText(text)))
+// Use WithMessageID to attach a message ID to the chunk.
+func (s *SessionStream) SendUserMessage(ctx context.Context, text string, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.send(ctx, NewSessionUpdateUserMessageChunk(NewContentBlockText(text), o.messageID))
 }
 
 // StartToolCall sends a tool_call update with the given parameters.
