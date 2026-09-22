@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,7 +130,7 @@ type Middleware func(next MethodHandler) MethodHandler
 type Connection struct {
 	transport        Transport
 	pendingResponses sync.Map // map[int64]*pendingResponse
-	nextRequestID    int64
+	nextRequestID    atomic.Int64
 	composedHandler  MethodHandler // handler with middleware applied
 	writeQueue       chan jsonRpcMessage
 	ctx              context.Context
@@ -250,8 +251,8 @@ func NewConnection(handler MethodHandler, reader io.Reader, writer io.Writer, op
 
 	// Compose middleware chain: first middleware is outermost
 	conn.composedHandler = conn.handler
-	for i := len(conn.middlewares) - 1; i >= 0; i-- {
-		conn.composedHandler = conn.middlewares[i](conn.composedHandler)
+	for _, v := range slices.Backward(conn.middlewares) {
+		conn.composedHandler = v(conn.composedHandler)
 	}
 	// Clear construction-only fields
 	conn.handler = nil
@@ -528,7 +529,7 @@ func (c *Connection) SendRequest(ctx context.Context, method string, params any)
 	}
 
 	// Generate unique request ID
-	requestID := atomic.AddInt64(&c.nextRequestID, 1)
+	requestID := c.nextRequestID.Add(1)
 
 	// Create response channel
 	pending := &pendingResponse{

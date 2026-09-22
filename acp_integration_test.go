@@ -101,15 +101,15 @@ func (c *TestClient) KillTerminalCommand(ctx context.Context, params *KillTermin
 
 // TestAgent implements Agent interface for integration testing
 type TestAgent struct {
-	initializeHandler          func(*InitializeRequest) (*InitializeResponse, error)
-	newSessionHandler          func(*NewSessionRequest) (*NewSessionResponse, error)
-	loadSessionHandler         func(*LoadSessionRequest) (*LoadSessionResponse, error)
-	listSessionsHandler        func(*ListSessionsRequest) (*ListSessionsResponse, error)
-	setSessionModeHandler      func(*SetSessionModeRequest) (*SetSessionModeResponse, error)
-	setSessionConfigHandler    func(*SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
-	authenticateHandler        func(*AuthenticateRequest) (*AuthenticateResponse, error)
-	promptHandler              func(*PromptRequest) (*PromptResponse, error)
-	cancelHandler              func(*CancelNotification) error
+	initializeHandler       func(*InitializeRequest) (*InitializeResponse, error)
+	newSessionHandler       func(*NewSessionRequest) (*NewSessionResponse, error)
+	loadSessionHandler      func(*LoadSessionRequest) (*LoadSessionResponse, error)
+	listSessionsHandler     func(*ListSessionsRequest) (*ListSessionsResponse, error)
+	setSessionModeHandler   func(*SetSessionModeRequest) (*SetSessionModeResponse, error)
+	setSessionConfigHandler func(*SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
+	authenticateHandler     func(*AuthenticateRequest) (*AuthenticateResponse, error)
+	promptHandler           func(*PromptRequest) (*PromptResponse, error)
+	cancelHandler           func(*CancelNotification) error
 }
 
 func (a *TestAgent) Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
@@ -274,13 +274,13 @@ func TestConcurrentRequests(t *testing.T) {
 	conn := NewTestConnection()
 	defer conn.Close()
 
-	var requestCount int64
+	var requestCount atomic.Int64
 
 	// Create client
 	testClient := &TestClient{
 		writeTextFileHandler: func(params *WriteTextFileRequest) (*WriteTextFileResponse, error) {
-			atomic.AddInt64(&requestCount, 1)
-			currentCount := atomic.LoadInt64(&requestCount)
+			requestCount.Add(1)
+			currentCount := requestCount.Load()
 			// Simulate work
 			time.Sleep(40 * time.Millisecond)
 			t.Logf("Write request %d completed", currentCount)
@@ -357,7 +357,7 @@ func TestConcurrentRequests(t *testing.T) {
 		}
 	}
 
-	finalCount := atomic.LoadInt64(&requestCount)
+	finalCount := requestCount.Load()
 	if finalCount != 3 {
 		t.Errorf("Expected 3 requests, got %d", finalCount)
 	}
