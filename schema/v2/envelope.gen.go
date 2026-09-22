@@ -6,11 +6,13 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"reflect"
 )
 
 var _ = json.Marshal
 var _ = fmt.Errorf
 var _ jsontext.Value
+var _ = reflect.TypeFor[int]
 
 // A JSON-RPC request object.
 type AgentRequest struct {
@@ -32,8 +34,31 @@ type AgentRequest struct {
 //
 // \[2\] Fractional parts may be problematic, since many decimal fractions cannot be represented exactly as binary fractions.
 // RequestID preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewRequestID to build one.
 type RequestID struct{ raw jsontext.Value }
 
+// RequestIDAlternative is the set of Go types a RequestID can hold.
+type RequestIDAlternative interface {
+	jsontext.Value | float64 | string
+}
+
+var requestIDAlternatives = altRules{
+	reflect.TypeFor[jsontext.Value](): {{null: true}},
+	reflect.TypeFor[float64]():        {{nonNull: true}},
+	reflect.TypeFor[string]():         {{nonNull: true}},
+}
+
+// NewRequestID encodes value as a RequestID, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewRequestID[T RequestIDAlternative](value T) (RequestID, error) {
+	raw, err := newAlternative("RequestID", requestIDAlternatives, value)
+	return RequestID{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v RequestID) As[T RequestIDAlternative]() (T, error) {
+	return asAlternative[T]("RequestID", requestIDAlternatives, v.raw)
+}
 func (v RequestID) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -70,53 +95,33 @@ func ParseRequestID(b []byte) (RequestID, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewRequestIDNull(value jsontext.Value) (RequestID, error) {
-	if len(value) != 0 && value.Kind() != 'n' {
-		return RequestID{}, fmt.Errorf("expected null for RequestID.Null")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return RequestID{}, err
-	}
-	return RequestID{raw: b}, nil
-}
-func (v RequestID) AsNull() (value jsontext.Value, ok bool) {
-	if v.raw.Kind() != 'n' {
-		return value, false
-	}
-	return decodeJSON[jsontext.Value](v.raw)
-}
-func NewRequestIDNumber(value float64) (RequestID, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return RequestID{}, err
-	}
-	return RequestID{raw: b}, nil
-}
-func (v RequestID) AsNumber() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[float64](v.raw)
-}
-func NewRequestIDString(value string) (RequestID, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return RequestID{}, err
-	}
-	return RequestID{raw: b}, nil
-}
-func (v RequestID) AsString() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
-}
 
 // A JSON-RPC response object.
 // AgentResponse preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewAgentResponse to build one.
 type AgentResponse struct{ raw jsontext.Value }
 
+// AgentResponseAlternative is the set of Go types a AgentResponse can hold.
+type AgentResponseAlternative interface {
+	AgentResponseResult | AgentResponseError
+}
+
+var agentResponseAlternatives = altRules{
+	reflect.TypeFor[AgentResponseResult](): {{nonNull: true, required: []string{"id", "result"}}},
+	reflect.TypeFor[AgentResponseError]():  {{nonNull: true, required: []string{"id", "error"}, notNull: []string{"error"}}},
+}
+
+// NewAgentResponse encodes value as a AgentResponse, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewAgentResponse[T AgentResponseAlternative](value T) (AgentResponse, error) {
+	raw, err := newAlternative("AgentResponse", agentResponseAlternatives, value)
+	return AgentResponse{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v AgentResponse) As[T AgentResponseAlternative]() (T, error) {
+	return asAlternative[T]("AgentResponse", agentResponseAlternatives, v.raw)
+}
 func (v AgentResponse) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -152,55 +157,6 @@ func ParseAgentResponse(b []byte) (AgentResponse, error) {
 	var v AgentResponse
 	err := json.Unmarshal(b, &v)
 	return v, err
-}
-func NewAgentResponseResult(value AgentResponseResult) (AgentResponse, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponse{}, err
-	}
-	return AgentResponse{raw: b}, nil
-}
-func (v AgentResponse) AsResult() (value AgentResponseResult, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["id"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["result"]; !ok {
-		return value, false
-	}
-	return decodeJSON[AgentResponseResult](v.raw)
-}
-func NewAgentResponseError(value AgentResponseError) (AgentResponse, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponse{}, err
-	}
-	return AgentResponse{raw: b}, nil
-}
-func (v AgentResponse) AsError() (value AgentResponseError, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["id"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["error"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["error"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[AgentResponseError](v.raw)
 }
 
 // JSON-RPC error object.
@@ -241,8 +197,30 @@ type ClientRequest struct {
 
 // A JSON-RPC response object.
 // ClientResponse preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewClientResponse to build one.
 type ClientResponse struct{ raw jsontext.Value }
 
+// ClientResponseAlternative is the set of Go types a ClientResponse can hold.
+type ClientResponseAlternative interface {
+	ClientResponseResult | ClientResponseError
+}
+
+var clientResponseAlternatives = altRules{
+	reflect.TypeFor[ClientResponseResult](): {{nonNull: true, required: []string{"id", "result"}}},
+	reflect.TypeFor[ClientResponseError]():  {{nonNull: true, required: []string{"id", "error"}, notNull: []string{"error"}}},
+}
+
+// NewClientResponse encodes value as a ClientResponse, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewClientResponse[T ClientResponseAlternative](value T) (ClientResponse, error) {
+	raw, err := newAlternative("ClientResponse", clientResponseAlternatives, value)
+	return ClientResponse{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ClientResponse) As[T ClientResponseAlternative]() (T, error) {
+	return asAlternative[T]("ClientResponse", clientResponseAlternatives, v.raw)
+}
 func (v ClientResponse) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -279,55 +257,6 @@ func ParseClientResponse(b []byte) (ClientResponse, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewClientResponseResult(value ClientResponseResult) (ClientResponse, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponse{}, err
-	}
-	return ClientResponse{raw: b}, nil
-}
-func (v ClientResponse) AsResult() (value ClientResponseResult, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["id"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["result"]; !ok {
-		return value, false
-	}
-	return decodeJSON[ClientResponseResult](v.raw)
-}
-func NewClientResponseError(value ClientResponseError) (ClientResponse, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponse{}, err
-	}
-	return ClientResponse{raw: b}, nil
-}
-func (v ClientResponse) AsError() (value ClientResponseError, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["id"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["error"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["error"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ClientResponseError](v.raw)
-}
 
 // A JSON-RPC notification object.
 type ClientNotification struct {
@@ -346,8 +275,34 @@ type ProtocolLevelNotification struct {
 }
 
 // AgentRequestParams preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewAgentRequestParams to build one.
 type AgentRequestParams struct{ raw jsontext.Value }
 
+// AgentRequestParamsAlternative is the set of Go types a AgentRequestParams can hold.
+type AgentRequestParamsAlternative interface {
+	RequestPermissionRequest | CreateElicitationRequest | ConnectMCPRequest | MessageMCPRequest | DisconnectMCPRequest | jsontext.Value
+}
+
+var agentRequestParamsAlternatives = altRules{
+	reflect.TypeFor[RequestPermissionRequest](): {{nonNull: true, required: []string{"sessionId", "title", "options"}, notNull: []string{"sessionId", "title", "options"}}},
+	reflect.TypeFor[CreateElicitationRequest](): {{nonNull: true}},
+	reflect.TypeFor[ConnectMCPRequest]():        {{nonNull: true, required: []string{"serverId"}, notNull: []string{"serverId"}}},
+	reflect.TypeFor[MessageMCPRequest]():        {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
+	reflect.TypeFor[DisconnectMCPRequest]():     {{nonNull: true, required: []string{"connectionId"}, notNull: []string{"connectionId"}}},
+	reflect.TypeFor[jsontext.Value]():           {{}},
+}
+
+// NewAgentRequestParams encodes value as a AgentRequestParams, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewAgentRequestParams[T AgentRequestParamsAlternative](value T) (AgentRequestParams, error) {
+	raw, err := newAlternative("AgentRequestParams", agentRequestParamsAlternatives, value)
+	return AgentRequestParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v AgentRequestParams) As[T AgentRequestParamsAlternative]() (T, error) {
+	return asAlternative[T]("AgentRequestParams", agentRequestParamsAlternatives, v.raw)
+}
 func (v AgentRequestParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -384,139 +339,6 @@ func ParseAgentRequestParams(b []byte) (AgentRequestParams, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewAgentRequestParamsRequestPermissionRequest(value RequestPermissionRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsRequestPermissionRequest() (value RequestPermissionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["title"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["options"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["title"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["options"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[RequestPermissionRequest](v.raw)
-}
-func NewAgentRequestParamsCreateElicitationRequest(value CreateElicitationRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsCreateElicitationRequest() (value CreateElicitationRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequest](v.raw)
-}
-func NewAgentRequestParamsConnectMCPRequest(value ConnectMCPRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsConnectMCPRequest() (value ConnectMCPRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["serverId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["serverId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ConnectMCPRequest](v.raw)
-}
-func NewAgentRequestParamsMessageMCPRequest(value MessageMCPRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsMessageMCPRequest() (value MessageMCPRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["method"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["method"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[MessageMCPRequest](v.raw)
-}
-func NewAgentRequestParamsDisconnectMCPRequest(value DisconnectMCPRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsDisconnectMCPRequest() (value DisconnectMCPRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DisconnectMCPRequest](v.raw)
-}
-func NewAgentRequestParamsExtRequest(value ExtRequest) (AgentRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentRequestParams{}, err
-	}
-	return AgentRequestParams{raw: b}, nil
-}
-func (v AgentRequestParams) AsExtRequest() (value ExtRequest, ok bool) {
-	return decodeJSON[ExtRequest](v.raw)
-}
 
 type AgentResponseResult struct {
 	// The id of the request this response answers.
@@ -533,8 +355,32 @@ type AgentResponseError struct {
 }
 
 // AgentNotificationParams preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewAgentNotificationParams to build one.
 type AgentNotificationParams struct{ raw jsontext.Value }
 
+// AgentNotificationParamsAlternative is the set of Go types a AgentNotificationParams can hold.
+type AgentNotificationParamsAlternative interface {
+	UpdateSessionNotification | CompleteElicitationNotification | MessageMCPNotification | jsontext.Value
+}
+
+var agentNotificationParamsAlternatives = altRules{
+	reflect.TypeFor[UpdateSessionNotification]():       {{nonNull: true, required: []string{"sessionId", "update"}, notNull: []string{"sessionId", "update"}}},
+	reflect.TypeFor[CompleteElicitationNotification](): {{nonNull: true, required: []string{"elicitationId"}, notNull: []string{"elicitationId"}}},
+	reflect.TypeFor[MessageMCPNotification]():          {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
+	reflect.TypeFor[jsontext.Value]():                  {{}},
+}
+
+// NewAgentNotificationParams encodes value as a AgentNotificationParams, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewAgentNotificationParams[T AgentNotificationParamsAlternative](value T) (AgentNotificationParams, error) {
+	raw, err := newAlternative("AgentNotificationParams", agentNotificationParamsAlternatives, value)
+	return AgentNotificationParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v AgentNotificationParams) As[T AgentNotificationParamsAlternative]() (T, error) {
+	return asAlternative[T]("AgentNotificationParams", agentNotificationParamsAlternatives, v.raw)
+}
 func (v AgentNotificationParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -571,101 +417,49 @@ func ParseAgentNotificationParams(b []byte) (AgentNotificationParams, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewAgentNotificationParamsUpdateSessionNotification(value UpdateSessionNotification) (AgentNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentNotificationParams{}, err
-	}
-	return AgentNotificationParams{raw: b}, nil
-}
-func (v AgentNotificationParams) AsUpdateSessionNotification() (value UpdateSessionNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["update"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["update"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[UpdateSessionNotification](v.raw)
-}
-func NewAgentNotificationParamsCompleteElicitationNotification(value CompleteElicitationNotification) (AgentNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentNotificationParams{}, err
-	}
-	return AgentNotificationParams{raw: b}, nil
-}
-func (v AgentNotificationParams) AsCompleteElicitationNotification() (value CompleteElicitationNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["elicitationId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["elicitationId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CompleteElicitationNotification](v.raw)
-}
-func NewAgentNotificationParamsMessageMCPNotification(value MessageMCPNotification) (AgentNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentNotificationParams{}, err
-	}
-	return AgentNotificationParams{raw: b}, nil
-}
-func (v AgentNotificationParams) AsMessageMCPNotification() (value MessageMCPNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["method"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["method"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[MessageMCPNotification](v.raw)
-}
-func NewAgentNotificationParamsExtNotification(value ExtNotification) (AgentNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentNotificationParams{}, err
-	}
-	return AgentNotificationParams{raw: b}, nil
-}
-func (v AgentNotificationParams) AsExtNotification() (value ExtNotification, ok bool) {
-	return decodeJSON[ExtNotification](v.raw)
-}
 
 // ClientRequestParams preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewClientRequestParams to build one.
 type ClientRequestParams struct{ raw jsontext.Value }
 
+// ClientRequestParamsAlternative is the set of Go types a ClientRequestParams can hold.
+type ClientRequestParamsAlternative interface {
+	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | MessageMCPRequest | jsontext.Value
+}
+
+var clientRequestParamsAlternatives = altRules{
+	reflect.TypeFor[InitializeRequest]():             {{nonNull: true, required: []string{"protocolVersion", "info"}, notNull: []string{"protocolVersion", "info", "capabilities"}}},
+	reflect.TypeFor[LoginAuthRequest]():              {{nonNull: true, required: []string{"methodId"}, notNull: []string{"methodId"}}},
+	reflect.TypeFor[ListProvidersRequest]():          {{nonNull: true}},
+	reflect.TypeFor[SetProviderRequest]():            {{nonNull: true, required: []string{"providerId", "apiType", "baseUrl"}, notNull: []string{"providerId", "apiType", "baseUrl", "headers"}}},
+	reflect.TypeFor[DisableProviderRequest]():        {{nonNull: true, required: []string{"providerId"}, notNull: []string{"providerId"}}},
+	reflect.TypeFor[LogoutAuthRequest]():             {{nonNull: true}},
+	reflect.TypeFor[NewSessionRequest]():             {{nonNull: true, required: []string{"cwd"}, notNull: []string{"cwd", "additionalDirectories", "mcpServers"}}},
+	reflect.TypeFor[ListSessionsRequest]():           {{nonNull: true}},
+	reflect.TypeFor[DeleteSessionRequest]():          {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
+	reflect.TypeFor[ForkSessionRequest]():            {{nonNull: true, required: []string{"sessionId", "cwd"}, notNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}},
+	reflect.TypeFor[ResumeSessionRequest]():          {{nonNull: true, required: []string{"sessionId", "cwd"}, notNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}},
+	reflect.TypeFor[CloseSessionRequest]():           {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
+	reflect.TypeFor[SetSessionConfigOptionRequest](): {{nonNull: true}},
+	reflect.TypeFor[PromptRequest]():                 {{nonNull: true, required: []string{"sessionId", "prompt"}, notNull: []string{"sessionId", "prompt"}}},
+	reflect.TypeFor[StartNesRequest]():               {{nonNull: true}},
+	reflect.TypeFor[SuggestNesRequest]():             {{nonNull: true, required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, notNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}},
+	reflect.TypeFor[CloseNesRequest]():               {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
+	reflect.TypeFor[MessageMCPRequest]():             {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
+	reflect.TypeFor[jsontext.Value]():                {{}},
+}
+
+// NewClientRequestParams encodes value as a ClientRequestParams, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewClientRequestParams[T ClientRequestParamsAlternative](value T) (ClientRequestParams, error) {
+	raw, err := newAlternative("ClientRequestParams", clientRequestParamsAlternatives, value)
+	return ClientRequestParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ClientRequestParams) As[T ClientRequestParamsAlternative]() (T, error) {
+	return asAlternative[T]("ClientRequestParams", clientRequestParamsAlternatives, v.raw)
+}
 func (v ClientRequestParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -702,486 +496,6 @@ func ParseClientRequestParams(b []byte) (ClientRequestParams, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewClientRequestParamsInitializeRequest(value InitializeRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsInitializeRequest() (value InitializeRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["protocolVersion"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["info"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["protocolVersion"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["info"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["capabilities"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[InitializeRequest](v.raw)
-}
-func NewClientRequestParamsLoginAuthRequest(value LoginAuthRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsLoginAuthRequest() (value LoginAuthRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["methodId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["methodId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[LoginAuthRequest](v.raw)
-}
-func NewClientRequestParamsListProvidersRequest(value ListProvidersRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsListProvidersRequest() (value ListProvidersRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[ListProvidersRequest](v.raw)
-}
-func NewClientRequestParamsSetProviderRequest(value SetProviderRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsSetProviderRequest() (value SetProviderRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["providerId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["apiType"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["baseUrl"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["providerId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["apiType"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["baseUrl"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["headers"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[SetProviderRequest](v.raw)
-}
-func NewClientRequestParamsDisableProviderRequest(value DisableProviderRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsDisableProviderRequest() (value DisableProviderRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["providerId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["providerId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DisableProviderRequest](v.raw)
-}
-func NewClientRequestParamsLogoutAuthRequest(value LogoutAuthRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsLogoutAuthRequest() (value LogoutAuthRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[LogoutAuthRequest](v.raw)
-}
-func NewClientRequestParamsNewSessionRequest(value NewSessionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsNewSessionRequest() (value NewSessionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["cwd"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["cwd"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["additionalDirectories"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mcpServers"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[NewSessionRequest](v.raw)
-}
-func NewClientRequestParamsListSessionsRequest(value ListSessionsRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsListSessionsRequest() (value ListSessionsRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[ListSessionsRequest](v.raw)
-}
-func NewClientRequestParamsDeleteSessionRequest(value DeleteSessionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsDeleteSessionRequest() (value DeleteSessionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DeleteSessionRequest](v.raw)
-}
-func NewClientRequestParamsForkSessionRequest(value ForkSessionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsForkSessionRequest() (value ForkSessionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["cwd"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["cwd"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["additionalDirectories"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mcpServers"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ForkSessionRequest](v.raw)
-}
-func NewClientRequestParamsResumeSessionRequest(value ResumeSessionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsResumeSessionRequest() (value ResumeSessionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["cwd"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["cwd"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["additionalDirectories"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mcpServers"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ResumeSessionRequest](v.raw)
-}
-func NewClientRequestParamsCloseSessionRequest(value CloseSessionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsCloseSessionRequest() (value CloseSessionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CloseSessionRequest](v.raw)
-}
-func NewClientRequestParamsSetSessionConfigOptionRequest(value SetSessionConfigOptionRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsSetSessionConfigOptionRequest() (value SetSessionConfigOptionRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[SetSessionConfigOptionRequest](v.raw)
-}
-func NewClientRequestParamsPromptRequest(value PromptRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsPromptRequest() (value PromptRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["prompt"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["prompt"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[PromptRequest](v.raw)
-}
-func NewClientRequestParamsStartNesRequest(value StartNesRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsStartNesRequest() (value StartNesRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[StartNesRequest](v.raw)
-}
-func NewClientRequestParamsSuggestNesRequest(value SuggestNesRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsSuggestNesRequest() (value SuggestNesRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["version"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["position"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["triggerKind"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["version"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["position"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["triggerKind"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[SuggestNesRequest](v.raw)
-}
-func NewClientRequestParamsCloseNesRequest(value CloseNesRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsCloseNesRequest() (value CloseNesRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CloseNesRequest](v.raw)
-}
-func NewClientRequestParamsMessageMCPRequest(value MessageMCPRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsMessageMCPRequest() (value MessageMCPRequest, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["method"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["method"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[MessageMCPRequest](v.raw)
-}
-func NewClientRequestParamsExtRequest(value ExtRequest) (ClientRequestParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientRequestParams{}, err
-	}
-	return ClientRequestParams{raw: b}, nil
-}
-func (v ClientRequestParams) AsExtRequest() (value ExtRequest, ok bool) {
-	return decodeJSON[ExtRequest](v.raw)
-}
 
 type ClientResponseResult struct {
 	// The id of the request this response answers.
@@ -1198,8 +512,38 @@ type ClientResponseError struct {
 }
 
 // ClientNotificationParams preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewClientNotificationParams to build one.
 type ClientNotificationParams struct{ raw jsontext.Value }
 
+// ClientNotificationParamsAlternative is the set of Go types a ClientNotificationParams can hold.
+type ClientNotificationParamsAlternative interface {
+	CancelSessionNotification | DidOpenDocumentNotification | DidChangeDocumentNotification | DidCloseDocumentNotification | DidSaveDocumentNotification | DidFocusDocumentNotification | AcceptNesNotification | RejectNesNotification | MessageMCPNotification | jsontext.Value
+}
+
+var clientNotificationParamsAlternatives = altRules{
+	reflect.TypeFor[CancelSessionNotification]():     {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
+	reflect.TypeFor[DidOpenDocumentNotification]():   {{nonNull: true, required: []string{"sessionId", "uri", "languageId", "version", "text"}, notNull: []string{"sessionId", "uri", "languageId", "version", "text"}}},
+	reflect.TypeFor[DidChangeDocumentNotification](): {{nonNull: true, required: []string{"sessionId", "uri", "version", "contentChanges"}, notNull: []string{"sessionId", "uri", "version", "contentChanges"}}},
+	reflect.TypeFor[DidCloseDocumentNotification]():  {{nonNull: true, required: []string{"sessionId", "uri"}, notNull: []string{"sessionId", "uri"}}},
+	reflect.TypeFor[DidSaveDocumentNotification]():   {{nonNull: true, required: []string{"sessionId", "uri"}, notNull: []string{"sessionId", "uri"}}},
+	reflect.TypeFor[DidFocusDocumentNotification]():  {{nonNull: true, required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, notNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}},
+	reflect.TypeFor[AcceptNesNotification]():         {{nonNull: true, required: []string{"sessionId", "suggestionId"}, notNull: []string{"sessionId", "suggestionId"}}},
+	reflect.TypeFor[RejectNesNotification]():         {{nonNull: true, required: []string{"sessionId", "suggestionId"}, notNull: []string{"sessionId", "suggestionId"}}},
+	reflect.TypeFor[MessageMCPNotification]():        {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
+	reflect.TypeFor[jsontext.Value]():                {{}},
+}
+
+// NewClientNotificationParams encodes value as a ClientNotificationParams, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewClientNotificationParams[T ClientNotificationParamsAlternative](value T) (ClientNotificationParams, error) {
+	raw, err := newAlternative("ClientNotificationParams", clientNotificationParamsAlternatives, value)
+	return ClientNotificationParams{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ClientNotificationParams) As[T ClientNotificationParamsAlternative]() (T, error) {
+	return asAlternative[T]("ClientNotificationParams", clientNotificationParamsAlternatives, v.raw)
+}
 func (v ClientNotificationParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -1236,323 +580,48 @@ func ParseClientNotificationParams(b []byte) (ClientNotificationParams, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewClientNotificationParamsCancelSessionNotification(value CancelSessionNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsCancelSessionNotification() (value CancelSessionNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CancelSessionNotification](v.raw)
-}
-func NewClientNotificationParamsDidOpenDocumentNotification(value DidOpenDocumentNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsDidOpenDocumentNotification() (value DidOpenDocumentNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["languageId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["version"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["text"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["languageId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["version"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["text"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DidOpenDocumentNotification](v.raw)
-}
-func NewClientNotificationParamsDidChangeDocumentNotification(value DidChangeDocumentNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsDidChangeDocumentNotification() (value DidChangeDocumentNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["version"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["contentChanges"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["version"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["contentChanges"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DidChangeDocumentNotification](v.raw)
-}
-func NewClientNotificationParamsDidCloseDocumentNotification(value DidCloseDocumentNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsDidCloseDocumentNotification() (value DidCloseDocumentNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DidCloseDocumentNotification](v.raw)
-}
-func NewClientNotificationParamsDidSaveDocumentNotification(value DidSaveDocumentNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsDidSaveDocumentNotification() (value DidSaveDocumentNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DidSaveDocumentNotification](v.raw)
-}
-func NewClientNotificationParamsDidFocusDocumentNotification(value DidFocusDocumentNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsDidFocusDocumentNotification() (value DidFocusDocumentNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["version"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["position"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["visibleRange"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["version"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["position"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["visibleRange"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[DidFocusDocumentNotification](v.raw)
-}
-func NewClientNotificationParamsAcceptNesNotification(value AcceptNesNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsAcceptNesNotification() (value AcceptNesNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["suggestionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["suggestionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[AcceptNesNotification](v.raw)
-}
-func NewClientNotificationParamsRejectNesNotification(value RejectNesNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsRejectNesNotification() (value RejectNesNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["suggestionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["suggestionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[RejectNesNotification](v.raw)
-}
-func NewClientNotificationParamsMessageMCPNotification(value MessageMCPNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsMessageMCPNotification() (value MessageMCPNotification, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["method"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["method"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[MessageMCPNotification](v.raw)
-}
-func NewClientNotificationParamsExtNotification(value ExtNotification) (ClientNotificationParams, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientNotificationParams{}, err
-	}
-	return ClientNotificationParams{raw: b}, nil
-}
-func (v ClientNotificationParams) AsExtNotification() (value ExtNotification, ok bool) {
-	return decodeJSON[ExtNotification](v.raw)
-}
 
 // AgentResponseResultResult preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewAgentResponseResultResult to build one.
 type AgentResponseResultResult struct{ raw jsontext.Value }
 
+// AgentResponseResultResultAlternative is the set of Go types a AgentResponseResultResult can hold.
+type AgentResponseResultResultAlternative interface {
+	InitializeResponse | LoginAuthResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutAuthResponse | NewSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionConfigOptionResponse | PromptResponse | StartNesResponse | SuggestNesResponse | CloseNesResponse | jsontext.Value
+}
+
+var agentResponseResultResultAlternatives = altRules{
+	reflect.TypeFor[InitializeResponse]():             {{nonNull: true, required: []string{"protocolVersion", "info"}, notNull: []string{"protocolVersion", "info", "capabilities", "authMethods"}}},
+	reflect.TypeFor[LoginAuthResponse]():              {{nonNull: true}},
+	reflect.TypeFor[ListProvidersResponse]():          {{nonNull: true, required: []string{"providers"}, notNull: []string{"providers"}}},
+	reflect.TypeFor[SetProviderResponse]():            {{nonNull: true}},
+	reflect.TypeFor[DisableProviderResponse]():        {{nonNull: true}},
+	reflect.TypeFor[LogoutAuthResponse]():             {{nonNull: true}},
+	reflect.TypeFor[NewSessionResponse]():             {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId", "configOptions"}}},
+	reflect.TypeFor[ListSessionsResponse]():           {{nonNull: true, required: []string{"sessions"}, notNull: []string{"sessions"}}},
+	reflect.TypeFor[DeleteSessionResponse]():          {{nonNull: true}},
+	reflect.TypeFor[ForkSessionResponse]():            {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId", "configOptions"}}},
+	reflect.TypeFor[ResumeSessionResponse]():          {{nonNull: true, notNull: []string{"configOptions"}}},
+	reflect.TypeFor[CloseSessionResponse]():           {{nonNull: true}},
+	reflect.TypeFor[SetSessionConfigOptionResponse](): {{nonNull: true, required: []string{"configOptions"}, notNull: []string{"configOptions"}}},
+	reflect.TypeFor[PromptResponse]():                 {{nonNull: true, required: []string{"messageId"}, notNull: []string{"messageId"}}},
+	reflect.TypeFor[StartNesResponse]():               {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
+	reflect.TypeFor[SuggestNesResponse]():             {{nonNull: true, required: []string{"suggestions"}, notNull: []string{"suggestions"}}},
+	reflect.TypeFor[CloseNesResponse]():               {{nonNull: true}},
+	reflect.TypeFor[jsontext.Value]():                 {{}, {}},
+}
+
+// NewAgentResponseResultResult encodes value as a AgentResponseResultResult, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewAgentResponseResultResult[T AgentResponseResultResultAlternative](value T) (AgentResponseResultResult, error) {
+	raw, err := newAlternative("AgentResponseResultResult", agentResponseResultResultAlternatives, value)
+	return AgentResponseResultResult{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v AgentResponseResultResult) As[T AgentResponseResultResultAlternative]() (T, error) {
+	return asAlternative[T]("AgentResponseResultResult", agentResponseResultResultAlternatives, v.raw)
+}
 func (v AgentResponseResultResult) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -1589,394 +658,35 @@ func ParseAgentResponseResultResult(b []byte) (AgentResponseResultResult, error)
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewAgentResponseResultResultInitializeResponse(value InitializeResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsInitializeResponse() (value InitializeResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["protocolVersion"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["info"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["protocolVersion"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["info"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["capabilities"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["authMethods"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[InitializeResponse](v.raw)
-}
-func NewAgentResponseResultResultLoginAuthResponse(value LoginAuthResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsLoginAuthResponse() (value LoginAuthResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[LoginAuthResponse](v.raw)
-}
-func NewAgentResponseResultResultListProvidersResponse(value ListProvidersResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsListProvidersResponse() (value ListProvidersResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["providers"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["providers"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ListProvidersResponse](v.raw)
-}
-func NewAgentResponseResultResultSetProviderResponse(value SetProviderResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsSetProviderResponse() (value SetProviderResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[SetProviderResponse](v.raw)
-}
-func NewAgentResponseResultResultDisableProviderResponse(value DisableProviderResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsDisableProviderResponse() (value DisableProviderResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[DisableProviderResponse](v.raw)
-}
-func NewAgentResponseResultResultLogoutAuthResponse(value LogoutAuthResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsLogoutAuthResponse() (value LogoutAuthResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[LogoutAuthResponse](v.raw)
-}
-func NewAgentResponseResultResultNewSessionResponse(value NewSessionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsNewSessionResponse() (value NewSessionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["configOptions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[NewSessionResponse](v.raw)
-}
-func NewAgentResponseResultResultListSessionsResponse(value ListSessionsResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsListSessionsResponse() (value ListSessionsResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessions"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ListSessionsResponse](v.raw)
-}
-func NewAgentResponseResultResultDeleteSessionResponse(value DeleteSessionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsDeleteSessionResponse() (value DeleteSessionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[DeleteSessionResponse](v.raw)
-}
-func NewAgentResponseResultResultForkSessionResponse(value ForkSessionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsForkSessionResponse() (value ForkSessionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["configOptions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ForkSessionResponse](v.raw)
-}
-func NewAgentResponseResultResultResumeSessionResponse(value ResumeSessionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsResumeSessionResponse() (value ResumeSessionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if raw, ok := fields["configOptions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ResumeSessionResponse](v.raw)
-}
-func NewAgentResponseResultResultCloseSessionResponse(value CloseSessionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsCloseSessionResponse() (value CloseSessionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[CloseSessionResponse](v.raw)
-}
-func NewAgentResponseResultResultSetSessionConfigOptionResponse(value SetSessionConfigOptionResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsSetSessionConfigOptionResponse() (value SetSessionConfigOptionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["configOptions"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["configOptions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[SetSessionConfigOptionResponse](v.raw)
-}
-func NewAgentResponseResultResultPromptResponse(value PromptResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsPromptResponse() (value PromptResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["messageId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["messageId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[PromptResponse](v.raw)
-}
-func NewAgentResponseResultResultStartNesResponse(value StartNesResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsStartNesResponse() (value StartNesResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[StartNesResponse](v.raw)
-}
-func NewAgentResponseResultResultSuggestNesResponse(value SuggestNesResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsSuggestNesResponse() (value SuggestNesResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["suggestions"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["suggestions"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[SuggestNesResponse](v.raw)
-}
-func NewAgentResponseResultResultCloseNesResponse(value CloseNesResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsCloseNesResponse() (value CloseNesResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[CloseNesResponse](v.raw)
-}
-func NewAgentResponseResultResultExtResponse(value ExtResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsExtResponse() (value ExtResponse, ok bool) {
-	return decodeJSON[ExtResponse](v.raw)
-}
-func NewAgentResponseResultResultMessageMCPResponse(value MessageMCPResponse) (AgentResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return AgentResponseResultResult{}, err
-	}
-	return AgentResponseResultResult{raw: b}, nil
-}
-func (v AgentResponseResultResult) AsMessageMCPResponse() (value MessageMCPResponse, ok bool) {
-	return decodeJSON[MessageMCPResponse](v.raw)
-}
 
 // ClientResponseResultResult preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewClientResponseResultResult to build one.
 type ClientResponseResultResult struct{ raw jsontext.Value }
 
+// ClientResponseResultResultAlternative is the set of Go types a ClientResponseResultResult can hold.
+type ClientResponseResultResultAlternative interface {
+	RequestPermissionResponse | CreateElicitationResponse | ConnectMCPResponse | DisconnectMCPResponse | jsontext.Value
+}
+
+var clientResponseResultResultAlternatives = altRules{
+	reflect.TypeFor[RequestPermissionResponse](): {{nonNull: true, required: []string{"outcome"}, notNull: []string{"outcome"}}},
+	reflect.TypeFor[CreateElicitationResponse](): {{nonNull: true}},
+	reflect.TypeFor[ConnectMCPResponse]():        {{nonNull: true, required: []string{"connectionId"}, notNull: []string{"connectionId"}}},
+	reflect.TypeFor[DisconnectMCPResponse]():     {{nonNull: true}},
+	reflect.TypeFor[jsontext.Value]():            {{}, {}},
+}
+
+// NewClientResponseResultResult encodes value as a ClientResponseResultResult, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewClientResponseResultResult[T ClientResponseResultResultAlternative](value T) (ClientResponseResultResult, error) {
+	raw, err := newAlternative("ClientResponseResultResult", clientResponseResultResultAlternatives, value)
+	return ClientResponseResultResult{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ClientResponseResultResult) As[T ClientResponseResultResultAlternative]() (T, error) {
+	return asAlternative[T]("ClientResponseResultResult", clientResponseResultResultAlternatives, v.raw)
+}
 func (v ClientResponseResultResult) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -2012,100 +722,4 @@ func ParseClientResponseResultResult(b []byte) (ClientResponseResultResult, erro
 	var v ClientResponseResultResult
 	err := json.Unmarshal(b, &v)
 	return v, err
-}
-func NewClientResponseResultResultRequestPermissionResponse(value RequestPermissionResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsRequestPermissionResponse() (value RequestPermissionResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["outcome"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["outcome"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[RequestPermissionResponse](v.raw)
-}
-func NewClientResponseResultResultCreateElicitationResponse(value CreateElicitationResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsCreateElicitationResponse() (value CreateElicitationResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationResponse](v.raw)
-}
-func NewClientResponseResultResultConnectMCPResponse(value ConnectMCPResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsConnectMCPResponse() (value ConnectMCPResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["connectionId"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["connectionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ConnectMCPResponse](v.raw)
-}
-func NewClientResponseResultResultDisconnectMCPResponse(value DisconnectMCPResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsDisconnectMCPResponse() (value DisconnectMCPResponse, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	return decodeJSON[DisconnectMCPResponse](v.raw)
-}
-func NewClientResponseResultResultMessageMCPResponse(value MessageMCPResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsMessageMCPResponse() (value MessageMCPResponse, ok bool) {
-	return decodeJSON[MessageMCPResponse](v.raw)
-}
-func NewClientResponseResultResultExtResponse(value ExtResponse) (ClientResponseResultResult, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ClientResponseResultResult{}, err
-	}
-	return ClientResponseResultResult{raw: b}, nil
-}
-func (v ClientResponseResultResult) AsExtResponse() (value ExtResponse, ok bool) {
-	return decodeJSON[ExtResponse](v.raw)
 }

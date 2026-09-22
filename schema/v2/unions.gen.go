@@ -6,11 +6,112 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+	"reflect"
 )
 
 var _ = json.Marshal
 var _ = fmt.Errorf
 var _ jsontext.Value
+var _ = reflect.TypeFor[int]
+
+// altRule describes when a JSON payload is one alternative of a raw union.
+type altRule struct {
+	null     bool                      // the payload must be JSON null
+	nonNull  bool                      // the payload must not be null or empty
+	required []string                  // object members that must be present
+	notNull  []string                  // object members that must not be null when present
+	tags     map[string]jsontext.Value // literal members the object must carry
+	literal  jsontext.Value            // scalar literal the whole payload must equal
+}
+
+// altRules maps each alternative Go type of a union to the rules under which
+// a payload is that alternative; a payload matches if any rule matches.
+type altRules map[reflect.Type][]altRule
+
+func jsonEqual(a, b jsontext.Value) bool {
+	a, b = a.Clone(), b.Clone()
+	if a.Canonicalize() != nil || b.Canonicalize() != nil {
+		return false
+	}
+	return string(a) == string(b)
+}
+
+func (r altRule) matches(raw jsontext.Value) bool {
+	if r.null && raw.Kind() != 'n' {
+		return false
+	}
+	if r.nonNull && (raw.Kind() == 'n' || len(raw) == 0) {
+		return false
+	}
+	if len(r.literal) > 0 && !jsonEqual(raw, r.literal) {
+		return false
+	}
+	if len(r.required) == 0 && len(r.notNull) == 0 && len(r.tags) == 0 {
+		return true
+	}
+	var fields map[string]jsontext.Value
+	if json.Unmarshal(raw, &fields) != nil || fields == nil {
+		return false
+	}
+	for _, name := range r.required {
+		if _, ok := fields[name]; !ok {
+			return false
+		}
+	}
+	for _, name := range r.notNull {
+		if v, ok := fields[name]; ok && v.Kind() == 'n' {
+			return false
+		}
+	}
+	for name, want := range r.tags {
+		if got, ok := fields[name]; !ok || !jsonEqual(got, want) {
+			return false
+		}
+	}
+	return true
+}
+
+// asAlternative decodes raw as T once one of T's rules accepts it.
+func asAlternative[T any](union string, rules altRules, raw jsontext.Value) (T, error) {
+	var out T
+	for _, rule := range rules[reflect.TypeFor[T]()] {
+		if rule.matches(raw) {
+			if err := json.Unmarshal(raw, &out); err != nil {
+				return out, fmt.Errorf("%s: decode %T: %w", union, out, err)
+			}
+			return out, nil
+		}
+	}
+	return out, fmt.Errorf("%s: payload is not a %T", union, out)
+}
+
+// newAlternative encodes value, splices in the literal members its
+// alternative requires, and checks the result is that alternative.
+func newAlternative[T any](union string, rules altRules, value T) (jsontext.Value, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	group := rules[reflect.TypeFor[T]()]
+	if len(group) == 1 && len(group[0].tags) > 0 {
+		var fields map[string]jsontext.Value
+		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+			return nil, fmt.Errorf("%s: %T must encode as an object", union, value)
+		}
+		for name, tag := range group[0].tags {
+			fields[name] = tag
+		}
+		if raw, err = json.Marshal(fields, json.Deterministic(true)); err != nil {
+			return nil, err
+		}
+	}
+	for _, rule := range group {
+		if rule.matches(raw) {
+			return raw, nil
+		}
+	}
+	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
+}
 
 func decodeJSON[T any](raw jsontext.Value) (T, bool) {
 	var value T
@@ -85,6 +186,16 @@ func NewRequestPermissionSubject(v RequestPermissionSubjectVariant) RequestPermi
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u RequestPermissionSubject) Variant() RequestPermissionSubjectVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u RequestPermissionSubject) As[T RequestPermissionSubjectVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("RequestPermissionSubject: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u RequestPermissionSubject) Tag() string {
@@ -259,6 +370,16 @@ func NewToolCallContent(v ToolCallContentVariant) ToolCallContent { return ToolC
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ToolCallContent) Variant() ToolCallContentVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u ToolCallContent) As[T ToolCallContentVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("ToolCallContent: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ToolCallContent) Tag() string {
@@ -494,6 +615,16 @@ func NewContentBlock(v ContentBlockVariant) ContentBlock { return ContentBlock{v
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ContentBlock) Variant() ContentBlockVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u ContentBlock) As[T ContentBlockVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("ContentBlock: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ContentBlock) Tag() string {
@@ -809,8 +940,30 @@ func (v ContentBlockCustom) Tag() string        { return v.Type }
 
 // Resource content that can be embedded in a message.
 // EmbeddedResourceResource preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewEmbeddedResourceResource to build one.
 type EmbeddedResourceResource struct{ raw jsontext.Value }
 
+// EmbeddedResourceResourceAlternative is the set of Go types a EmbeddedResourceResource can hold.
+type EmbeddedResourceResourceAlternative interface {
+	TextResourceContents | BlobResourceContents
+}
+
+var embeddedResourceResourceAlternatives = altRules{
+	reflect.TypeFor[TextResourceContents](): {{nonNull: true, required: []string{"text", "uri"}, notNull: []string{"text", "uri"}}},
+	reflect.TypeFor[BlobResourceContents](): {{nonNull: true, required: []string{"blob", "uri"}, notNull: []string{"blob", "uri"}}},
+}
+
+// NewEmbeddedResourceResource encodes value as a EmbeddedResourceResource, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T) (EmbeddedResourceResource, error) {
+	raw, err := newAlternative("EmbeddedResourceResource", embeddedResourceResourceAlternatives, value)
+	return EmbeddedResourceResource{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v EmbeddedResourceResource) As[T EmbeddedResourceResourceAlternative]() (T, error) {
+	return asAlternative[T]("EmbeddedResourceResource", embeddedResourceResourceAlternatives, v.raw)
+}
 func (v EmbeddedResourceResource) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -847,64 +1000,6 @@ func ParseEmbeddedResourceResource(b []byte) (EmbeddedResourceResource, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewEmbeddedResourceResourceTextResourceContents(value TextResourceContents) (EmbeddedResourceResource, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return EmbeddedResourceResource{}, err
-	}
-	return EmbeddedResourceResource{raw: b}, nil
-}
-func (v EmbeddedResourceResource) AsTextResourceContents() (value TextResourceContents, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["text"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["text"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[TextResourceContents](v.raw)
-}
-func NewEmbeddedResourceResourceBlobResourceContents(value BlobResourceContents) (EmbeddedResourceResource, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return EmbeddedResourceResource{}, err
-	}
-	return EmbeddedResourceResource{raw: b}, nil
-}
-func (v EmbeddedResourceResource) AsBlobResourceContents() (value BlobResourceContents, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["blob"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["uri"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["blob"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["uri"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[BlobResourceContents](v.raw)
-}
 
 // One file-level change described by a [`Diff`].
 //
@@ -925,6 +1020,16 @@ func NewDiffChange(v DiffChangeVariant) DiffChange { return DiffChange{value: v}
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u DiffChange) Variant() DiffChangeVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u DiffChange) As[T DiffChangeVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("DiffChange: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "operation" discriminator, or "" for the zero value.
 func (u DiffChange) Tag() string {
@@ -1274,8 +1379,34 @@ func (v DiffChangeCustom) Tag() string      { return v.Operation }
 // either via a form or by directing them to a URL.
 // Elicitations are tied to a session (optionally a tool call) or a request.
 // CreateElicitationRequest preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewCreateElicitationRequest to build one.
 type CreateElicitationRequest struct{ raw jsontext.Value }
 
+// CreateElicitationRequestAlternative is the set of Go types a CreateElicitationRequest can hold.
+type CreateElicitationRequestAlternative interface {
+	CreateElicitationRequestForm | CreateElicitationRequestForm2 | CreateElicitationRequestURL | CreateElicitationRequestURL4 | CreateElicitationRequestObject | CreateElicitationRequestObject6
+}
+
+var createElicitationRequestAlternatives = altRules{
+	reflect.TypeFor[CreateElicitationRequestForm]():    {{nonNull: true, required: []string{"sessionId", "requestedSchema", "mode", "message"}, notNull: []string{"sessionId", "requestedSchema", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"form\"")}}},
+	reflect.TypeFor[CreateElicitationRequestForm2]():   {{nonNull: true, required: []string{"requestId", "requestedSchema", "mode", "message"}, notNull: []string{"requestedSchema", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"form\"")}}},
+	reflect.TypeFor[CreateElicitationRequestURL]():     {{nonNull: true, required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, notNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"url\"")}}},
+	reflect.TypeFor[CreateElicitationRequestURL4]():    {{nonNull: true, required: []string{"requestId", "elicitationId", "url", "mode", "message"}, notNull: []string{"elicitationId", "url", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"url\"")}}},
+	reflect.TypeFor[CreateElicitationRequestObject]():  {{nonNull: true, required: []string{"sessionId", "mode", "message"}, notNull: []string{"sessionId", "mode", "message"}}},
+	reflect.TypeFor[CreateElicitationRequestObject6](): {{nonNull: true, required: []string{"requestId", "mode", "message"}, notNull: []string{"mode", "message"}}},
+}
+
+// NewCreateElicitationRequest encodes value as a CreateElicitationRequest, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T) (CreateElicitationRequest, error) {
+	raw, err := newAlternative("CreateElicitationRequest", createElicitationRequestAlternatives, value)
+	return CreateElicitationRequest{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v CreateElicitationRequest) As[T CreateElicitationRequestAlternative]() (T, error) {
+	return asAlternative[T]("CreateElicitationRequest", createElicitationRequestAlternatives, v.raw)
+}
 func (v CreateElicitationRequest) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -1312,263 +1443,6 @@ func ParseCreateElicitationRequest(b []byte) (CreateElicitationRequest, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewCreateElicitationRequestForm(value CreateElicitationRequestForm) (CreateElicitationRequest, error) {
-	value.Mode = "form"
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsForm() (value CreateElicitationRequestForm, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["requestedSchema"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["requestedSchema"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	var tag0 string
-	if json.Unmarshal(fields["mode"], &tag0) != nil || tag0 != "form" {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestForm](v.raw)
-}
-func NewCreateElicitationRequestForm2(value CreateElicitationRequestForm2) (CreateElicitationRequest, error) {
-	value.Mode = "form"
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsForm2() (value CreateElicitationRequestForm2, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["requestId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["requestedSchema"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["requestedSchema"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	var tag0 string
-	if json.Unmarshal(fields["mode"], &tag0) != nil || tag0 != "form" {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestForm2](v.raw)
-}
-func NewCreateElicitationRequestURL(value CreateElicitationRequestURL) (CreateElicitationRequest, error) {
-	value.Mode = "url"
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsURL() (value CreateElicitationRequestURL, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["elicitationId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["url"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["elicitationId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["url"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	var tag0 string
-	if json.Unmarshal(fields["mode"], &tag0) != nil || tag0 != "url" {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestURL](v.raw)
-}
-func NewCreateElicitationRequestURL4(value CreateElicitationRequestURL4) (CreateElicitationRequest, error) {
-	value.Mode = "url"
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsURL4() (value CreateElicitationRequestURL4, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["requestId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["elicitationId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["url"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["elicitationId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["url"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	var tag0 string
-	if json.Unmarshal(fields["mode"], &tag0) != nil || tag0 != "url" {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestURL4](v.raw)
-}
-func NewCreateElicitationRequestObject(value CreateElicitationRequestObject) (CreateElicitationRequest, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsObject() (value CreateElicitationRequestObject, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestObject](v.raw)
-}
-func NewCreateElicitationRequestObject6(value CreateElicitationRequestObject6) (CreateElicitationRequest, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CreateElicitationRequest{}, err
-	}
-	return CreateElicitationRequest{raw: b}, nil
-}
-func (v CreateElicitationRequest) AsObject6() (value CreateElicitationRequestObject6, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["requestId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["mode"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["message"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["mode"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["message"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[CreateElicitationRequestObject6](v.raw)
-}
 
 // Property schema for elicitation form fields.
 //
@@ -1594,6 +1468,16 @@ func NewElicitationPropertySchema(v ElicitationPropertySchemaVariant) Elicitatio
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ElicitationPropertySchema) Variant() ElicitationPropertySchemaVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u ElicitationPropertySchema) As[T ElicitationPropertySchemaVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("ElicitationPropertySchema: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ElicitationPropertySchema) Tag() string {
@@ -1993,8 +1877,31 @@ func (v ElicitationPropertySchemaCustom) Tag() string                     { retu
 
 // Items for a multi-select (array) property schema.
 // MultiSelectItems preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewMultiSelectItems to build one.
 type MultiSelectItems struct{ raw jsontext.Value }
 
+// MultiSelectItemsAlternative is the set of Go types a MultiSelectItems can hold.
+type MultiSelectItemsAlternative interface {
+	MultiSelectItemsString | MultiSelectItemsObject | TitledMultiSelectItems
+}
+
+var multiSelectItemsAlternatives = altRules{
+	reflect.TypeFor[MultiSelectItemsString](): {{nonNull: true, required: []string{"enum", "type"}, notNull: []string{"enum", "type"}, tags: map[string]jsontext.Value{"type": jsontext.Value("\"string\"")}}},
+	reflect.TypeFor[MultiSelectItemsObject](): {{nonNull: true, required: []string{"type"}, notNull: []string{"type"}}},
+	reflect.TypeFor[TitledMultiSelectItems](): {{nonNull: true, required: []string{"anyOf"}, notNull: []string{"anyOf"}}},
+}
+
+// NewMultiSelectItems encodes value as a MultiSelectItems, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewMultiSelectItems[T MultiSelectItemsAlternative](value T) (MultiSelectItems, error) {
+	raw, err := newAlternative("MultiSelectItems", multiSelectItemsAlternatives, value)
+	return MultiSelectItems{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v MultiSelectItems) As[T MultiSelectItemsAlternative]() (T, error) {
+	return asAlternative[T]("MultiSelectItems", multiSelectItemsAlternatives, v.raw)
+}
 func (v MultiSelectItems) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -2031,91 +1938,33 @@ func ParseMultiSelectItems(b []byte) (MultiSelectItems, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewMultiSelectItemsString(value MultiSelectItemsString) (MultiSelectItems, error) {
-	value.Type = "string"
-	b, err := json.Marshal(value)
-	if err != nil {
-		return MultiSelectItems{}, err
-	}
-	return MultiSelectItems{raw: b}, nil
-}
-func (v MultiSelectItems) AsString() (value MultiSelectItemsString, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["enum"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["type"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["enum"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["type"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	var tag0 string
-	if json.Unmarshal(fields["type"], &tag0) != nil || tag0 != "string" {
-		return value, false
-	}
-	return decodeJSON[MultiSelectItemsString](v.raw)
-}
-func NewMultiSelectItemsObject(value MultiSelectItemsObject) (MultiSelectItems, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return MultiSelectItems{}, err
-	}
-	return MultiSelectItems{raw: b}, nil
-}
-func (v MultiSelectItems) AsObject() (value MultiSelectItemsObject, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["type"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["type"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[MultiSelectItemsObject](v.raw)
-}
-func NewMultiSelectItemsTitledMultiSelectItems(value TitledMultiSelectItems) (MultiSelectItems, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return MultiSelectItems{}, err
-	}
-	return MultiSelectItems{raw: b}, nil
-}
-func (v MultiSelectItems) AsTitledMultiSelectItems() (value TitledMultiSelectItems, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["anyOf"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["anyOf"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[TitledMultiSelectItems](v.raw)
-}
 
 // Form-based elicitation mode where the client renders a form from the provided schema.
 // ElicitationFormMode preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewElicitationFormMode to build one.
 type ElicitationFormMode struct{ raw jsontext.Value }
 
+// ElicitationFormModeAlternative is the set of Go types a ElicitationFormMode can hold.
+type ElicitationFormModeAlternative interface {
+	ElicitationFormModeSessionID | ElicitationFormModeRequestID
+}
+
+var elicitationFormModeAlternatives = altRules{
+	reflect.TypeFor[ElicitationFormModeSessionID](): {{nonNull: true, required: []string{"sessionId", "requestedSchema"}, notNull: []string{"sessionId", "requestedSchema"}}},
+	reflect.TypeFor[ElicitationFormModeRequestID](): {{nonNull: true, required: []string{"requestId", "requestedSchema"}, notNull: []string{"requestedSchema"}}},
+}
+
+// NewElicitationFormMode encodes value as a ElicitationFormMode, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewElicitationFormMode[T ElicitationFormModeAlternative](value T) (ElicitationFormMode, error) {
+	raw, err := newAlternative("ElicitationFormMode", elicitationFormModeAlternatives, value)
+	return ElicitationFormMode{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ElicitationFormMode) As[T ElicitationFormModeAlternative]() (T, error) {
+	return asAlternative[T]("ElicitationFormMode", elicitationFormModeAlternatives, v.raw)
+}
 func (v ElicitationFormMode) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -2152,66 +2001,33 @@ func ParseElicitationFormMode(b []byte) (ElicitationFormMode, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewElicitationFormModeSessionID(value ElicitationFormModeSessionID) (ElicitationFormMode, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationFormMode{}, err
-	}
-	return ElicitationFormMode{raw: b}, nil
-}
-func (v ElicitationFormMode) AsSessionID() (value ElicitationFormModeSessionID, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["requestedSchema"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["requestedSchema"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ElicitationFormModeSessionID](v.raw)
-}
-func NewElicitationFormModeRequestID(value ElicitationFormModeRequestID) (ElicitationFormMode, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationFormMode{}, err
-	}
-	return ElicitationFormMode{raw: b}, nil
-}
-func (v ElicitationFormMode) AsRequestID() (value ElicitationFormModeRequestID, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["requestId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["requestedSchema"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["requestedSchema"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ElicitationFormModeRequestID](v.raw)
-}
 
 // URL-based elicitation mode where the client directs the user to a URL.
 // ElicitationURLMode preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewElicitationURLMode to build one.
 type ElicitationURLMode struct{ raw jsontext.Value }
 
+// ElicitationURLModeAlternative is the set of Go types a ElicitationURLMode can hold.
+type ElicitationURLModeAlternative interface {
+	ElicitationURLModeSessionID | ElicitationURLModeRequestID
+}
+
+var elicitationURLModeAlternatives = altRules{
+	reflect.TypeFor[ElicitationURLModeSessionID](): {{nonNull: true, required: []string{"sessionId", "elicitationId", "url"}, notNull: []string{"sessionId", "elicitationId", "url"}}},
+	reflect.TypeFor[ElicitationURLModeRequestID](): {{nonNull: true, required: []string{"requestId", "elicitationId", "url"}, notNull: []string{"elicitationId", "url"}}},
+}
+
+// NewElicitationURLMode encodes value as a ElicitationURLMode, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewElicitationURLMode[T ElicitationURLModeAlternative](value T) (ElicitationURLMode, error) {
+	raw, err := newAlternative("ElicitationURLMode", elicitationURLModeAlternatives, value)
+	return ElicitationURLMode{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ElicitationURLMode) As[T ElicitationURLModeAlternative]() (T, error) {
+	return asAlternative[T]("ElicitationURLMode", elicitationURLModeAlternatives, v.raw)
+}
 func (v ElicitationURLMode) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -2248,73 +2064,6 @@ func ParseElicitationURLMode(b []byte) (ElicitationURLMode, error) {
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewElicitationURLModeSessionID(value ElicitationURLModeSessionID) (ElicitationURLMode, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationURLMode{}, err
-	}
-	return ElicitationURLMode{raw: b}, nil
-}
-func (v ElicitationURLMode) AsSessionID() (value ElicitationURLModeSessionID, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["sessionId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["elicitationId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["url"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["sessionId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["elicitationId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["url"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ElicitationURLModeSessionID](v.raw)
-}
-func NewElicitationURLModeRequestID(value ElicitationURLModeRequestID) (ElicitationURLMode, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationURLMode{}, err
-	}
-	return ElicitationURLMode{raw: b}, nil
-}
-func (v ElicitationURLMode) AsRequestID() (value ElicitationURLModeRequestID, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(v.raw, &fields) != nil || fields == nil {
-		return value, false
-	}
-	if _, ok := fields["requestId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["elicitationId"]; !ok {
-		return value, false
-	}
-	if _, ok := fields["url"]; !ok {
-		return value, false
-	}
-	if raw, ok := fields["elicitationId"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	if raw, ok := fields["url"]; ok && raw.Kind() == 'n' {
-		return value, false
-	}
-	return decodeJSON[ElicitationURLModeRequestID](v.raw)
-}
 
 // Describes an available authentication method.
 //
@@ -2334,6 +2083,16 @@ func NewAuthMethod(v AuthMethodVariant) AuthMethod { return AuthMethod{value: v}
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u AuthMethod) Variant() AuthMethodVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u AuthMethod) As[T AuthMethodVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("AuthMethod: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u AuthMethod) Tag() string {
@@ -2532,6 +2291,16 @@ func NewSessionConfigOption(v SessionConfigOptionVariant) SessionConfigOption {
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SessionConfigOption) Variant() SessionConfigOptionVariant { return u.value }
 
+// As returns the variant if it is a T, or reports which variant is held.
+func (u SessionConfigOption) As[T SessionConfigOptionVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("SessionConfigOption: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
+
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u SessionConfigOption) Tag() string {
 	if u.value == nil {
@@ -2718,8 +2487,30 @@ func (v SessionConfigOptionCustom) Tag() string               { return v.Type }
 
 // Possible values for a session configuration option.
 // SessionConfigSelectOptions preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewSessionConfigSelectOptions to build one.
 type SessionConfigSelectOptions struct{ raw jsontext.Value }
 
+// SessionConfigSelectOptionsAlternative is the set of Go types a SessionConfigSelectOptions can hold.
+type SessionConfigSelectOptionsAlternative interface {
+	[]SessionConfigSelectOption | []SessionConfigSelectGroup
+}
+
+var sessionConfigSelectOptionsAlternatives = altRules{
+	reflect.TypeFor[[]SessionConfigSelectOption](): {{nonNull: true}},
+	reflect.TypeFor[[]SessionConfigSelectGroup]():  {{nonNull: true}},
+}
+
+// NewSessionConfigSelectOptions encodes value as a SessionConfigSelectOptions, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewSessionConfigSelectOptions[T SessionConfigSelectOptionsAlternative](value T) (SessionConfigSelectOptions, error) {
+	raw, err := newAlternative("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, value)
+	return SessionConfigSelectOptions{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v SessionConfigSelectOptions) As[T SessionConfigSelectOptionsAlternative]() (T, error) {
+	return asAlternative[T]("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, v.raw)
+}
 func (v SessionConfigSelectOptions) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -2756,32 +2547,6 @@ func ParseSessionConfigSelectOptions(b []byte) (SessionConfigSelectOptions, erro
 	err := json.Unmarshal(b, &v)
 	return v, err
 }
-func NewSessionConfigSelectOptionsSessionConfigSelectOptionList(value []SessionConfigSelectOption) (SessionConfigSelectOptions, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigSelectOptions{}, err
-	}
-	return SessionConfigSelectOptions{raw: b}, nil
-}
-func (v SessionConfigSelectOptions) AsSessionConfigSelectOptionList() (value []SessionConfigSelectOption, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[[]SessionConfigSelectOption](v.raw)
-}
-func NewSessionConfigSelectOptionsSessionConfigSelectGroupList(value []SessionConfigSelectGroup) (SessionConfigSelectOptions, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigSelectOptions{}, err
-	}
-	return SessionConfigSelectOptions{raw: b}, nil
-}
-func (v SessionConfigSelectOptions) AsSessionConfigSelectGroupList() (value []SessionConfigSelectGroup, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[[]SessionConfigSelectGroup](v.raw)
-}
 
 // A suggestion returned by the agent.
 // NesSuggestion is a tagged union discriminated by the "kind" member. The zero value
@@ -2799,6 +2564,16 @@ func NewNesSuggestion(v NesSuggestionVariant) NesSuggestion { return NesSuggesti
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u NesSuggestion) Variant() NesSuggestionVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u NesSuggestion) As[T NesSuggestionVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("NesSuggestion: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "kind" discriminator, or "" for the zero value.
 func (u NesSuggestion) Tag() string {
@@ -3086,6 +2861,16 @@ func NewSessionUpdate(v SessionUpdateVariant) SessionUpdate { return SessionUpda
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SessionUpdate) Variant() SessionUpdateVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u SessionUpdate) As[T SessionUpdateVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("SessionUpdate: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "sessionUpdate" discriminator, or "" for the zero value.
 func (u SessionUpdate) Tag() string {
@@ -4095,6 +3880,16 @@ func NewStateUpdate(v StateUpdateVariant) StateUpdate { return StateUpdate{value
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u StateUpdate) Variant() StateUpdateVariant { return u.value }
 
+// As returns the variant if it is a T, or reports which variant is held.
+func (u StateUpdate) As[T StateUpdateVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("StateUpdate: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
+
 // Tag returns the "state" discriminator, or "" for the zero value.
 func (u StateUpdate) Tag() string {
 	if u.value == nil {
@@ -4319,6 +4114,16 @@ func NewPlanUpdateContent(v PlanUpdateContentVariant) PlanUpdateContent {
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u PlanUpdateContent) Variant() PlanUpdateContentVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u PlanUpdateContent) As[T PlanUpdateContentVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("PlanUpdateContent: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u PlanUpdateContent) Tag() string {
@@ -4546,6 +4351,16 @@ func NewAvailableCommandInput(v AvailableCommandInputVariant) AvailableCommandIn
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u AvailableCommandInput) Variant() AvailableCommandInputVariant { return u.value }
 
+// As returns the variant if it is a T, or reports which variant is held.
+func (u AvailableCommandInput) As[T AvailableCommandInputVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("AvailableCommandInput: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
+
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u AvailableCommandInput) Tag() string {
 	if u.value == nil {
@@ -4675,6 +4490,16 @@ func NewMCPServer(v MCPServerVariant) MCPServer { return MCPServer{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u MCPServer) Variant() MCPServerVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u MCPServer) As[T MCPServerVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("MCPServer: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u MCPServer) Tag() string {
@@ -4906,6 +4731,16 @@ func NewReplayFrom(v ReplayFromVariant) ReplayFrom { return ReplayFrom{value: v}
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ReplayFrom) Variant() ReplayFromVariant { return u.value }
 
+// As returns the variant if it is a T, or reports which variant is held.
+func (u ReplayFrom) As[T ReplayFromVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("ReplayFrom: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
+
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ReplayFrom) Tag() string {
 	if u.value == nil {
@@ -5038,6 +4873,16 @@ func NewSetSessionConfigOptionRequest(v SetSessionConfigOptionRequestVariant) Se
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SetSessionConfigOptionRequest) Variant() SetSessionConfigOptionRequestVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u SetSessionConfigOptionRequest) As[T SetSessionConfigOptionRequestVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("SetSessionConfigOptionRequest: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u SetSessionConfigOptionRequest) Tag() string {
@@ -5232,6 +5077,16 @@ func NewRequestPermissionOutcome(v RequestPermissionOutcomeVariant) RequestPermi
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u RequestPermissionOutcome) Variant() RequestPermissionOutcomeVariant { return u.value }
 
+// As returns the variant if it is a T, or reports which variant is held.
+func (u RequestPermissionOutcome) As[T RequestPermissionOutcomeVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("RequestPermissionOutcome: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
+
 // Tag returns the "outcome" discriminator, or "" for the zero value.
 func (u RequestPermissionOutcome) Tag() string {
 	if u.value == nil {
@@ -5396,6 +5251,16 @@ func NewCreateElicitationResponse(v CreateElicitationResponseVariant) CreateElic
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u CreateElicitationResponse) Variant() CreateElicitationResponseVariant { return u.value }
+
+// As returns the variant if it is a T, or reports which variant is held.
+func (u CreateElicitationResponse) As[T CreateElicitationResponseVariant]() (T, error) {
+	v, ok := u.value.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("CreateElicitationResponse: holds %q, not %T", u.Tag(), zero)
+	}
+	return v, nil
+}
 
 // Tag returns the "action" discriminator, or "" for the zero value.
 func (u CreateElicitationResponse) Tag() string {
@@ -5605,8 +5470,32 @@ func (v CreateElicitationResponseCustom) Tag() string                     { retu
 
 // Allowed wire representations for [`ElicitationContentValue`].
 // ElicitationContentValue preserves the complete JSON payload, including future variants.
+// Use As to read one alternative and NewElicitationContentValue to build one.
 type ElicitationContentValue struct{ raw jsontext.Value }
 
+// ElicitationContentValueAlternative is the set of Go types a ElicitationContentValue can hold.
+type ElicitationContentValueAlternative interface {
+	string | float64 | bool | []string
+}
+
+var elicitationContentValueAlternatives = altRules{
+	reflect.TypeFor[string]():   {{nonNull: true}},
+	reflect.TypeFor[float64]():  {{nonNull: true}, {nonNull: true}},
+	reflect.TypeFor[bool]():     {{nonNull: true}},
+	reflect.TypeFor[[]string](): {{nonNull: true}},
+}
+
+// NewElicitationContentValue encodes value as a ElicitationContentValue, adding any literal members the alternative
+// requires and rejecting values that are not that alternative.
+func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (ElicitationContentValue, error) {
+	raw, err := newAlternative("ElicitationContentValue", elicitationContentValueAlternatives, value)
+	return ElicitationContentValue{raw: raw}, err
+}
+
+// As decodes the payload as the alternative T, or reports why it is not one.
+func (v ElicitationContentValue) As[T ElicitationContentValueAlternative]() (T, error) {
+	return asAlternative[T]("ElicitationContentValue", elicitationContentValueAlternatives, v.raw)
+}
 func (v ElicitationContentValue) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
 		return []byte("null"), nil
@@ -5642,71 +5531,6 @@ func ParseElicitationContentValue(b []byte) (ElicitationContentValue, error) {
 	var v ElicitationContentValue
 	err := json.Unmarshal(b, &v)
 	return v, err
-}
-func NewElicitationContentValueString(value string) (ElicitationContentValue, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationContentValue{}, err
-	}
-	return ElicitationContentValue{raw: b}, nil
-}
-func (v ElicitationContentValue) AsString() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
-}
-func NewElicitationContentValueNumber(value float64) (ElicitationContentValue, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationContentValue{}, err
-	}
-	return ElicitationContentValue{raw: b}, nil
-}
-func (v ElicitationContentValue) AsNumber() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[float64](v.raw)
-}
-func NewElicitationContentValueNumber3(value float64) (ElicitationContentValue, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationContentValue{}, err
-	}
-	return ElicitationContentValue{raw: b}, nil
-}
-func (v ElicitationContentValue) AsNumber3() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[float64](v.raw)
-}
-func NewElicitationContentValueBool(value bool) (ElicitationContentValue, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationContentValue{}, err
-	}
-	return ElicitationContentValue{raw: b}, nil
-}
-func (v ElicitationContentValue) AsBool() (value bool, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[bool](v.raw)
-}
-func NewElicitationContentValueStringList(value []string) (ElicitationContentValue, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ElicitationContentValue{}, err
-	}
-	return ElicitationContentValue{raw: b}, nil
-}
-func (v ElicitationContentValue) AsStringList() (value []string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[[]string](v.raw)
 }
 
 // Unmarshalers decodes the tagged-union variant interfaces directly, for callers

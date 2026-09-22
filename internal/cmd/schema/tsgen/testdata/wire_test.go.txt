@@ -180,10 +180,10 @@ func TestOptionalFields(t *testing.T) {
 }
 
 func TestRawUnions(t *testing.T) {
-	if _, err := NewLiteralChoiceYes("no"); err == nil {
+	if _, err := NewLiteralChoice("no"); err == nil {
 		t.Fatal("constructor accepted wrong literal")
 	}
-	if _, err := NewNullableChoiceNull(jsontext.Value(`42`)); err == nil {
+	if _, err := NewNullableChoice(jsontext.Value(`42`)); err == nil {
 		t.Fatal("null constructor accepted number")
 	}
 	for _, source := range []string{`"no"`, `null`, `42`} {
@@ -191,7 +191,7 @@ func TestRawUnions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := v.AsYes(); ok {
+		if _, err := v.As[string](); err == nil {
 			t.Fatalf("%s matched literal yes", source)
 		}
 	}
@@ -199,31 +199,62 @@ func TestRawUnions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value, ok := yes.AsYes(); !ok || value != "yes" {
-		t.Fatal("literal did not match")
+	if value, err := yes.As[string](); err != nil || value != "yes" {
+		t.Fatalf("literal did not match: %v", err)
 	}
-	if _, ok := yes.AsNumber(); ok {
+	if _, err := yes.As[float64](); err == nil {
 		t.Fatal("string matched number")
 	}
 	var nullable NullableChoice
 	if err := nullable.UnmarshalJSON([]byte(" \n null \t")); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := nullable.AsNull(); !ok {
+	if _, err := nullable.As[jsontext.Value](); err != nil {
 		t.Fatal("whitespace affected null classification")
 	}
-	if _, ok := nullable.AsString(); ok {
+	if _, err := nullable.As[string](); err == nil {
 		t.Fatal("null matched string")
 	}
 	v, err := ParseWithNullable([]byte(`{"value":null}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := v.AsValue(); !ok {
-		t.Fatal("nullable required field was rejected")
+	if _, err := v.As[WithNullableValue](); err != nil {
+		t.Fatalf("nullable required field was rejected: %v", err)
 	}
-	if _, ok := v.AsTrue(); ok {
+	if _, err := v.As[WithNullableTrue](); err == nil {
 		t.Fatal("missing literal matched")
+	}
+	built, err := NewWithNullable(WithNullableTrue{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(built.RawJSON()); got != `{"done":true}` {
+		t.Fatalf("constructor did not splice the literal member: %s", got)
+	}
+	// Two aliases of one Go type collapse into a single type-set term.
+	either, err := ParseEither([]byte(`null`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := either.As[jsontext.Value](); err != nil {
+		t.Fatalf("aliased alternative not accepted: %v", err)
+	}
+	// Two literal alternatives sharing a Go type are an OR group.
+	for source, want := range map[string]bool{`"yes"`: true, `"no"`: true, `"maybe"`: false} {
+		answer, err := ParseAnswer([]byte(source))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := answer.As[string](); (err == nil) != want {
+			t.Fatalf("As[string] on %s: err=%v, want ok=%v", source, err, want)
+		}
+	}
+	if _, err := NewAnswer("no"); err != nil {
+		t.Fatalf("constructor rejected second literal: %v", err)
+	}
+	if _, err := NewAnswer("maybe"); err == nil {
+		t.Fatal("constructor accepted a value matching no literal")
 	}
 	original, err := ParseLiteralChoice([]byte(`"yes"`))
 	if err != nil {
@@ -233,7 +264,7 @@ func TestRawUnions(t *testing.T) {
 	if err := copied.UnmarshalJSON([]byte(`7`)); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := original.AsYes(); !ok {
+	if _, err := original.As[string](); err != nil {
 		t.Fatal("decoding a copy changed the original")
 	}
 	encoded, err := original.MarshalJSON()
@@ -316,7 +347,7 @@ func TestUnionIsZero(t *testing.T) {
 		t.Fatalf("zero unions not omitted: %s %v", b, err)
 	}
 	holder.Tagged = NewMessage(MessageText{})
-	holder.Raw, _ = NewLiteralChoiceNumber(1)
+	holder.Raw, _ = NewLiteralChoice(float64(1))
 	b, err = json.Marshal(holder)
 	if err != nil || string(b) != `{"tagged":{"kind":"text","text":""},"raw":1}` {
 		t.Fatalf("set unions omitted: %s %v", b, err)

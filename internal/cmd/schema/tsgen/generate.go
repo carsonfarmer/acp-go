@@ -21,8 +21,9 @@ type generator struct {
 	defs         map[string]*tsdef.Type
 	pending      []tsdef.Definition
 	names        map[string]bool
-	aliases      map[string]bool // Go names declared with "type X = ..."
-	unmarshalers []string        // json.UnmarshalFromFunc entries for variant interfaces
+	aliases      map[string]bool   // Go names declared with "type X = ..."
+	aliasOf      map[string]string // alias name -> the expression it stands for
+	unmarshalers []string          // json.UnmarshalFromFunc entries for variant interfaces
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -71,8 +72,11 @@ func (g *generator) use(name string) {
 	case fileMethods:
 	case fileEnums:
 		g.write("import \"slices\"\n\nvar _ = slices.Contains[[]string]\n\n")
-	default:
+	case fileTypes:
 		g.write("import (\"encoding/json/v2\"; \"encoding/json/jsontext\"; \"fmt\")\n\nvar _ = json.Marshal\nvar _ = fmt.Errorf\nvar _ jsontext.Value\n\n")
+	default:
+		// unions and envelope: the altRules tables key on reflect.Type.
+		g.write("import (\"encoding/json/v2\"; \"encoding/json/jsontext\"; \"fmt\"; \"reflect\")\n\nvar _ = json.Marshal\nvar _ = fmt.Errorf\nvar _ jsontext.Value\nvar _ = reflect.TypeFor[int]\n\n")
 	}
 	if name == fileUnions {
 		g.helpers()
@@ -91,7 +95,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
 		return nil, fmt.Errorf("invalid package name %q", pkg)
 	}
-	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
+	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, aliasOf: map[string]string{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
 		if g.names[name] {
@@ -151,6 +155,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 
 // helpers emits the decode and discriminator functions shared by the unions.
 func (g *generator) helpers() {
+	g.out.WriteString(alternativeRuntime)
 	g.write("func decodeJSON[T any](raw jsontext.Value) (T, bool) { var value T; if err := json.Unmarshal(raw, &value); err != nil { return value, false }; return value, true }\n\n")
 	g.out.WriteString(`// spliceTag writes payload as an object with the discriminator as its first member.
 func spliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
@@ -200,6 +205,109 @@ func unspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
 `)
 
 }
+
+// alternativeRuntime is the generic machinery behind every raw union's
+// As[T] and New<Union>[T]: one rule per alternative, grouped by Go type.
+const alternativeRuntime = `// altRule describes when a JSON payload is one alternative of a raw union.
+type altRule struct {
+	null     bool                      // the payload must be JSON null
+	nonNull  bool                      // the payload must not be null or empty
+	required []string                  // object members that must be present
+	notNull  []string                  // object members that must not be null when present
+	tags     map[string]jsontext.Value // literal members the object must carry
+	literal  jsontext.Value            // scalar literal the whole payload must equal
+}
+
+// altRules maps each alternative Go type of a union to the rules under which
+// a payload is that alternative; a payload matches if any rule matches.
+type altRules map[reflect.Type][]altRule
+
+func jsonEqual(a, b jsontext.Value) bool {
+	a, b = a.Clone(), b.Clone()
+	if a.Canonicalize() != nil || b.Canonicalize() != nil {
+		return false
+	}
+	return string(a) == string(b)
+}
+
+func (r altRule) matches(raw jsontext.Value) bool {
+	if r.null && raw.Kind() != 'n' {
+		return false
+	}
+	if r.nonNull && (raw.Kind() == 'n' || len(raw) == 0) {
+		return false
+	}
+	if len(r.literal) > 0 && !jsonEqual(raw, r.literal) {
+		return false
+	}
+	if len(r.required) == 0 && len(r.notNull) == 0 && len(r.tags) == 0 {
+		return true
+	}
+	var fields map[string]jsontext.Value
+	if json.Unmarshal(raw, &fields) != nil || fields == nil {
+		return false
+	}
+	for _, name := range r.required {
+		if _, ok := fields[name]; !ok {
+			return false
+		}
+	}
+	for _, name := range r.notNull {
+		if v, ok := fields[name]; ok && v.Kind() == 'n' {
+			return false
+		}
+	}
+	for name, want := range r.tags {
+		if got, ok := fields[name]; !ok || !jsonEqual(got, want) {
+			return false
+		}
+	}
+	return true
+}
+
+// asAlternative decodes raw as T once one of T's rules accepts it.
+func asAlternative[T any](union string, rules altRules, raw jsontext.Value) (T, error) {
+	var out T
+	for _, rule := range rules[reflect.TypeFor[T]()] {
+		if rule.matches(raw) {
+			if err := json.Unmarshal(raw, &out); err != nil {
+				return out, fmt.Errorf("%s: decode %T: %w", union, out, err)
+			}
+			return out, nil
+		}
+	}
+	return out, fmt.Errorf("%s: payload is not a %T", union, out)
+}
+
+// newAlternative encodes value, splices in the literal members its
+// alternative requires, and checks the result is that alternative.
+func newAlternative[T any](union string, rules altRules, value T) (jsontext.Value, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	group := rules[reflect.TypeFor[T]()]
+	if len(group) == 1 && len(group[0].tags) > 0 {
+		var fields map[string]jsontext.Value
+		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+			return nil, fmt.Errorf("%s: %T must encode as an object", union, value)
+		}
+		for name, tag := range group[0].tags {
+			fields[name] = tag
+		}
+		if raw, err = json.Marshal(fields, json.Deterministic(true)); err != nil {
+			return nil, err
+		}
+	}
+	for _, rule := range group {
+		if rule.matches(raw) {
+			return raw, nil
+		}
+	}
+	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
+}
+
+`
 
 // flush formats the buffered source into files[name] and resets the buffer.
 func (g *generator) flush(files Files, name string) error {
@@ -498,7 +606,21 @@ func (g *generator) definition(d tsdef.Definition) error {
 // it shares a reflect.Type with expr.
 func (g *generator) alias(name, expr string) {
 	g.aliases[name] = true
+	g.aliasOf[name] = expr
 	g.write("type %s = %s\n", name, expr)
+}
+
+// canonical follows aliases so that two alternatives naming the same Go type
+// (ExtResponse and MessageMCPResponse are both jsontext.Value) share one
+// type-set term and one rule group.
+func (g *generator) canonical(expr string) string {
+	for {
+		target, ok := g.aliasOf[expr]
+		if !ok {
+			return expr
+		}
+		expr = target
+	}
 }
 
 // enum emits a named scalar type with one constant per literal. Open enums
@@ -899,6 +1021,8 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 	g.write("func New%s(v %s) %s { return %s{value: v} }\n", name, iface, name, name)
 	g.write("// Variant returns the wrapped variant, or nil for the zero value.\n")
 	g.write("func (u %s) Variant() %s { return u.value }\n", name, iface)
+	g.write("// As returns the variant if it is a T, or reports which variant is held.\n")
+	g.write("func (u %s) As[T %s]() (T, error) { v, ok := u.value.(T); if !ok { var zero T; return zero, fmt.Errorf(\"%s: holds %%q, not %%T\", u.Tag(), zero) }; return v, nil }\n", name, iface, name)
 	g.write("// Tag returns the %q discriminator, or \"\" for the zero value.\n", tag)
 	g.write("func (u %s) Tag() string { if u.value == nil { return \"\" }; return u.value.Tag() }\n", name)
 	g.write("// IsZero reports whether no variant is set, so omitzero omits the field.\n")
@@ -1069,19 +1193,21 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 	if ok {
 		return g.taggedUnion(name, tag, members)
 	}
-	if err := g.reserve("Parse" + name); err != nil {
-		return err
+	constraint := name + "Alternative"
+	table := lowerFirst(name) + "Alternatives"
+	for _, n := range []string{"Parse" + name, "New" + name, constraint, table} {
+		if err := g.reserve(n); err != nil {
+			return err
+		}
 	}
-	g.write("// %s preserves the complete JSON payload, including future variants.\n", name)
-	g.write("type %s struct { raw jsontext.Value }\n", name)
-	g.write("func (v %s) MarshalJSON() ([]byte,error) {if len(v.raw)==0{return []byte(\"null\"),nil};return v.raw.Clone(),nil}\n", name)
-	g.write("func (v *%s) UnmarshalJSON(b []byte) error {if !jsontext.Value(b).IsValid(){return fmt.Errorf(\"invalid %s JSON\")};v.raw=jsontext.Value(b).Clone();return nil}\n", name, name)
-	g.write("func (v %s) RawJSON() jsontext.Value {return v.raw.Clone()}\n", name)
-	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
-	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
-	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteValue(jsontext.Value(\"null\"))};return enc.WriteValue(v.raw)}\n", name)
-	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
-	g.write("func Parse%s(b []byte) (%s,error) {var v %s;err:=json.Unmarshal(b,&v);return v,err}\n", name, name, name)
+	// One rule per alternative, grouped by the canonical Go type so aliases of
+	// the same type become one type-set term.
+	type group struct {
+		expr  string
+		rules []string
+	}
+	var groups []*group
+	byType := map[string]*group{}
 	used := map[string]bool{}
 	for i, m := range t.Members {
 		expanded, err := g.expand(m, map[string]bool{})
@@ -1092,14 +1218,6 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 		if err != nil {
 			return err
 		}
-		var tags []tsdef.Field
-		if expanded.Kind == "object" {
-			for _, f := range expanded.Fields {
-				if f.Type.Kind == "literal" && !f.Optional {
-					tags = append(tags, f)
-				}
-			}
-		}
 		if used[label] {
 			label += strconv.Itoa(i + 1)
 		}
@@ -1108,60 +1226,86 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 		if err != nil {
 			return err
 		}
-		if err := g.reserve("New" + name + label); err != nil {
+		rule, err := g.altRule(expanded)
+		if err != nil {
 			return err
 		}
-		// A nullable member already has its own pointer representation.
-		g.write("func New%s%s(value %s) (%s,error) {", name, label, expr, name)
-		if expanded.Kind == "literal" {
-			g.write("if value!=%s{return %s{},fmt.Errorf(%q)};", expanded.Literal, name, "invalid literal for "+name+"."+label)
+		key := g.canonical(expr)
+		grp, ok := byType[key]
+		if !ok {
+			grp = &group{expr: key}
+			byType[key] = grp
+			groups = append(groups, grp)
 		}
-		if expanded.Kind == "null" {
-			g.write("if len(value)!=0&&value.Kind()!='n'{return %s{},fmt.Errorf(%q)};", name, "expected null for "+name+"."+label)
-		}
+		grp.rules = append(grp.rules, rule)
+	}
+	var terms []string
+	for _, grp := range groups {
+		terms = append(terms, grp.expr)
+	}
+	g.write("// %s preserves the complete JSON payload, including future variants.\n", name)
+	g.write("// Use As to read one alternative and New%s to build one.\n", name)
+	g.write("type %s struct { raw jsontext.Value }\n", name)
+	g.write("// %s is the set of Go types a %s can hold.\n", constraint, name)
+	g.write("type %s interface { %s }\n", constraint, strings.Join(terms, " | "))
+	g.write("var %s = altRules{\n", table)
+	for _, grp := range groups {
+		g.write("reflect.TypeFor[%s](): {%s},\n", grp.expr, strings.Join(grp.rules, ", "))
+	}
+	g.write("}\n")
+	g.write("// New%s encodes value as a %s, adding any literal members the alternative\n// requires and rejecting values that are not that alternative.\n", name, name)
+	g.write("func New%s[T %s](value T) (%s, error) { raw, err := newAlternative(%q, %s, value); return %s{raw: raw}, err }\n", name, constraint, name, name, table, name)
+	g.write("// As decodes the payload as the alternative T, or reports why it is not one.\n")
+	g.write("func (v %s) As[T %s]() (T, error) { return asAlternative[T](%q, %s, v.raw) }\n", name, constraint, name, table)
+	g.write("func (v %s) MarshalJSON() ([]byte,error) {if len(v.raw)==0{return []byte(\"null\"),nil};return v.raw.Clone(),nil}\n", name)
+	g.write("func (v *%s) UnmarshalJSON(b []byte) error {if !jsontext.Value(b).IsValid(){return fmt.Errorf(\"invalid %s JSON\")};v.raw=jsontext.Value(b).Clone();return nil}\n", name, name)
+	g.write("func (v %s) RawJSON() jsontext.Value {return v.raw.Clone()}\n", name)
+	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
+	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
+	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteValue(jsontext.Value(\"null\"))};return enc.WriteValue(v.raw)}\n", name)
+	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
+	g.write("func Parse%s(b []byte) (%s,error) {var v %s;err:=json.Unmarshal(b,&v);return v,err}\n", name, name, name)
+	return nil
+}
 
-		if len(tags) > 0 && expanded.Kind == "object" {
-			for _, f := range tags {
-				g.write("value.%s = %s;", Name(f.Name), f.Type.Literal)
+// altRule renders the altRule literal that recognizes one union alternative:
+// the same checks the former As<Label> methods hard-coded.
+func (g *generator) altRule(expanded *tsdef.Type) (string, error) {
+	var parts []string
+	if expanded.Kind == "null" {
+		parts = append(parts, "null: true")
+	}
+	if !g.acceptsNull(expanded, map[string]bool{}) {
+		parts = append(parts, "nonNull: true")
+	}
+	if expanded.Kind == "literal" {
+		parts = append(parts, fmt.Sprintf("literal: jsontext.Value(%q)", expanded.Literal))
+	}
+	if expanded.Kind == "object" {
+		var required, notNull, tags []string
+		for _, f := range expanded.Fields {
+			if !f.Optional {
+				required = append(required, strconv.Quote(f.Name))
+			}
+			if !g.acceptsNull(f.Type, map[string]bool{}) {
+				notNull = append(notNull, strconv.Quote(f.Name))
+			}
+			if f.Type.Kind == "literal" && !f.Optional {
+				tags = append(tags, fmt.Sprintf("%q: jsontext.Value(%q)", f.Name, f.Type.Literal))
 			}
 		}
-		g.write("b,err:=json.Marshal(value);if err!=nil{return %s{},err};return %s{raw:b},nil}\n", name, name)
-		g.write("func (v %s) As%s() (value %s, ok bool) {", name, label, expr)
-		if expanded.Kind == "null" {
-			g.write("if v.raw.Kind()!='n'{return value,false};")
+		if len(required) > 0 {
+			parts = append(parts, "required: []string{"+strings.Join(required, ", ")+"}")
 		}
-		if !g.acceptsNull(expanded, map[string]bool{}) {
-			g.write("if v.raw.Kind()=='n'||len(v.raw)==0{return value,false};")
+		if len(notNull) > 0 {
+			parts = append(parts, "notNull: []string{"+strings.Join(notNull, ", ")+"}")
 		}
-		if expanded.Kind == "object" {
-			g.write("var fields map[string]jsontext.Value;if json.Unmarshal(v.raw,&fields)!=nil||fields==nil{return value,false};")
-			for _, f := range expanded.Fields {
-				if !f.Optional {
-					g.write("if _,ok:=fields[%q];!ok{return value,false};", f.Name)
-				}
-			}
-			for _, f := range expanded.Fields {
-				if !g.acceptsNull(f.Type, map[string]bool{}) {
-					g.write("if raw,ok:=fields[%q];ok&&raw.Kind()=='n'{return value,false};", f.Name)
-				}
-			}
-		}
-
 		if len(tags) > 0 {
-
-			sort.Slice(tags, func(i, j int) bool { return tags[i].Name < tags[j].Name })
-			for j, f := range tags {
-				typ, _ := literals(f.Type)
-				g.write("var tag%d %s;if json.Unmarshal(fields[%q],&tag%d)!=nil||tag%d!=%s{return value,false};", j, typ, f.Name, j, j, f.Type.Literal)
-			}
-		}
-		if expanded.Kind == "literal" {
-			g.write("decoded,ok:=decodeJSON[%s](v.raw);if !ok||decoded!=%s{return value,false};return decoded,true}\n", expr, expanded.Literal)
-		} else {
-			g.write("return decodeJSON[%s](v.raw)}\n", expr)
+			sort.Strings(tags)
+			parts = append(parts, "tags: map[string]jsontext.Value{"+strings.Join(tags, ", ")+"}")
 		}
 	}
-	return nil
+	return "{" + strings.Join(parts, ", ") + "}", nil
 }
 
 // acceptsNull follows references without expanding recursive object fields.

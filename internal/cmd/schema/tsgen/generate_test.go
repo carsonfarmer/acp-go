@@ -24,6 +24,10 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type NullableChoice = string | null | number;
  export type Extras = { fixed: number; [key: string]: number; };
  export type WithNullable = { value: string | null; } | { done: true; };
+ export type A = unknown;
+ export type B = unknown;
+ export type Either = A | B | string;
+ export type Answer = "yes" | number | "no";
  export const PROTOCOL_VERSION = 2;
  `))
 	if err != nil {
@@ -61,7 +65,7 @@ func TestGeneratedWireTypes(t *testing.T) {
 	}
 }
 func TestGenerationErrors(t *testing.T) {
-	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type ParseX = string;`, `export type X = string | number; export type NewXString = string;`} {
+	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type ParseX = string;`, `export type X = string | number; export type NewX = string;`, `export type X = string | number; export type XAlternative = string;`} {
 		s, err := tsdef.Parse("fixture.ts", []byte(source))
 		if err != nil {
 			t.Fatal(err)

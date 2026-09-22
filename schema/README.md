@@ -110,15 +110,25 @@ Callers that prefer interface-typed fields can declare `<Type>Variant` fields di
 with `json.WithUnmarshalers(acpv2.Unmarshalers)`; encoding needs no options.
 
 Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
-method `params` unions, ...) preserve their JSON payload and expose generated constructors,
-`As…` decoding helpers, `Parse…` and `RawJSON`. Alternatives are named after their reference,
-scalar kind (`Null`, `String`, `Number`, `Bool`, `…List`), literal, or the required members
-unique to that alternative (`AgentResponse.Result` / `.Error`).
-Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods integrate with JSON v2 encoders and
-decoders. Stored JSON is copied on decode and when returned to the caller, so decoding a copied
-union value does not mutate the original. Constructors set object discriminators and reject
-incorrect scalar literal values. `As…` helpers check required properties, non-nullable object
-fields and literal tags when the alternative is an object, then decode its Go representation.
+method `params` unions, ...) preserve their JSON payload and expose a generic method `As[T]`, a
+generic constructor `New<Union>[T]`, plus `Parse…` and `RawJSON`. Both are constrained by the
+generated type set `<Union>Alternative`, so asking for a type the union cannot hold is a compile
+error (generic methods require Go 1.27):
+
+```go
+req, err := msg.Params.As[acpv1.PromptRequest]()          // (T, error)
+id, err := schemav1.NewRequestID("abc")                     // string | float64 | jsontext.Value
+```
+
+Alternatives that name the same Go type (`ExtResponse` and `MessageMCPResponse` are both
+`jsontext.Value`) become one type-set term and one rule group. Each alternative contributes a rule
+— required and non-nullable members, literal tags, scalar literal, null — kept in a per-union
+`altRules` table; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
+not, and `New<Union>` splices in the literal members an object alternative requires and rejects
+values that match no rule. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
+alongside the `Variant()` type switch. Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods
+integrate with JSON v2 encoders and decoders. Stored JSON is copied on decode and when returned
+to the caller, so decoding a copied union value does not mutate the original.
 
 The generator first processes both versions before writing output, and `-check` detects stale
 checked-in output without modifying it. Generator tests cover parsing failures, numeric hints,
@@ -152,7 +162,7 @@ into the generated Go type. `Validate` reports whether that same Zod parser acce
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
 Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time;
 regular expressions are compiled once at package init. Plain `json.Unmarshal` without
-`Validated`, union `Parse…` and `As…` methods stay lenient.
+`Validated`, union `Parse…` and `As[T]` stay lenient.
 
 Identifier and other scalar SDK types are distinct Go types (`type SessionID string`), so they
 carry their own rule and cannot be mixed up. Types that are Go aliases (`ExtRequest` and the other `jsontext.Value`
