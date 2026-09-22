@@ -2,76 +2,92 @@ package acp
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"encoding/json/jsontext"
 	"log"
 	"time"
 )
 
-// LoggingMiddleware logs method calls, their duration, and any errors.
+// LoggingMiddleware logs each incoming method, how long it took and any error.
 //
-// Uses the provided logger function for output. If logger is nil, log.Printf is used.
+// Passing nil uses log.Printf.
 func LoggingMiddleware(logger func(format string, args ...any)) Middleware {
 	if logger == nil {
 		logger = log.Printf
 	}
-	return func(next MethodHandler) MethodHandler {
-		return func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-			start := time.Now()
-			result, err := next(ctx, method, params)
-			elapsed := time.Since(start)
-			if err != nil {
-				logger("[ACP] %s failed (%s): %v", method, elapsed, err)
-			} else {
-				logger("[ACP] %s completed (%s)", method, elapsed)
-			}
-			return result, err
-		}
-	}
-}
-
-// RecoveryMiddleware catches panics in handlers and converts them to InternalError responses.
-//
-// This prevents a panicking handler from crashing the entire connection.
-func RecoveryMiddleware() Middleware {
-	return func(next MethodHandler) MethodHandler {
-		return func(ctx context.Context, method string, params json.RawMessage) (result any, err error) {
-			defer func() {
-				if r := recover(); r != nil {
-					err = ErrInternalError(nil, fmt.Sprintf("panic in handler for %s: %v", method, r))
+	return Middleware{
+		Request: func(next RequestHandler) RequestHandler {
+			return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
+				start := time.Now()
+				result, err := next(ctx, method, params)
+				if err != nil {
+					logger("[ACP] %s failed (%s): %v", method, time.Since(start), err)
+				} else {
+					logger("[ACP] %s completed (%s)", method, time.Since(start))
 				}
-			}()
-			return next(ctx, method, params)
-		}
-	}
-}
-
-// TimeoutMiddleware applies a timeout to all handler invocations.
-//
-// If a handler does not complete within the specified duration,
-// the context is cancelled and the handler should return promptly.
-func TimeoutMiddleware(timeout time.Duration) Middleware {
-	return func(next MethodHandler) MethodHandler {
-		return func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-			ctx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
-			return next(ctx, method, params)
-		}
-	}
-}
-
-// MethodFilterMiddleware only applies the inner middleware to methods matching the filter.
-//
-// This is useful for applying middleware to specific methods only, such as
-// adding authentication checks to certain endpoints.
-func MethodFilterMiddleware(filter func(method string) bool, mw Middleware) Middleware {
-	return func(next MethodHandler) MethodHandler {
-		filtered := mw(next)
-		return func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-			if filter(method) {
-				return filtered(ctx, method, params)
+				return result, err
 			}
-			return next(ctx, method, params)
+		},
+		Notification: func(next NotificationHandler) NotificationHandler {
+			return func(ctx context.Context, method string, params jsontext.Value) error {
+				err := next(ctx, method, params)
+				if err != nil {
+					logger("[ACP] %s (notification) failed: %v", method, err)
+				} else {
+					logger("[ACP] %s (notification)", method)
+				}
+				return err
+			}
+		},
+	}
+}
+
+// TimeoutMiddleware bounds how long any one handler may run. Handlers should
+// watch ctx and return promptly; a handler that returns after its deadline
+// answers the peer with a cancelled error.
+func TimeoutMiddleware(timeout time.Duration) Middleware {
+	return Middleware{
+		Request: func(next RequestHandler) RequestHandler {
+			return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
+				ctx, cancel := context.WithTimeout(ctx, timeout)
+				defer cancel()
+				return next(ctx, method, params)
+			}
+		},
+		Notification: func(next NotificationHandler) NotificationHandler {
+			return func(ctx context.Context, method string, params jsontext.Value) error {
+				ctx, cancel := context.WithTimeout(ctx, timeout)
+				defer cancel()
+				return next(ctx, method, params)
+			}
+		},
+	}
+}
+
+// MethodFilterMiddleware applies mw only to methods matching filter, so a
+// policy can target a few methods without wrapping the whole connection.
+func MethodFilterMiddleware(filter func(method string) bool, mw Middleware) Middleware {
+	out := Middleware{}
+	if mw.Request != nil {
+		out.Request = func(next RequestHandler) RequestHandler {
+			filtered := mw.Request(next)
+			return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
+				if filter(method) {
+					return filtered(ctx, method, params)
+				}
+				return next(ctx, method, params)
+			}
 		}
 	}
+	if mw.Notification != nil {
+		out.Notification = func(next NotificationHandler) NotificationHandler {
+			filtered := mw.Notification(next)
+			return func(ctx context.Context, method string, params jsontext.Value) error {
+				if filter(method) {
+					return filtered(ctx, method, params)
+				}
+				return next(ctx, method, params)
+			}
+		}
+	}
+	return out
 }

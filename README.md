@@ -11,11 +11,13 @@ This is an **unofficial** implementation of the ACP specification in Go. The off
 
 Learn more about the protocol at [agentclientprotocol.com](https://agentclientprotocol.com/).
 
-## `next` schema generator
+## `next` branch
 
-The `next` branch requires Go 1.27+ and generates versioned Go wire types from the official TypeScript SDK with
-`go-tree-sitter`. See [schema generation](schema/README.md) for inputs, regeneration and current
-limits. The root connection/session API is still awaiting migration to the new schema packages.
+This branch requires Go 1.27+ and is a rebuild of the SDK on `encoding/json/v2`.
+Wire types are generated from the official TypeScript SDK with `go-tree-sitter` — see
+[schema generation](schema/README.md) for inputs, regeneration and current limits.
+The root `acp` package implements ACP v1 on top of `schema/v1`; a v2 façade over `schema/v2`
+is not built yet.
 
 ## Installation
 
@@ -24,177 +26,209 @@ go get github.com/ironpark/go-acp
 ```
 
 ## Example Code
+
 See the [docs/example](./docs/example/) directory for complete working examples:
 
-- **[Agent Example](./docs/example/agent/)** - Agent implementation with SessionStream, middleware, and permission requests
-- **[Client Example](./docs/example/client/)** - Client implementation using SpawnAgent and MatchSessionUpdate
+- **[Agent Example](./docs/example/agent/)** — sessions, streamed updates and a permission request
+- **[Client Example](./docs/example/client/)** — spawning an agent and driving one prompt turn
 
 ## Architecture
 
-This implementation provides a clean, modern architecture with bidirectional JSON-RPC 2.0 communication:
+- **`AgentSideConnection`** — serves an `Agent` and calls the peer client
+- **`ClientSideConnection`** — serves a `Client` and calls the peer agent
+- **`Transport`** — pluggable framing (stdio by default, HTTP+SSE included)
+- **`SessionManager`** — session lifecycle methods backed by a `SessionStore`
+- **`SessionStream`** — session updates without rebuilding the union by hand
+- **`Middleware`** — composable wrappers around incoming requests and notifications
+- **`TerminalHandle`** — terminal id and session id bound together
+- **`schema/v1`** — generated wire types, unions and Zod-based validation
 
-- **`Connection`**: Unified bidirectional transport layer with concurrent request/response correlation
-- **`Transport`**: Pluggable transport interface (stdio, HTTP+SSE) for flexible deployment
-- **`AgentSideConnection`**: High-level ACP interface for implementing agents
-- **`ClientSideConnection`**: High-level ACP interface for implementing clients
-- **`SessionStream`**: Convenience wrapper for sending session updates with minimal boilerplate
-- **`Middleware`**: Composable request/response processing chain for cross-cutting concerns
-- **`TerminalHandle`**: Resource management wrapper for terminal sessions
-- **Generated Types**: Versioned Go wire types generated from the official ACP TypeScript SDK
+Incoming parameters are validated with the SDK's own Zod rules before a handler sees them,
+and invalid ones are answered with `-32602` without invoking the handler.
 
 ## Quick Start
 
 ### Agent
 
 ```go
-agent := &MyAgent{}
-conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
-    acp.WithMiddleware(acp.RecoveryMiddleware()),
-    acp.WithMiddleware(acp.LoggingMiddleware(nil)),
-)
-conn.Start(context.Background())
+conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+    return &MyAgent{client: c} // the connection is also the peer Client
+}, os.Stdin, os.Stdout)
+
+if err := conn.Start(context.Background()); err != nil {
+    log.Fatal(err)
+}
 ```
+
+`Agent` requires only `Initialize`, `Authenticate`, `NewSession`, `Prompt` and `Cancel`.
+Everything else is an optional interface — implement `acp.SessionLoader`, `acp.SessionLister`,
+`acp.SessionModeSetter`, `acp.NesHandler` and so on, and advertise the matching capability from
+`Initialize`. Methods you do not implement are answered with `-32601`.
 
 ### Client
 
 ```go
-client := &MyClient{}
-conn, _ := acp.SpawnAgent(ctx, client, "my-agent")
+conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+    return &MyClient{}
+}, "my-agent")
+if err != nil {
+    log.Fatal(err)
+}
 go conn.Start(ctx)
 
-conn.Initialize(ctx, &acp.InitializeRequest{...})
-conn.Prompt(ctx, &acp.PromptRequest{...})
+conn.Initialize(ctx, &acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersion})
+session, _ := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
 ```
+
+`Client` requires only `SessionUpdate` and `RequestPermission`. File system, terminal and
+elicitation support come from `acp.FileReader`, `acp.FileWriter`, `acp.TerminalHandler` and
+`acp.ElicitationHandler`.
 
 ## Features
 
-### Transport Layer
+### Cancellation
 
-The SDK supports pluggable transports via the `Transport` interface:
+Cancelling the context of an outgoing call sends `$/cancel_request` for that request id.
+On the receiving side the matching handler's context is cancelled, and the peer gets
+`-32800 Request cancelled` unless the handler answers first. This is separate from
+`session/cancel`, which cancels a whole prompt turn.
+
+### Transport Layer
 
 ```go
 // Default: stdio (newline-delimited JSON)
-conn := acp.NewConnection(handler, os.Stdin, os.Stdout)
+conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout)
 
-// HTTP+SSE transport for web deployments
+// HTTP+SSE for web deployments
 transport := acp.NewHTTPServerTransport()
-conn := acp.NewConnection(handler, nil, nil, acp.WithTransport(transport))
+conn := acp.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(transport))
 http.Handle("/", transport.Handler())
 ```
 
 ### Middleware
 
-Add cross-cutting concerns to the connection handler chain:
-
 ```go
-conn := acp.NewAgentSideConnection(agent, reader, writer,
+conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
-        acp.RecoveryMiddleware(),                   // catch panics
-        acp.LoggingMiddleware(log.Printf),          // log method calls
-        acp.TimeoutMiddleware(30 * time.Second),    // per-request timeout
+        acp.LoggingMiddleware(logger.Printf),    // log methods and durations
+        acp.TimeoutMiddleware(30*time.Second),   // per-handler timeout
     ),
 )
 ```
 
-Custom middleware follows the standard pattern:
+Panics in handlers are already recovered by the connection and reported as `-32603`,
+so no recovery middleware is needed. Custom middleware wraps either direction:
 
 ```go
-func authMiddleware(next acp.MethodHandler) acp.MethodHandler {
-    return func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-        if method != "initialize" && !isAuthenticated(ctx) {
-            return nil, acp.ErrAuthRequired(nil)
+authenticated := acp.Middleware{
+    Request: func(next acp.RequestHandler) acp.RequestHandler {
+        return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
+            if method != schema.AgentMethodsInitialize && !isAuthenticated(ctx) {
+                return nil, acp.ErrAuthRequired(nil)
+            }
+            return next(ctx, method, params)
         }
-        return next(ctx, method, params)
-    }
+    },
 }
 ```
 
-### SessionStream
+### Sessions
 
-Reduce boilerplate when sending session updates from agents:
+```go
+manager := acp.NewSessionManager(
+    acp.NewMemoryStore[*MySession](),
+    func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
+        return acp.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
+    },
+)
+
+type MyAgent struct {
+    *acp.SessionManager[*MySession] // supplies NewSession, LoadSession, ListSessions, DeleteSession
+}
+```
+
+Override any of those by declaring the method on the agent itself.
+
+### SessionStream
 
 ```go
 stream := acp.NewSessionStream(client, sessionID)
 
-// Stream text
 stream.SendText(ctx, "Hello!")
 stream.SendThought(ctx, "thinking...")
 
-// Tool call lifecycle
-stream.StartToolCall(ctx, toolID, "Reading file", acp.ToolKindRead)
+stream.StartToolCall(ctx, toolID, "Reading file", schema.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, content...)
-stream.FailToolCall(ctx, toolID)
 
-// Other updates
 stream.SendPlan(ctx, entries)
-stream.SendModeUpdate(ctx, modeID)
-stream.SendSessionInfo(ctx, title, updatedAt)
+stream.Send(ctx, anyUpdate) // escape hatch for variants without a helper
 ```
 
-### Match Pattern
+### Unions
 
-Exhaustive pattern matching for discriminated union types:
+Generated unions wrap a sealed variant interface, so a type switch replaces the old matchers:
 
 ```go
-acp.MatchSessionUpdate(&update, acp.SessionUpdateMatcher[string]{
-    AgentMessageChunk: func(v acp.SessionUpdateAgentMessageChunk) string {
-        return acp.MatchContentBlock(&v.Content, acp.ContentBlockMatcher[string]{
-            Text: func(t acp.ContentBlockText) string { return t.Text },
-            Default: func() string { return "[non-text]" },
-        })
-    },
-    ToolCall: func(v acp.SessionUpdateToolCall) string {
-        return v.Title
-    },
-    Default: func() string { return "" },
-})
+switch update := notification.Update.Variant().(type) {
+case schema.SessionUpdateAgentMessageChunk:
+    if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
+        fmt.Print(text.Text)
+    }
+case schema.SessionUpdateToolCall:
+    fmt.Println(update.Title)
+}
+
+update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
 ```
 
-Matchers are available for all union types: `SessionUpdate`, `ContentBlock`, `ToolCallContent`, `RequestPermissionOutcome`, `MCPServer`.
+Unknown tags round-trip unchanged through the union's `Custom` variant.
 
 ### Connection Options
 
 ```go
-acp.NewConnection(handler, reader, writer,
-    acp.WithWriteQueueSize(500),                    // configurable write queue
-    acp.WithRequestTimeout(30 * time.Second),       // default request timeout
-    acp.WithShutdownTimeout(10 * time.Second),      // graceful shutdown timeout
-    acp.WithErrorHandler(func(err error) { ... }),   // error callback
+acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+    acp.WithWriteQueueSize(500),               // outgoing queue depth
+    acp.WithRequestTimeout(30*time.Second),    // default deadline for outgoing calls
+    acp.WithShutdownTimeout(10*time.Second),   // bound Close on in-flight handlers
+    acp.WithErrorHandler(func(err error) {}),  // non-fatal errors
 )
 ```
 
 ## Protocol Support
 
-This implementation supports ACP Protocol Version 1 with the following features:
+ACP protocol version 1, as pinned in [`schema/typescript/REVISION`](schema/typescript/REVISION).
 
-### Agent Methods (Client → Agent)
-- `initialize` - Initialize the agent and negotiate capabilities
-- `authenticate` - Authenticate with the agent (optional)
-- `session/new` - Create a new conversation session
-- `session/load` - Load an existing session (if supported)
-- `session/list` - List available sessions
-- `session/set_mode` - Change session mode
-- `session/set_config_option` - Update session configuration
-- `session/prompt` - Send user prompt to agent
-- `session/cancel` - Cancel ongoing operations
+### Agent methods (client → agent)
 
-### Client Methods (Agent → Client)
-- `session/update` - Send session updates (notifications)
-- `session/request_permission` - Request user permission for operations
-- `fs/read_text_file` - Read text file from client filesystem
-- `fs/write_text_file` - Write text file to client filesystem
-- **Terminal Support** (unstable):
-  - `terminal/create` - Create terminal session
-  - `terminal/output` - Get terminal output
-  - `terminal/wait_for_exit` - Wait for terminal exit
-  - `terminal/kill` - Kill terminal process
-  - `terminal/release` - Release terminal handle
+| Method | Go interface |
+| --- | --- |
+| `initialize`, `authenticate`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (required) |
+| `session/load` | `SessionLoader` |
+| `session/list` | `SessionLister` |
+| `session/delete` | `SessionDeleter` |
+| `session/fork` | `SessionForker` (unstable) |
+| `session/resume` | `SessionResumer` (unstable) |
+| `session/close` | `SessionCloser` (unstable) |
+| `session/set_mode` | `SessionModeSetter` |
+| `session/set_config_option` | `SessionConfigOptionSetter` |
+| `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
+| `logout` | `LogoutHandler` |
+| `nes/*` | `NesHandler` (unstable) |
+| `document/did*` | `DocumentHandler` (unstable) |
 
-### Unstable Features
-- `session/fork` - Fork a session (via `SessionForker` interface)
-- `session/resume` - Resume a session (via `SessionResumer` interface)
-- `session/close` - Close a session (via `SessionCloser` interface)
-- `session/set_model` - Set model (via `ModelSetter` interface)
+### Client methods (agent → client)
+
+| Method | Go interface |
+| --- | --- |
+| `session/update`, `session/request_permission` | `Client` (required) |
+| `fs/read_text_file` | `FileReader` |
+| `fs/write_text_file` | `FileWriter` |
+| `terminal/*` | `TerminalHandler` |
+| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+
+The `mcp/*` methods have no typed handler here, matching the reference SDKs; they arrive
+through `ExtMethodHandler`. `$/cancel_request` is handled by the connection itself.
 
 ## Contributing
 

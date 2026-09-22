@@ -1,43 +1,35 @@
 package acp
 
-import (
-	"context"
-)
+import "context"
 
-// terminalClient is the subset of Client needed by TerminalHandle.
-type terminalClient interface {
+// terminalCaller is the subset of the client API a [TerminalHandle] needs.
+type terminalCaller interface {
 	TerminalOutput(ctx context.Context, params *TerminalOutputRequest) (*TerminalOutputResponse, error)
 	WaitForTerminalExit(ctx context.Context, params *WaitForTerminalExitRequest) (*WaitForTerminalExitResponse, error)
-	KillTerminalCommand(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
+	KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
 	ReleaseTerminal(ctx context.Context, params *ReleaseTerminalRequest) (*ReleaseTerminalResponse, error)
 }
 
-// TerminalHandle represents a handle to a terminal session.
+// TerminalHandle binds a terminal id to its session so an agent can poll,
+// wait, kill and release without repeating both ids.
 //
-// This handle provides methods to interact with a terminal session
-// created via CreateTerminal. It mirrors the TypeScript TerminalHandle
-// implementation for consistent API across languages.
+// Always Release a terminal when done; the client keeps the process and its
+// buffered output alive until then.
 //
-// The handle supports resource management patterns - always call Release()
-// when done with the terminal to free resources.
-//
-// Note: This is an unstable feature and may be removed or changed.
+// See protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)
 type TerminalHandle struct {
-	ID        string
+	ID        TerminalID
 	sessionID SessionID
-	client    terminalClient
+	client    terminalCaller
 }
 
-// NewTerminalHandle creates a new terminal handle.
-func NewTerminalHandle(id string, sessionID SessionID, client terminalClient) *TerminalHandle {
-	return &TerminalHandle{
-		ID:        id,
-		sessionID: sessionID,
-		client:    client,
-	}
+// NewTerminalHandle binds an existing terminal id to the client that owns it.
+// [AgentSideConnection.NewTerminal] creates one directly.
+func NewTerminalHandle(id TerminalID, sessionID SessionID, client terminalCaller) *TerminalHandle {
+	return &TerminalHandle{ID: id, sessionID: sessionID, client: client}
 }
 
-// CurrentOutput gets the current terminal output without waiting for the command to exit.
+// CurrentOutput returns the output so far without waiting for exit.
 func (t *TerminalHandle) CurrentOutput(ctx context.Context) (*TerminalOutputResponse, error) {
 	return t.client.TerminalOutput(ctx, &TerminalOutputRequest{
 		SessionID:  t.sessionID,
@@ -45,7 +37,7 @@ func (t *TerminalHandle) CurrentOutput(ctx context.Context) (*TerminalOutputResp
 	})
 }
 
-// WaitForExit waits for the terminal command to complete and returns its exit status.
+// WaitForExit blocks until the command exits and reports its status.
 func (t *TerminalHandle) WaitForExit(ctx context.Context) (*WaitForTerminalExitResponse, error) {
 	return t.client.WaitForTerminalExit(ctx, &WaitForTerminalExitRequest{
 		SessionID:  t.sessionID,
@@ -53,21 +45,19 @@ func (t *TerminalHandle) WaitForExit(ctx context.Context) (*WaitForTerminalExitR
 	})
 }
 
-// Kill kills the terminal command without releasing the terminal.
+// Kill stops the command but keeps the terminal id valid, so the final output
+// and exit status remain readable.
 func (t *TerminalHandle) Kill(ctx context.Context) error {
-	_, err := t.client.KillTerminalCommand(ctx, &KillTerminalRequest{
+	_, err := t.client.KillTerminal(ctx, &KillTerminalRequest{
 		SessionID:  t.sessionID,
 		TerminalID: t.ID,
 	})
 	return err
 }
 
-// Release releases the terminal and frees all associated resources.
-//
-// If the command is still running, it will be killed.
-// After release, the terminal ID becomes invalid.
-//
-// **Important:** Always call this method when done with the terminal.
+// Release kills the command if it is still running and frees the terminal.
+// The id is invalid afterwards, though tool calls that already reference it
+// keep displaying its output.
 func (t *TerminalHandle) Release(ctx context.Context) error {
 	_, err := t.client.ReleaseTerminal(ctx, &ReleaseTerminalRequest{
 		SessionID:  t.sessionID,

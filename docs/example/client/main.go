@@ -1,3 +1,8 @@
+// Command client spawns the example agent and drives one prompt turn.
+//
+// It shows the client side of ACP: handling session updates with a type
+// switch over the SessionUpdate union, answering permission requests, and
+// serving the optional file system methods the agent may call.
 package main
 
 import (
@@ -12,213 +17,167 @@ import (
 	"strings"
 
 	acp "github.com/ironpark/go-acp"
+	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// ExampleClient implements the acp.Client interface.
-//
-// This example demonstrates:
-//   - MatchSessionUpdate for exhaustive update handling
-//   - MatchContentBlock for content type dispatch
-//   - SpawnAgent for easy agent subprocess management
-type ExampleClient struct{}
+// exampleClient implements acp.Client, plus acp.FileReader and acp.FileWriter
+// for the capabilities it advertises during initialization.
+type exampleClient struct{}
 
-func (c *ExampleClient) RequestPermission(ctx context.Context, params *acp.RequestPermissionRequest) (*acp.RequestPermissionResponse, error) {
-	fmt.Printf("\n🔐 Permission requested: %s\n", params.ToolCall.Title)
+func (c *exampleClient) SessionUpdate(_ context.Context, params *acp.SessionNotification) error {
+	switch update := params.Update.Variant().(type) {
+	case schema.SessionUpdateAgentMessageChunk:
+		if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
+			fmt.Print(text.Text)
+		} else {
+			fmt.Print("[non-text content]")
+		}
+	case schema.SessionUpdateAgentThoughtChunk:
+		if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
+			fmt.Printf("\n💭 %s", text.Text)
+		}
+	case schema.SessionUpdateToolCall:
+		fmt.Printf("\n🔧 %s", update.Title)
+		if update.Status != nil {
+			fmt.Printf(" (%s)", *update.Status)
+		}
+		fmt.Println()
+	case schema.SessionUpdateToolCallUpdate:
+		fmt.Printf("🔧 %s", update.ToolCallID)
+		if update.Status != nil {
+			fmt.Printf(": %s", *update.Status)
+		}
+		fmt.Println()
+	case schema.SessionUpdatePlan:
+		fmt.Printf("\n📋 plan with %d entries\n", len(update.Entries))
+	}
+	return nil
+}
 
-	fmt.Println("\nOptions:")
+func (c *exampleClient) RequestPermission(_ context.Context, params *acp.RequestPermissionRequest) (*acp.RequestPermissionResponse, error) {
+	title := ""
+	if params.ToolCall.Title != nil {
+		title = *params.ToolCall.Title
+	}
+	fmt.Printf("\n🔐 Permission requested: %s\n", title)
 	for i, option := range params.Options {
 		fmt.Printf("   %d. %s (%s)\n", i+1, option.Name, option.Kind)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		fmt.Print("\nChoose an option: ")
 		answer, err := reader.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
-
-		answer = strings.TrimSpace(answer)
-		optionIndex, err := strconv.Atoi(answer)
-		if err != nil {
-			fmt.Println("Invalid input. Please enter a number.")
+		choice, err := strconv.Atoi(strings.TrimSpace(answer))
+		if err != nil || choice < 1 || choice > len(params.Options) {
+			fmt.Printf("Enter a number between 1 and %d.\n", len(params.Options))
 			continue
 		}
-
-		if optionIndex >= 1 && optionIndex <= len(params.Options) {
-			selectedOption := params.Options[optionIndex-1]
-			return &acp.RequestPermissionResponse{
-				Outcome: acp.NewRequestPermissionOutcomeSelected(selectedOption.OptionID),
-			}, nil
-		}
-		fmt.Printf("Invalid option. Please choose a number between 1 and %d.\n", len(params.Options))
+		return &acp.RequestPermissionResponse{
+			Outcome: schema.NewRequestPermissionOutcome(schema.RequestPermissionOutcomeSelected{
+				OptionID: params.Options[choice-1].OptionID,
+			}),
+		}, nil
 	}
 }
 
-func (c *ExampleClient) SessionUpdate(ctx context.Context, params *acp.SessionNotification) error {
-	// Use MatchSessionUpdate for exhaustive, type-safe handling
-	acp.MatchSessionUpdate(&params.Update, acp.SessionUpdateMatcher[struct{}]{
-		AgentMessageChunk: func(v acp.SessionUpdateAgentMessageChunk) struct{} {
-			acp.MatchContentBlock(&v.Content, acp.ContentBlockMatcher[struct{}]{
-				Text: func(t acp.ContentBlockText) struct{} {
-					fmt.Print(t.Text)
-					return struct{}{}
-				},
-				Default: func() struct{} {
-					fmt.Print("[non-text content]")
-					return struct{}{}
-				},
-			})
-			return struct{}{}
-		},
-		AgentThoughtChunk: func(v acp.SessionUpdateAgentThoughtChunk) struct{} {
-			if text, ok := v.Content.AsText(); ok {
-				fmt.Printf("💭 %s", text.Text)
-			}
-			return struct{}{}
-		},
-		ToolCall: func(v acp.SessionUpdateToolCall) struct{} {
-			fmt.Printf("\n🔧 %s", v.Title)
-			if v.Status != nil {
-				fmt.Printf(" (%s)", *v.Status)
-			}
-			fmt.Println()
-			return struct{}{}
-		},
-		ToolCallUpdate: func(v acp.SessionUpdateToolCallUpdate) struct{} {
-			fmt.Printf("🔧 Tool `%s` updated", v.ToolCallID)
-			if v.Status != nil {
-				fmt.Printf(": %s", *v.Status)
-			}
-			fmt.Println()
-			return struct{}{}
-		},
-		Plan: func(_ acp.SessionUpdatePlan) struct{} {
-			fmt.Println("[plan update]")
-			return struct{}{}
-		},
-		Default: func() struct{} { return struct{}{} },
-	})
-
-	return nil
+func (c *exampleClient) ReadTextFile(_ context.Context, params *acp.ReadTextFileRequest) (*acp.ReadTextFileResponse, error) {
+	content, err := os.ReadFile(params.Path)
+	if err != nil {
+		return nil, acp.ErrResourceNotFound(params.Path)
+	}
+	return &acp.ReadTextFileResponse{Content: string(content)}, nil
 }
 
-func (c *ExampleClient) WriteTextFile(ctx context.Context, params *acp.WriteTextFileRequest) (*acp.WriteTextFileResponse, error) {
+func (c *exampleClient) WriteTextFile(_ context.Context, params *acp.WriteTextFileRequest) (*acp.WriteTextFileResponse, error) {
+	if err := os.WriteFile(params.Path, []byte(params.Content), 0o644); err != nil {
+		return nil, err
+	}
 	return &acp.WriteTextFileResponse{}, nil
-}
-
-func (c *ExampleClient) ReadTextFile(ctx context.Context, params *acp.ReadTextFileRequest) (*acp.ReadTextFileResponse, error) {
-	return &acp.ReadTextFileResponse{Content: "Mock file content"}, nil
-}
-
-func (c *ExampleClient) CreateTerminal(ctx context.Context, params *acp.CreateTerminalRequest) (*acp.CreateTerminalResponse, error) {
-	return &acp.CreateTerminalResponse{TerminalID: "mock-terminal-id"}, nil
-}
-
-func (c *ExampleClient) TerminalOutput(ctx context.Context, params *acp.TerminalOutputRequest) (*acp.TerminalOutputResponse, error) {
-	return &acp.TerminalOutputResponse{Output: "Mock terminal output"}, nil
-}
-
-func (c *ExampleClient) ReleaseTerminal(ctx context.Context, params *acp.ReleaseTerminalRequest) (*acp.ReleaseTerminalResponse, error) {
-	return &acp.ReleaseTerminalResponse{}, nil
-}
-
-func (c *ExampleClient) WaitForTerminalExit(ctx context.Context, params *acp.WaitForTerminalExitRequest) (*acp.WaitForTerminalExitResponse, error) {
-	return &acp.WaitForTerminalExitResponse{}, nil
-}
-
-func (c *ExampleClient) KillTerminalCommand(ctx context.Context, params *acp.KillTerminalRequest) (*acp.KillTerminalResponse, error) {
-	return &acp.KillTerminalResponse{}, nil
 }
 
 func main() {
 	ctx := context.Background()
-
-	// Build the agent binary
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Failed to get current file path\n")
+	if err := run(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+}
 
-	currentDir := filepath.Dir(currentFile)
-	exampleDir := filepath.Dir(currentDir)
-	agentDir := filepath.Join(exampleDir, "agent")
-
-	agentBinary := filepath.Join(agentDir, "agent")
-	if runtime.GOOS == "windows" {
-		agentBinary += ".exe"
-	}
-
-	fmt.Println("Building agent...")
-	buildCmd := exec.Command("go", "build", "-o", agentBinary, ".")
-	buildCmd.Dir = agentDir
-	buildCmd.Stderr = os.Stderr
-	if err := buildCmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to build agent: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Spawn the agent using the helper
-	client := &ExampleClient{}
-	connection, err := acp.SpawnAgent(ctx, client, agentBinary)
+func run(ctx context.Context) error {
+	agentBinary, err := buildAgent()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to spawn agent: %v\n", err)
-		os.Exit(1)
+		return err
 	}
-	defer connection.Close()
 
-	// Start the connection in background
+	conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+		return &exampleClient{}
+	}, agentBinary)
+	if err != nil {
+		return fmt.Errorf("spawn agent: %w", err)
+	}
+	defer conn.Close()
+
 	go func() {
-		if err := connection.Start(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "Connection error: %v\n", err)
+		if err := conn.Start(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "connection error: %v\n", err)
 		}
 	}()
 
-	// Initialize the connection
-	initResult, err := connection.Initialize(ctx, &acp.InitializeRequest{
-		ProtocolVersion: acp.ProtocolVersion(acp.CurrentProtocolVersion),
-		ClientCapabilities: &acp.ClientCapabilities{
-			FS: &acp.FileSystemCapabilities{
-				ReadTextFile:  true,
-				WriteTextFile: true,
-			},
-			Terminal: false,
+	enabled := true
+	initialized, err := conn.Initialize(ctx, &acp.InitializeRequest{
+		ProtocolVersion: acp.ProtocolVersion,
+		ClientCapabilities: &schema.ClientCapabilities{
+			Fs: &schema.FileSystemCapabilities{ReadTextFile: &enabled, WriteTextFile: &enabled},
 		},
+		ClientInfo: &schema.Implementation{Name: "example-client", Version: "0.1.0"},
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to initialize: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("initialize: %w", err)
 	}
+	fmt.Printf("Connected to agent (protocol v%d)\n", initialized.ProtocolVersion)
 
-	fmt.Printf("Connected to agent (protocol v%d)\n", initResult.ProtocolVersion)
-
-	// Create a new session
 	cwd, _ := os.Getwd()
-	sessionResult, err := connection.NewSession(ctx, &acp.NewSessionRequest{
-		Cwd:        cwd,
-		MCPServers: []acp.MCPServer{},
-	})
+	created, err := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create session: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("new session: %w", err)
 	}
+	fmt.Printf("Created session: %s\nUser: Hello, agent!\n\n", created.SessionID)
 
-	fmt.Printf("Created session: %s\n", sessionResult.SessionID)
-	fmt.Printf("User: Hello, agent!\n\n")
-
-	// Send a test prompt
-	promptResult, err := connection.Prompt(ctx, &acp.PromptRequest{
-		SessionID: sessionResult.SessionID,
+	result, err := conn.Prompt(ctx, &acp.PromptRequest{
+		SessionID: created.SessionID,
 		Prompt: []acp.ContentBlock{
-			acp.NewContentBlockText("Hello, agent!"),
+			schema.NewContentBlock(schema.ContentBlockText{Text: "Hello, agent!"}),
 		},
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to send prompt: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("prompt: %w", err)
+	}
+	fmt.Printf("\n\nAgent stopped: %s\n", result.StopReason)
+	return nil
+}
+
+// buildAgent compiles the sibling agent example and returns its path.
+func buildAgent() (string, error) {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("cannot locate this source file")
+	}
+	agentDir := filepath.Join(filepath.Dir(filepath.Dir(currentFile)), "agent")
+	binary := filepath.Join(agentDir, "agent")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
 	}
 
-	fmt.Printf("\n\nAgent completed with: %s\n", promptResult.StopReason)
+	fmt.Println("Building agent...")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	build.Dir = agentDir
+	build.Stderr = os.Stderr
+	if err := build.Run(); err != nil {
+		return "", fmt.Errorf("build agent: %w", err)
+	}
+	return binary, nil
 }

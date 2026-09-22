@@ -1,190 +1,224 @@
+// Package acp implements the Agent Client Protocol (ACP) v1 for Go.
+//
+// The wire types are generated from the upstream TypeScript SDK and live in
+// [github.com/ironpark/go-acp/schema/v1]; this package adds the JSON-RPC
+// runtime and the two connection façades:
+//
+//   - [AgentSideConnection] serves an [Agent] and calls the peer [Client].
+//   - [ClientSideConnection] serves a [Client] and calls the peer [Agent].
+//
+// Incoming parameters are validated with the SDK's Zod rules before a handler
+// sees them, so handlers receive normalized values.
+//
+// See the protocol docs: https://agentclientprotocol.com
 package acp
 
 //go:generate sh -c "cd internal/cmd/schema && go run . -source ../../../schema/typescript -out ../../../schema"
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 )
 
-// Agent represents the interface that agents must implement to handle client requests.
+// Agent is the set of methods every ACP agent must handle.
 //
-// This interface defines the core methods that an agent must implement.
-// Session lifecycle methods (NewSession, LoadSession, ListSessions) are handled
-// automatically when a SessionStore is configured via [WithSessionStore].
-// To override the default session management, implement the optional interfaces:
-//   - [SessionCreator] for custom session/new handling
-//   - [SessionLoader] for custom session/load handling
-//   - [SessionLister] for custom session/list handling
-//
-// Other optional capabilities:
-//   - [SessionForker] for session/fork (unstable)
-//   - [SessionResumer] for session/resume (unstable)
-//   - [SessionCloser] for session/close (unstable)
-//   - [ModelSetter] for session/set_model (unstable)
-//   - [ExtMethodHandler] for custom extension methods
-//   - [ExtNotificationHandler] for custom extension notifications
+// Everything beyond these five methods is optional and gated by a capability
+// the agent advertises from [Agent.Initialize]. Implement the matching optional
+// interface below and the connection routes the method to it; when it is not
+// implemented the peer receives "method not found".
 //
 // See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#agent)
 type Agent interface {
-	// Initialize establishes the connection and negotiates capabilities.
-	//
-	// This is the first method called after connection establishment.
-	// The agent should return its capabilities and supported protocol version.
+	// Initialize negotiates the protocol version and exchanges capabilities.
 	//
 	// See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
 	Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error)
 
-	// Authenticate handles user authentication using the specified method.
-	//
-	// Called when the client needs to authenticate the user with the agent.
+	// Authenticate authenticates the client with one of the advertised methods.
 	//
 	// See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)
 	Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error)
 
-	// SetSessionMode changes the current session mode.
+	// NewSession creates a conversation session with its own context.
 	//
-	// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
-	SetSessionMode(ctx context.Context, params *SetSessionModeRequest) (*SetSessionModeResponse, error)
+	// See protocol docs: [Session Setup](https://agentclientprotocol.com/protocol/session-setup)
+	NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
 
-	// SetSessionConfigOption updates a session configuration option.
+	// Prompt runs one prompt turn and returns once it stops.
 	//
-	// See protocol docs: [Session Config Options](https://agentclientprotocol.com/protocol/session-config-options)
-	SetSessionConfigOption(ctx context.Context, params *SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
-
-	// Prompt processes a user prompt and generates a response.
-	//
-	// This is the main method for handling user input and generating agent responses.
-	//
-	// See protocol docs: [User Message](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message)
+	// See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)
 	Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error)
 
-	// Cancel cancels ongoing operations for a session.
-	//
-	// This is a notification method (no response expected).
+	// Cancel is a notification asking the agent to abort the current turn.
+	// The pending Prompt call should return with StopReasonCancelled.
 	//
 	// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
 	Cancel(ctx context.Context, params *CancelNotification) error
 }
 
-// SessionCreator is an optional interface for agents that handle session creation.
-//
-// If not implemented and a SessionStore is configured via [WithSessionStore],
-// session creation is handled automatically by the store.
-type SessionCreator interface {
-	NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
-}
-
-// SessionLoader is an optional interface for agents that handle session loading.
-//
-// If not implemented and a SessionStore is configured via [WithSessionStore],
-// session loading is handled automatically by the store.
+// SessionLoader handles session/load. Advertise it with the `loadSession`
+// agent capability. When a [SessionStore] is configured and the agent does not
+// implement this interface, the store answers the method instead.
 type SessionLoader interface {
 	LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
 }
 
-// SessionLister is an optional interface for agents that handle session listing.
-//
-// If not implemented and a SessionStore is configured via [WithSessionStore],
-// session listing is handled automatically by the store.
+// SessionLister handles session/list. Advertise it with the
+// `sessionCapabilities.list` agent capability.
 type SessionLister interface {
 	ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
 }
 
-// SessionForker is an optional interface for agents that support session forking (unstable).
+// SessionDeleter handles session/delete. Advertise it with the
+// `sessionCapabilities.delete` agent capability.
+type SessionDeleter interface {
+	DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error)
+}
+
+// SessionForker handles session/fork. Advertise it with the
+// `sessionCapabilities.fork` agent capability.
 //
-// Implement this interface to allow clients to fork sessions.
+// **UNSTABLE**: this capability is not part of the spec yet and may change.
 type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
 }
 
-// SessionResumer is an optional interface for agents that support session resuming (unstable).
+// SessionResumer handles session/resume, continuing a session without
+// replaying its history. Advertise it with the `sessionCapabilities.resume`
+// agent capability.
 //
-// Implement this interface to allow clients to resume sessions without replaying history.
+// **UNSTABLE**: this capability is not part of the spec yet and may change.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
 
-// SessionCloser is an optional interface for agents that support session closing (unstable).
+// SessionCloser handles session/close. Advertise it with the
+// `sessionCapabilities.close` agent capability.
 //
-// Implement this interface to allow clients to explicitly close sessions.
+// **UNSTABLE**: this capability is not part of the spec yet and may change.
 type SessionCloser interface {
 	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
 
-// ModelSetter is an optional interface for agents that support model selection (unstable).
+// SessionModeSetter handles session/set_mode.
 //
-// Implement this interface to allow clients to change the model during a session.
-type ModelSetter interface {
-	SetSessionModel(ctx context.Context, params *SetSessionModelRequest) (*SetSessionModelResponse, error)
+// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+type SessionModeSetter interface {
+	SetSessionMode(ctx context.Context, params *SetSessionModeRequest) (*SetSessionModeResponse, error)
 }
 
-// ExtMethodHandler is an optional interface for handling custom extension methods.
-//
-// Implement this interface on Agent or Client to handle custom protocol extension
-// methods. Extension methods should be prefixed with an underscore (e.g., "_myMethod").
-type ExtMethodHandler interface {
-	ExtMethod(ctx context.Context, method string, params json.RawMessage) (any, error)
+// SessionConfigOptionSetter handles session/set_config_option. The response
+// carries every option and its current value, since changing one option may
+// change the others.
+type SessionConfigOptionSetter interface {
+	SetSessionConfigOption(ctx context.Context, params *SetSessionConfigOptionRequest) (*SetSessionConfigOptionResponse, error)
 }
 
-// ExtNotificationHandler is an optional interface for handling custom extension notifications.
+// ProviderManager handles the providers/* methods. Advertise them with the
+// `providers` agent capability.
 //
-// Implement this interface on Agent or Client to handle custom protocol extension
-// notifications. Extension methods should be prefixed with an underscore (e.g., "_myNotification").
-type ExtNotificationHandler interface {
-	ExtNotification(ctx context.Context, method string, params json.RawMessage) error
+// **UNSTABLE**: these methods are not part of the spec yet and may change.
+type ProviderManager interface {
+	ListProviders(ctx context.Context, params *ListProvidersRequest) (*ListProvidersResponse, error)
+	SetProvider(ctx context.Context, params *SetProviderRequest) (*SetProviderResponse, error)
+	DisableProvider(ctx context.Context, params *DisableProviderRequest) (*DisableProviderResponse, error)
 }
 
-// Client represents the interface for communicating with the client from an agent.
+// LogoutHandler handles the logout method, clearing stored credentials.
+type LogoutHandler interface {
+	Logout(ctx context.Context, params *LogoutRequest) (*LogoutResponse, error)
+}
+
+// NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
+// them with the `nes` agent capability. AcceptNes and RejectNes are
+// notifications.
 //
-// This interface provides methods that agents can use to request services
-// from the client, such as file system access and permission requests.
+// **UNSTABLE**: these methods are not part of the spec yet and may change.
+type NesHandler interface {
+	StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error)
+	SuggestNes(ctx context.Context, params *SuggestNesRequest) (*SuggestNesResponse, error)
+	CloseNes(ctx context.Context, params *CloseNesRequest) (*CloseNesResponse, error)
+	AcceptNes(ctx context.Context, params *AcceptNesNotification) error
+	RejectNes(ctx context.Context, params *RejectNesNotification) error
+}
+
+// DocumentHandler receives the document/did* notifications that mirror the
+// client's open editors.
+//
+// **UNSTABLE**: these notifications are not part of the spec yet and may change.
+type DocumentHandler interface {
+	DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error
+	DidChangeDocument(ctx context.Context, params *DidChangeDocumentNotification) error
+	DidCloseDocument(ctx context.Context, params *DidCloseDocumentNotification) error
+	DidSaveDocument(ctx context.Context, params *DidSaveDocumentNotification) error
+	DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error
+}
+
+// Client is the set of methods every ACP client must handle.
+//
+// File system, terminal and elicitation support are optional; implement the
+// matching interface below and advertise the capability from
+// `InitializeRequest.ClientCapabilities`.
 //
 // See protocol docs: [Client](https://agentclientprotocol.com/protocol/overview#client)
 type Client interface {
-	// SessionUpdate sends a session update notification to the client.
-	//
-	// Used to stream real-time progress and results during prompt processing.
+	// SessionUpdate is a notification streaming turn progress to the user.
 	//
 	// See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
 	SessionUpdate(ctx context.Context, params *SessionNotification) error
 
-	// RequestPermission requests user permission for a tool call operation.
+	// RequestPermission asks the user to authorize a tool call.
 	//
-	// Called when the agent needs user authorization before executing
-	// a potentially sensitive operation.
+	// When the turn is cancelled the client MUST answer with the cancelled
+	// outcome rather than leaving the request pending.
 	//
 	// See protocol docs: [Requesting Permission](https://agentclientprotocol.com/protocol/tool-calls#requesting-permission)
 	RequestPermission(ctx context.Context, params *RequestPermissionRequest) (*RequestPermissionResponse, error)
+}
 
-	// ReadTextFile reads content from a text file in the client's file system.
-	//
-	// Only available if the client supports the fs.readTextFile capability.
-	//
-	// See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)
+// FileReader handles fs/read_text_file. Advertise it with the
+// `fs.readTextFile` client capability.
+type FileReader interface {
 	ReadTextFile(ctx context.Context, params *ReadTextFileRequest) (*ReadTextFileResponse, error)
+}
 
-	// WriteTextFile writes content to a text file in the client's file system.
-	//
-	// Only available if the client supports the fs.writeTextFile capability.
-	//
-	// See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)
+// FileWriter handles fs/write_text_file. Advertise it with the
+// `fs.writeTextFile` client capability.
+type FileWriter interface {
 	WriteTextFile(ctx context.Context, params *WriteTextFileRequest) (*WriteTextFileResponse, error)
+}
 
-	// CreateTerminal creates a new terminal session.
-	//
-	// Only available if the client supports the terminal capability.
+// TerminalHandler handles every terminal/* method. Advertise it with the
+// `terminal` client capability, which covers all five methods at once.
+//
+// See protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)
+type TerminalHandler interface {
 	CreateTerminal(ctx context.Context, params *CreateTerminalRequest) (*CreateTerminalResponse, error)
-
-	// TerminalOutput gets the current output and status of a terminal.
 	TerminalOutput(ctx context.Context, params *TerminalOutputRequest) (*TerminalOutputResponse, error)
-
-	// ReleaseTerminal releases a terminal and frees its resources.
 	ReleaseTerminal(ctx context.Context, params *ReleaseTerminalRequest) (*ReleaseTerminalResponse, error)
-
-	// WaitForTerminalExit waits for a terminal command to exit.
 	WaitForTerminalExit(ctx context.Context, params *WaitForTerminalExitRequest) (*WaitForTerminalExitResponse, error)
+	KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
+}
 
-	// KillTerminalCommand kills a terminal command without releasing the terminal.
-	KillTerminalCommand(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
+// ElicitationHandler handles elicitation/create and the elicitation/complete
+// notification. Advertise it with the `elicitation` client capability.
+type ElicitationHandler interface {
+	CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error)
+	CompleteElicitation(ctx context.Context, params *CompleteElicitationNotification) error
+}
+
+// ExtMethodHandler handles methods outside the spec, including the mcp/*
+// methods, which the reference SDKs also leave to extensions. Prefix custom
+// methods with a unique identifier such as a domain name.
+//
+// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+type ExtMethodHandler interface {
+	ExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
+}
+
+// ExtNotificationHandler handles notifications outside the spec.
+//
+// The connection answers $/cancel_request itself, so it never reaches here.
+type ExtNotificationHandler interface {
+	ExtNotification(ctx context.Context, method string, params jsontext.Value) error
 }

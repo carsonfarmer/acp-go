@@ -8,40 +8,28 @@ import (
 	"sync"
 )
 
-// SessionStore is a pluggable storage interface for managing session data.
-//
-// When configured via [WithSessionStore], the connection layer automatically
-// handles NewSession, LoadSession, and ListSessions requests using this store,
-// so the Agent implementation does not need to implement those methods.
-//
-// Implementations must be safe for concurrent use.
+// SessionStore keeps per-session state for an agent. Implementations must be
+// safe for concurrent use.
 type SessionStore[T any] interface {
-	// Get retrieves a session by its ID. Returns false if not found.
+	// Get returns the session with the given id, or false if there is none.
 	Get(id SessionID) (T, bool)
-
-	// Set stores a session with the given ID, replacing any existing session.
+	// Set stores a session, replacing any session with the same id.
 	Set(id SessionID, session T)
-
-	// Delete removes a session by its ID.
+	// Delete removes a session. Deleting an unknown id is not an error.
 	Delete(id SessionID)
-
-	// List returns all stored session IDs.
+	// List returns the stored session ids.
 	List() []SessionID
 }
 
-// MemoryStore is an in-memory implementation of [SessionStore].
-//
-// Safe for concurrent use. Sessions are lost when the process exits.
+// MemoryStore keeps sessions in memory for the life of the process.
 type MemoryStore[T any] struct {
 	mu       sync.RWMutex
 	sessions map[SessionID]T
 }
 
-// NewMemoryStore creates a new in-memory session store.
+// NewMemoryStore creates an empty in-memory store.
 func NewMemoryStore[T any]() *MemoryStore[T] {
-	return &MemoryStore[T]{
-		sessions: make(map[SessionID]T),
-	}
+	return &MemoryStore[T]{sessions: make(map[SessionID]T)}
 }
 
 func (s *MemoryStore[T]) Get(id SessionID) (T, bool) {
@@ -73,43 +61,68 @@ func (s *MemoryStore[T]) List() []SessionID {
 	return ids
 }
 
-// sessionStoreHandler is a type-erased wrapper that handles session RPC methods
-// using a SessionStore. This allows AgentSideConnection to work with any session
-// store without being generic itself.
-type sessionStoreHandler interface {
-	handleNewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error)
-	handleLoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
-	handleListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error)
-}
-
-// SessionFactory creates a new session value and its ID when a NewSession request is received.
-// Use [GenerateSessionID] for default random ID generation, or provide your own ID scheme.
+// SessionFactory creates the state for a new session along with its id.
+// Use [GenerateSessionID] unless the agent has its own id scheme.
 type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) (SessionID, T, error)
 
-// sessionStoreAdapter adapts a typed SessionStore into a sessionStoreHandler.
-type sessionStoreAdapter[T any] struct {
+// SessionManager implements the session lifecycle methods on top of a
+// [SessionStore], so an agent can embed it instead of writing them:
+//
+//	type myAgent struct {
+//		*acp.SessionManager[*mySession]
+//	}
+//
+//	agent := &myAgent{SessionManager: acp.NewSessionManager(
+//		acp.NewMemoryStore[*mySession](),
+//		func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *mySession, error) {
+//			id := acp.GenerateSessionID()
+//			return id, &mySession{id: id, cwd: params.Cwd}, nil
+//		},
+//	)}
+//
+// Embedding it satisfies [Agent]'s NewSession plus [SessionLoader],
+// [SessionLister] and [SessionDeleter]; override any of them by declaring the
+// method on the agent itself. The agent still advertises the matching
+// capabilities from Initialize — the manager does not do that for it.
+type SessionManager[T any] struct {
 	store   SessionStore[T]
 	factory SessionFactory[T]
 }
 
-func (a *sessionStoreAdapter[T]) handleNewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
-	id, session, err := a.factory(ctx, params)
+// NewSessionManager pairs a store with the factory that fills it.
+func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T]) *SessionManager[T] {
+	return &SessionManager[T]{store: store, factory: factory}
+}
+
+// Store returns the underlying store, for state the RPC methods do not cover.
+func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
+
+// Session returns the state for a session id.
+func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
+
+// NewSession creates a session with the factory and stores it.
+func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
+	id, session, err := m.factory(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	a.store.Set(id, session)
+	m.store.Set(id, session)
 	return &NewSessionResponse{SessionID: id}, nil
 }
 
-func (a *sessionStoreAdapter[T]) handleLoadSession(_ context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
-	if _, ok := a.store.Get(params.SessionID); !ok {
-		return nil, ErrInvalidParams(nil, fmt.Sprintf("session %s not found", params.SessionID))
+// LoadSession reports whether the session exists. Replaying its history is the
+// agent's job; override this method to do it.
+func (m *SessionManager[T]) LoadSession(_ context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
+	if _, ok := m.store.Get(params.SessionID); !ok {
+		return nil, ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
 	}
 	return &LoadSessionResponse{}, nil
 }
 
-func (a *sessionStoreAdapter[T]) handleListSessions(_ context.Context, _ *ListSessionsRequest) (*ListSessionsResponse, error) {
-	ids := a.store.List()
+// ListSessions lists the stored sessions. It ignores the request's cwd filter
+// and cursor, since the store holds no metadata to filter or page on.
+func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsRequest) (*ListSessionsResponse, error) {
+	ids := m.store.List()
 	sessions := make([]SessionInfo, len(ids))
 	for i, id := range ids {
 		sessions[i] = SessionInfo{SessionID: id}
@@ -117,42 +130,20 @@ func (a *sessionStoreAdapter[T]) handleListSessions(_ context.Context, _ *ListSe
 	return &ListSessionsResponse{Sessions: sessions}, nil
 }
 
-// WithSessionStore configures automatic session management using the given store and factory.
-//
-// The factory function is called for each NewSession request to create the session data.
-// The SessionID is generated automatically and passed to the factory.
-//
-// When configured, the agent does not need to implement [SessionCreator], [SessionLoader],
-// or [SessionLister]. If the agent does implement those interfaces, they take priority
-// over the store.
-//
-// Example:
-//
-//	store := acp.NewMemoryStore[*MySession]()
-//	conn := acp.NewAgentSideConnection(agent, reader, writer,
-//	    acp.WithSessionStore(store, func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
-//	        id := acp.GenerateSessionID()
-//	        return id, &MySession{ID: id}, nil
-//	    }),
-//	)
-func WithSessionStore[T any](store SessionStore[T], factory SessionFactory[T]) ConnectionOption {
-	return func(c *Connection) {
-		c.sessionStore = &sessionStoreAdapter[T]{
-			store:   store,
-			factory: factory,
-		}
+// DeleteSession removes a session from the store.
+func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
+	if _, ok := m.store.Get(params.SessionID); !ok {
+		return nil, ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
 	}
+	m.store.Delete(params.SessionID)
+	return &DeleteSessionResponse{}, nil
 }
 
-// GenerateSessionID generates a cryptographically random session ID
-// with the format "session_<32 hex chars>".
-//
-// Use this in your [SessionFactory] for default ID generation,
-// or provide your own ID scheme.
+// GenerateSessionID returns a random id of the form "session_<32 hex chars>".
 func GenerateSessionID() SessionID {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		panic("acp: failed to generate session ID: " + err.Error())
+		panic("acp: generate session id: " + err.Error())
 	}
 	return SessionID("session_" + hex.EncodeToString(b))
 }

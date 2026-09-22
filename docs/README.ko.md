@@ -11,6 +11,13 @@ Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(
 
 프로토콜에 대한 자세한 내용은 [agentclientprotocol.com](https://agentclientprotocol.com/)에서 확인하세요.
 
+## `next` 브랜치
+
+이 브랜치는 Go 1.27+ 를 요구하며 SDK를 `encoding/json/v2` 기반으로 다시 만든 버전입니다.
+와이어 타입은 공식 TypeScript SDK에서 `go-tree-sitter`로 생성합니다
+([스키마 생성](../schema/README.md) 참고).
+루트 `acp` 패키지는 `schema/v1` 위에서 ACP v1을 구현하며, `schema/v2` 용 파사드는 아직 없습니다.
+
 ## 설치
 
 ```bash
@@ -19,172 +26,173 @@ go get github.com/ironpark/go-acp
 
 ## 기능
 
-- **JSON-RPC 2.0** 양방향 통신
-- **플러그형 Transport** - stdio, HTTP+SSE 지원
-- **미들웨어** - 로깅, 복구, 타임아웃 등 요청 처리 체인
+- **JSON-RPC 2.0** 양방향 통신 (`encoding/json/v2`)
+- **스키마 검증** - 들어오는 파라미터를 SDK의 Zod 규칙으로 검증한 뒤 핸들러에 전달
+- **요청 단위 취소** - 양방향 `$/cancel_request`, `-32800` 응답
+- **플러그형 Transport** - stdio, HTTP+SSE
+- **미들웨어** - 요청/알림 양쪽을 감싸는 조합 가능한 체인
+- **SessionManager** - 세션 생성/로드/목록/삭제 메서드 제공
 - **SessionStream** - 세션 업데이트 전송 편의 API
-- **Match 패턴** - 제네릭 기반 discriminated union 패턴 매칭
-- **세션 관리** - 다중 동시 세션 지원
-- **파일 시스템 작업** - 텍스트 파일 읽기/쓰기
-- **터미널 작업** - 생성, 출력, 대기, 종료, 해제
-- **연결 안정성** - 요청 타임아웃, 쓰기 큐 설정, 그레이스풀 셧다운
+- **선택적 인터페이스** - 구현하지 않은 메서드는 자동으로 `-32601` 응답
 
 ## 빠른 시작
 
 ### 에이전트 구현
 
 ```go
-package main
+conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+    return &MyAgent{client: c} // 연결 자체가 상대편 Client 입니다
+}, os.Stdin, os.Stdout)
 
-import (
-    "context"
-    "os"
+if err := conn.Start(context.Background()); err != nil {
+    log.Fatal(err)
+}
+```
 
-    acp "github.com/ironpark/go-acp"
+`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `Authenticate`, `NewSession`,
+`Prompt`, `Cancel` 다섯 개뿐입니다. 나머지는 선택적 인터페이스(`acp.SessionLoader`,
+`acp.SessionLister`, `acp.SessionModeSetter`, `acp.NesHandler` 등)로 구현하고
+`Initialize` 응답에서 해당 capability를 알리면 됩니다.
+
+### 클라이언트 구현
+
+```go
+conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+    return &MyClient{}
+}, "my-agent")
+if err != nil {
+    log.Fatal(err)
+}
+go conn.Start(ctx)
+
+conn.Initialize(ctx, &acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersion})
+session, _ := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
+```
+
+`Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다.
+파일 시스템·터미널·elicitation 지원은 `acp.FileReader`, `acp.FileWriter`,
+`acp.TerminalHandler`, `acp.ElicitationHandler`로 추가합니다.
+
+## 아키텍처
+
+- **`AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
+- **`ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
+- **`Transport`**: 플러그형 프레이밍 (기본 stdio, HTTP+SSE 포함)
+- **`SessionManager`**: `SessionStore` 기반 세션 수명주기 메서드
+- **`SessionStream`**: union을 직접 만들지 않고 세션 업데이트 전송
+- **`Middleware`**: 요청/알림을 감싸는 래퍼
+- **`TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
+- **`schema/v1`**: 생성된 와이어 타입, union, Zod 검증
+
+## 주요 기능
+
+### 취소
+
+나가는 호출의 컨텍스트를 취소하면 해당 요청 ID로 `$/cancel_request`를 보냅니다.
+받는 쪽에서는 해당 핸들러의 컨텍스트가 취소되고, 핸들러가 먼저 응답하지 않으면
+`-32800 Request cancelled`가 전달됩니다. 프롬프트 턴 전체를 취소하는
+`session/cancel`과는 별개입니다.
+
+### 세션 관리
+
+```go
+manager := acp.NewSessionManager(
+    acp.NewMemoryStore[*MySession](),
+    func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
+        return acp.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
+    },
 )
 
-type MyAgent struct{}
-
-func (a *MyAgent) Initialize(ctx context.Context, params *acp.InitializeRequest) (*acp.InitializeResponse, error) {
-    return &acp.InitializeResponse{
-        ProtocolVersion:   acp.ProtocolVersion(acp.CurrentProtocolVersion),
-        AgentCapabilities: &acp.AgentCapabilities{},
-    }, nil
-}
-
-// ... 다른 Agent 인터페이스 메서드 구현
-
-func main() {
-    agent := &MyAgent{}
-    conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
-        acp.WithMiddleware(acp.RecoveryMiddleware()),
-    )
-    conn.Start(context.Background())
+type MyAgent struct {
+    *acp.SessionManager[*MySession] // NewSession, LoadSession, ListSessions, DeleteSession 제공
 }
 ```
 
-### SessionStream 사용
-
-에이전트에서 세션 업데이트를 보낼 때 보일러플레이트를 줄여줍니다:
-
-```go
-stream := acp.NewSessionStream(client, sessionID)
-
-// 텍스트 스트리밍
-stream.SendText(ctx, "안녕하세요!")
-stream.SendThought(ctx, "생각 중...")
-
-// 도구 호출 라이프사이클
-stream.StartToolCall(ctx, toolID, "파일 읽기", acp.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, content...)
-stream.FailToolCall(ctx, toolID)
-```
-
-### Match 패턴
-
-Discriminated union 타입에 대한 완전한 패턴 매칭:
-
-```go
-acp.MatchSessionUpdate(&update, acp.SessionUpdateMatcher[string]{
-    AgentMessageChunk: func(v acp.SessionUpdateAgentMessageChunk) string {
-        if text, ok := v.Content.AsText(); ok {
-            return text.Text
-        }
-        return ""
-    },
-    ToolCall: func(v acp.SessionUpdateToolCall) string {
-        return v.Title
-    },
-    Default: func() string { return "" },
-})
-```
+에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다.
 
 ### 미들웨어
 
-요청 처리 체인에 횡단 관심사를 추가합니다:
-
 ```go
-conn := acp.NewAgentSideConnection(agent, reader, writer,
+conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
-        acp.RecoveryMiddleware(),                 // 패닉 복구
-        acp.LoggingMiddleware(log.Printf),        // 메서드 호출 로깅
-        acp.TimeoutMiddleware(30 * time.Second),  // 요청별 타임아웃
+        acp.LoggingMiddleware(logger.Printf),
+        acp.TimeoutMiddleware(30*time.Second),
     ),
 )
 ```
 
-### HTTP+SSE Transport
+핸들러의 패닉은 연결이 직접 복구해 `-32603`으로 응답하므로 별도의 recovery 미들웨어가 필요하지 않습니다.
 
-HTTP를 통한 에이전트 배포:
+### Union 처리
+
+생성된 union은 sealed variant 인터페이스를 감싸므로, 기존 matcher 대신 타입 스위치를 사용합니다:
 
 ```go
-// 서버 (에이전트)
-transport := acp.NewHTTPServerTransport()
-conn := acp.NewConnection(handler, nil, nil, acp.WithTransport(transport))
-http.Handle("/", transport.Handler())
+switch update := notification.Update.Variant().(type) {
+case schema.SessionUpdateAgentMessageChunk:
+    if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
+        fmt.Print(text.Text)
+    }
+case schema.SessionUpdateToolCall:
+    fmt.Println(update.Title)
+}
 
-// 클라이언트
-transport := acp.NewHTTPClientTransport("http://localhost:8080")
-transport.Connect(ctx)
-conn := acp.NewConnection(handler, nil, nil, acp.WithTransport(transport))
+update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
 ```
-
-## 아키텍처
-
-- **`Connection`**: 동시 요청/응답 상관관계를 처리하는 양방향 전송 계층
-- **`Transport`**: 플러그형 전송 인터페이스 (stdio, HTTP+SSE)
-- **`AgentSideConnection`**: 에이전트 구현을 위한 고수준 ACP 인터페이스
-- **`ClientSideConnection`**: 클라이언트 구현을 위한 고수준 ACP 인터페이스
-- **`SessionStream`**: 세션 업데이트 전송 편의 래퍼
-- **`Middleware`**: 조합 가능한 요청/응답 처리 체인
-- **`TerminalHandle`**: 터미널 세션 리소스 관리 래퍼
-
-## 프로토콜 지원
-
-이 구현체는 ACP 프로토콜 버전 1을 지원합니다:
-
-### 에이전트 메서드 (클라이언트 → 에이전트)
-- `initialize` - 에이전트 초기화 및 기능 협상
-- `authenticate` - 에이전트 인증 (선택사항)
-- `session/new` - 새로운 대화 세션 생성
-- `session/load` - 기존 세션 로드 (지원하는 경우)
-- `session/list` - 세션 목록 조회
-- `session/set_mode` - 세션 모드 변경
-- `session/set_config_option` - 세션 설정 업데이트
-- `session/prompt` - 사용자 프롬프트를 에이전트에 전송
-- `session/cancel` - 진행 중인 작업 취소
-
-### 클라이언트 메서드 (에이전트 → 클라이언트)
-- `session/update` - 세션 업데이트 전송 (알림)
-- `session/request_permission` - 작업에 대한 사용자 권한 요청
-- `fs/read_text_file` - 클라이언트 파일시스템에서 텍스트 파일 읽기
-- `fs/write_text_file` - 클라이언트 파일시스템에 텍스트 파일 쓰기
-- **터미널** (불안정):
-  - `terminal/create`, `terminal/output`, `terminal/wait_for_exit`, `terminal/kill`, `terminal/release`
-
-### 불안정 기능
-- `session/fork` - 세션 포크 (`SessionForker` 인터페이스)
-- `session/resume` - 세션 재개 (`SessionResumer` 인터페이스)
-- `session/close` - 세션 닫기 (`SessionCloser` 인터페이스)
-- `session/set_model` - 모델 설정 (`ModelSetter` 인터페이스)
 
 ### 연결 옵션
 
 ```go
-acp.NewConnection(handler, reader, writer,
-    acp.WithWriteQueueSize(500),                    // 쓰기 큐 크기 설정
-    acp.WithRequestTimeout(30 * time.Second),       // 기본 요청 타임아웃
-    acp.WithShutdownTimeout(10 * time.Second),      // 그레이스풀 셧다운 타임아웃
-    acp.WithErrorHandler(func(err error) { ... }),   // 에러 콜백
+acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+    acp.WithWriteQueueSize(500),               // 쓰기 큐 크기
+    acp.WithRequestTimeout(30*time.Second),    // 나가는 호출 기본 타임아웃
+    acp.WithShutdownTimeout(10*time.Second),   // 셧다운 대기 한도
+    acp.WithErrorHandler(func(err error) {}),  // 치명적이지 않은 에러 콜백
 )
 ```
+
+## 프로토콜 지원
+
+ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/REVISION) 기준).
+
+### 에이전트 메서드 (클라이언트 → 에이전트)
+
+| 메서드 | Go 인터페이스 |
+| --- | --- |
+| `initialize`, `authenticate`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
+| `session/load` | `SessionLoader` |
+| `session/list` | `SessionLister` |
+| `session/delete` | `SessionDeleter` |
+| `session/fork` | `SessionForker` (unstable) |
+| `session/resume` | `SessionResumer` (unstable) |
+| `session/close` | `SessionCloser` (unstable) |
+| `session/set_mode` | `SessionModeSetter` |
+| `session/set_config_option` | `SessionConfigOptionSetter` |
+| `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
+| `logout` | `LogoutHandler` |
+| `nes/*` | `NesHandler` (unstable) |
+| `document/did*` | `DocumentHandler` (unstable) |
+
+### 클라이언트 메서드 (에이전트 → 클라이언트)
+
+| 메서드 | Go 인터페이스 |
+| --- | --- |
+| `session/update`, `session/request_permission` | `Client` (필수) |
+| `fs/read_text_file` | `FileReader` |
+| `fs/write_text_file` | `FileWriter` |
+| `terminal/*` | `TerminalHandler` |
+| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+
+`mcp/*` 메서드는 참조 SDK와 마찬가지로 전용 핸들러가 없으며 `ExtMethodHandler`로 전달됩니다.
+`$/cancel_request`는 연결이 직접 처리합니다.
 
 ## 예제
 
 완전한 작동 예제는 [docs/example](./example/) 디렉토리를 참조하세요:
 
-- **[에이전트 예제](./example/agent/)** - SessionStream, 미들웨어, 권한 요청을 활용한 에이전트 구현
-- **[클라이언트 예제](./example/client/)** - SpawnAgent와 MatchSessionUpdate를 활용한 클라이언트 구현
+- **[에이전트 예제](./example/agent/)** - 세션, 스트리밍 업데이트, 권한 요청
+- **[클라이언트 예제](./example/client/)** - 에이전트 프로세스 실행과 프롬프트 턴 진행
 
 ## 개발
 

@@ -2,8 +2,8 @@
 
 This directory contains examples using the [ACP Go SDK](https://github.com/ironpark/acp-go):
 
-- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionStream, middleware, tool calls, and permission requests
-- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent and MatchSessionUpdate for type-safe update handling
+- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionManager, SessionStream, tool calls, and permission requests
+- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent and a type switch over session updates
 
 ## Running the Agent
 
@@ -65,7 +65,7 @@ Paste this into your terminal and press <kbd>enter</kbd>:
 You should see it respond with something like:
 
 ```json
-{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":false}}}
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"sessionCapabilities":{"list":{},"delete":{}}},"agentInfo":{"name":"example-agent","version":"0.1.0"}}}
 ```
 
 From there, you can try making a [new session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session) and [sending a prompt](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message).

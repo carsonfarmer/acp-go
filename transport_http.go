@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"io"
@@ -13,8 +13,14 @@ import (
 	"sync"
 )
 
-// maxErrorBodySize is the maximum number of bytes read from an HTTP error response body.
-const maxErrorBodySize = 1024
+const (
+	// maxErrorBodySize bounds how much of an HTTP error body is quoted back.
+	maxErrorBodySize = 1024
+	// maxMessageSize is the largest single SSE message accepted (50MB).
+	maxMessageSize = 50 * 1024 * 1024
+	// initialBufSize is the initial SSE read buffer size (64KB).
+	initialBufSize = 64 * 1024
+)
 
 // ErrTransportClosed is returned when a message is sent on a closed transport.
 var ErrTransportClosed = errors.New("transport closed")
@@ -35,8 +41,8 @@ var (
 //   - POST /message — client sends JSON-RPC messages to the agent
 //   - GET /events — client opens an SSE stream for agent-to-client messages
 type HTTPServerTransport struct {
-	inbox     chan json.RawMessage
-	outbox    chan json.RawMessage
+	inbox     chan jsontext.Value
+	outbox    chan jsontext.Value
 	done      chan struct{}
 	closeOnce sync.Once
 }
@@ -47,13 +53,13 @@ type HTTPServerTransport struct {
 // The returned transport implements Transport for use with NewConnection.
 func NewHTTPServerTransport() *HTTPServerTransport {
 	return &HTTPServerTransport{
-		inbox:  make(chan json.RawMessage, 100),
-		outbox: make(chan json.RawMessage, 100),
+		inbox:  make(chan jsontext.Value, 100),
+		outbox: make(chan jsontext.Value, 100),
 		done:   make(chan struct{}),
 	}
 }
 
-func (t *HTTPServerTransport) ReadMessage(ctx context.Context) (json.RawMessage, error) {
+func (t *HTTPServerTransport) ReadMessage(ctx context.Context) (jsontext.Value, error) {
 	select {
 	case msg := <-t.inbox:
 		return msg, nil
@@ -64,7 +70,7 @@ func (t *HTTPServerTransport) ReadMessage(ctx context.Context) (json.RawMessage,
 	}
 }
 
-func (t *HTTPServerTransport) WriteMessage(ctx context.Context, data json.RawMessage) error {
+func (t *HTTPServerTransport) WriteMessage(ctx context.Context, data jsontext.Value) error {
 	select {
 	case t.outbox <- data:
 		return nil
@@ -100,7 +106,7 @@ func (t *HTTPServerTransport) handleMessage(w http.ResponseWriter, r *http.Reque
 	}
 
 	select {
-	case t.inbox <- json.RawMessage(body):
+	case t.inbox <- jsontext.Value(body):
 		w.WriteHeader(http.StatusAccepted)
 	case <-t.done:
 		http.Error(w, "transport closed", http.StatusServiceUnavailable)
@@ -147,7 +153,7 @@ type HTTPClientTransport struct {
 	postURL     string
 	sseURL      string
 	client      *http.Client
-	inbox       chan json.RawMessage
+	inbox       chan jsontext.Value
 	done        chan struct{}
 	closeOnce   sync.Once
 	connectOnce sync.Once
@@ -175,10 +181,10 @@ func NewHTTPClientTransport(baseURL string, opts ...HTTPClientOption) *HTTPClien
 	t := &HTTPClientTransport{
 		postURL: baseURL + "/message",
 		sseURL:  baseURL + "/events",
-		client: http.DefaultClient,
-		inbox:  make(chan json.RawMessage, 100),
-		done:   make(chan struct{}),
-		cancel: func() {}, // no-op until Connect is called
+		client:  http.DefaultClient,
+		inbox:   make(chan jsontext.Value, 100),
+		done:    make(chan struct{}),
+		cancel:  func() {}, // no-op until Connect is called
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -230,7 +236,7 @@ func (t *HTTPClientTransport) readSSE(body io.ReadCloser) {
 		line := scanner.Bytes()
 		if bytes.HasPrefix(line, sseDataPrefix) {
 			payload := line[len(sseDataPrefix):]
-			cp := make(json.RawMessage, len(payload))
+			cp := make(jsontext.Value, len(payload))
 			copy(cp, payload)
 			select {
 			case t.inbox <- cp:
@@ -241,7 +247,7 @@ func (t *HTTPClientTransport) readSSE(body io.ReadCloser) {
 	}
 }
 
-func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (json.RawMessage, error) {
+func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (jsontext.Value, error) {
 	select {
 	case msg := <-t.inbox:
 		return msg, nil
@@ -252,7 +258,7 @@ func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (json.RawMessage,
 	}
 }
 
-func (t *HTTPClientTransport) WriteMessage(ctx context.Context, data json.RawMessage) error {
+func (t *HTTPClientTransport) WriteMessage(ctx context.Context, data jsontext.Value) error {
 	select {
 	case <-t.done:
 		return ErrTransportClosed

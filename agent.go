@@ -2,92 +2,96 @@ package acp
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
 	"io"
+
+	"github.com/ironpark/go-acp/internal/jsonrpc"
+	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// AgentSideConnection represents an agent-side connection to a client.
+// AgentSideConnection is the agent's view of an ACP connection.
 //
-// This class provides the agent's view of an ACP connection. It handles
-// incoming requests from the client and provides methods for the agent
-// to communicate back to the client (implementing the Client interface).
+// It serves an [Agent] to the peer and implements [Client] for calls back to
+// it, so an agent needs no other handle to stream updates, ask for
+// permissions, read files or run terminals.
 //
 // See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#agent)
 type AgentSideConnection struct {
-	conn  *Connection
+	conn  *jsonrpc.Connection
 	agent Agent
 }
 
-// Verify that AgentSideConnection implements Client at compile time.
 var _ Client = (*AgentSideConnection)(nil)
 
-// NewAgentSideConnection creates a new agent-side connection to a client.
+// NewAgentSideConnection connects an agent to a client.
 //
-// Parameters:
-//   - agent: The Agent implementation that will handle incoming client requests
-//   - reader: The stream for receiving data from the client (typically stdin)
-//   - writer: The stream for sending data to the client (typically stdout)
+// newAgent receives the connection being built, so the agent can keep it and
+// call the client while handling a request:
+//
+//	conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+//		return &myAgent{client: c}
+//	}, os.Stdin, os.Stdout)
+//	err := conn.Start(ctx)
+//
+// reader carries messages from the client and writer carries messages to it;
+// for a stdio agent those are os.Stdin and os.Stdout.
 //
 // See protocol docs: [Communication Model](https://agentclientprotocol.com/protocol/overview#communication-model)
-func NewAgentSideConnection(agent Agent, reader io.Reader, writer io.Writer, opts ...ConnectionOption) *AgentSideConnection {
-	asc := &AgentSideConnection{
-		agent: agent,
-	}
+func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...Option) *AgentSideConnection {
+	var o options
+	o.apply(opts)
 
-	handler := func(ctx context.Context, method string, params json.RawMessage) (any, error) {
-		return asc.handleIncomingMethod(ctx, method, params)
-	}
-	asc.conn = NewConnection(handler, reader, writer, opts...)
-
-	return asc
-}
-
-// Client returns the Client interface for making requests to the client.
-//
-// The AgentSideConnection itself implements Client, so this returns self.
-func (c *AgentSideConnection) Client() Client {
+	c := &AgentSideConnection{}
+	c.agent = newAgent(c)
+	c.conn = newConnection(c.handleRequest, c.handleNotification, reader, writer, &o)
 	return c
 }
 
-// Start starts the connection and begins processing messages.
-func (c *AgentSideConnection) Start(ctx context.Context) error {
-	return c.conn.Start(ctx)
-}
+// Start processes messages until the peer disconnects or ctx is cancelled.
+func (c *AgentSideConnection) Start(ctx context.Context) error { return c.conn.Start(ctx) }
 
-// Close closes the connection gracefully.
-func (c *AgentSideConnection) Close() error {
-	return c.conn.Close()
-}
+// Close shuts the connection down, waiting for in-flight handlers.
+func (c *AgentSideConnection) Close() error { return c.conn.Close() }
 
-// Done returns a channel that is closed when the connection is done.
-func (c *AgentSideConnection) Done() <-chan struct{} {
-	return c.conn.Done()
-}
+// Done is closed once the connection stops.
+func (c *AgentSideConnection) Done() <-chan struct{} { return c.conn.Done() }
 
-// --- Client interface implementation (outbound calls to client) ---
+// Client returns the peer client. The connection itself implements [Client].
+func (c *AgentSideConnection) Client() Client { return c }
 
+// --- Outgoing calls to the client ---
+
+// SessionUpdate streams turn progress to the client.
 func (c *AgentSideConnection) SessionUpdate(ctx context.Context, params *SessionNotification) error {
-	return c.conn.SendNotification(ctx, ClientMethods.SessionUpdate, params)
+	return c.conn.SendNotification(ctx, schema.ClientMethodsSessionUpdate, params)
 }
 
+// RequestPermission asks the user to authorize a tool call.
 func (c *AgentSideConnection) RequestPermission(ctx context.Context, params *RequestPermissionRequest) (*RequestPermissionResponse, error) {
-	return sendRequest[RequestPermissionResponse](ctx, c.conn, ClientMethods.SessionRequestPermission, params)
+	return call[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
 }
 
+// ReadTextFile reads a text file through the client. Requires the client's
+// `fs.readTextFile` capability.
 func (c *AgentSideConnection) ReadTextFile(ctx context.Context, params *ReadTextFileRequest) (*ReadTextFileResponse, error) {
-	return sendRequest[ReadTextFileResponse](ctx, c.conn, ClientMethods.FSReadTextFile, params)
+	return call[ReadTextFileResponse](ctx, c.conn, schema.ClientMethodsFsReadTextFile, params)
 }
 
+// WriteTextFile writes a text file through the client. Requires the client's
+// `fs.writeTextFile` capability.
 func (c *AgentSideConnection) WriteTextFile(ctx context.Context, params *WriteTextFileRequest) (*WriteTextFileResponse, error) {
-	return sendRequest[WriteTextFileResponse](ctx, c.conn, ClientMethods.FSWriteTextFile, params)
+	return call[WriteTextFileResponse](ctx, c.conn, schema.ClientMethodsFsWriteTextFile, params)
 }
 
+// CreateTerminal starts a command in a client-managed terminal. Requires the
+// client's `terminal` capability.
 func (c *AgentSideConnection) CreateTerminal(ctx context.Context, params *CreateTerminalRequest) (*CreateTerminalResponse, error) {
-	return sendRequest[CreateTerminalResponse](ctx, c.conn, ClientMethods.TerminalCreate, params)
+	return call[CreateTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalCreate, params)
 }
 
-// CreateTerminalHandle executes a command in a new terminal and returns a TerminalHandle.
-func (c *AgentSideConnection) CreateTerminalHandle(ctx context.Context, params *CreateTerminalRequest) (*TerminalHandle, error) {
+// NewTerminal is CreateTerminal plus a [TerminalHandle] bound to the new
+// terminal, which is usually what an agent wants.
+func (c *AgentSideConnection) NewTerminal(ctx context.Context, params *CreateTerminalRequest) (*TerminalHandle, error) {
 	response, err := c.CreateTerminal(ctx, params)
 	if err != nil {
 		return nil, err
@@ -95,117 +99,174 @@ func (c *AgentSideConnection) CreateTerminalHandle(ctx context.Context, params *
 	return NewTerminalHandle(response.TerminalID, params.SessionID, c), nil
 }
 
+// TerminalOutput returns a terminal's output so far without waiting for exit.
 func (c *AgentSideConnection) TerminalOutput(ctx context.Context, params *TerminalOutputRequest) (*TerminalOutputResponse, error) {
-	return sendRequest[TerminalOutputResponse](ctx, c.conn, ClientMethods.TerminalOutput, params)
+	return call[TerminalOutputResponse](ctx, c.conn, schema.ClientMethodsTerminalOutput, params)
 }
 
+// ReleaseTerminal kills the command if needed and frees the terminal.
 func (c *AgentSideConnection) ReleaseTerminal(ctx context.Context, params *ReleaseTerminalRequest) (*ReleaseTerminalResponse, error) {
-	return sendRequest[ReleaseTerminalResponse](ctx, c.conn, ClientMethods.TerminalRelease, params)
+	return call[ReleaseTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalRelease, params)
 }
 
+// WaitForTerminalExit blocks until the terminal's command exits.
 func (c *AgentSideConnection) WaitForTerminalExit(ctx context.Context, params *WaitForTerminalExitRequest) (*WaitForTerminalExitResponse, error) {
-	return sendRequest[WaitForTerminalExitResponse](ctx, c.conn, ClientMethods.TerminalWaitForExit, params)
+	return call[WaitForTerminalExitResponse](ctx, c.conn, schema.ClientMethodsTerminalWaitForExit, params)
 }
 
-func (c *AgentSideConnection) KillTerminalCommand(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error) {
-	return sendRequest[KillTerminalResponse](ctx, c.conn, ClientMethods.TerminalKill, params)
+// KillTerminal kills the command but keeps the terminal id valid.
+func (c *AgentSideConnection) KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error) {
+	return call[KillTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalKill, params)
 }
 
-// ExtMethod sends a custom extension method request to the client.
-func (c *AgentSideConnection) ExtMethod(ctx context.Context, method string, params any) (json.RawMessage, error) {
+// CreateElicitation asks the client to collect input from the user. Requires
+// the client's `elicitation` capability.
+func (c *AgentSideConnection) CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error) {
+	return call[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
+}
+
+// CompleteElicitation tells the client an elicitation no longer needs an answer.
+func (c *AgentSideConnection) CompleteElicitation(ctx context.Context, params *CompleteElicitationNotification) error {
+	return c.conn.SendNotification(ctx, schema.ClientMethodsElicitationComplete, params)
+}
+
+// ExtMethod sends a request outside the spec and returns its raw result.
+func (c *AgentSideConnection) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {
 	return c.conn.SendRequest(ctx, method, params)
 }
 
-// ExtNotification sends a custom extension notification to the client.
-func (c *AgentSideConnection) ExtNotification(ctx context.Context, method string, params json.RawMessage) error {
+// ExtNotification sends a notification outside the spec.
+func (c *AgentSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
 	return c.conn.SendNotification(ctx, method, params)
 }
 
-// --- Incoming request handler ---
+// --- Incoming agent methods ---
 
-// unmarshalAndCall is a generic helper that unmarshals JSON params and calls a handler.
-func unmarshalAndCall[T any, R any](ctx context.Context, params json.RawMessage, fn func(context.Context, *T) (*R, error)) (any, error) {
-	var req T
-	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, ErrInvalidParams(nil, err.Error())
-	}
-	return fn(ctx, &req)
-}
-
-// unmarshalAndCallVoid is like unmarshalAndCall but for handlers that return only error.
-func unmarshalAndCallVoid[T any](ctx context.Context, params json.RawMessage, fn func(context.Context, *T) error) (any, error) {
-	var req T
-	if err := json.Unmarshal(params, &req); err != nil {
-		return nil, ErrInvalidParams(nil, err.Error())
-	}
-	return nil, fn(ctx, &req)
-}
-
-func (c *AgentSideConnection) handleIncomingMethod(ctx context.Context, method string, params json.RawMessage) (any, error) {
+func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	switch method {
-	case AgentMethods.Initialize:
-		return unmarshalAndCall(ctx, params, c.agent.Initialize)
-	case AgentMethods.Authenticate:
-		return unmarshalAndCall(ctx, params, c.agent.Authenticate)
-	case AgentMethods.SessionNew:
-		if creator, ok := c.agent.(SessionCreator); ok {
-			return unmarshalAndCall(ctx, params, creator.NewSession)
-		}
-		if c.conn.sessionStore != nil {
-			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleNewSession)
-		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethods.SessionLoad:
-		if loader, ok := c.agent.(SessionLoader); ok {
-			return unmarshalAndCall(ctx, params, loader.LoadSession)
-		}
-		if c.conn.sessionStore != nil {
-			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleLoadSession)
-		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethods.SessionList:
-		if lister, ok := c.agent.(SessionLister); ok {
-			return unmarshalAndCall(ctx, params, lister.ListSessions)
-		}
-		if c.conn.sessionStore != nil {
-			return unmarshalAndCall(ctx, params, c.conn.sessionStore.handleListSessions)
-		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethods.SessionSetMode:
-		return unmarshalAndCall(ctx, params, c.agent.SetSessionMode)
-	case AgentMethods.SessionSetConfigOption:
-		return unmarshalAndCall(ctx, params, c.agent.SetSessionConfigOption)
-	case AgentMethods.SessionPrompt:
-		return unmarshalAndCall(ctx, params, c.agent.Prompt)
-	case AgentMethods.SessionCancel:
-		return unmarshalAndCallVoid(ctx, params, c.agent.Cancel)
+	case schema.AgentMethodsInitialize:
+		return request(ctx, params, c.agent.Initialize)
+	case schema.AgentMethodsAuthenticate:
+		return request(ctx, params, c.agent.Authenticate)
+	case schema.AgentMethodsSessionPrompt:
+		return request(ctx, params, c.agent.Prompt)
 
-	// Unstable agent methods — dispatched via optional interfaces
-	case AgentMethodsUnstable.SessionFork:
+	case schema.AgentMethodsSessionNew:
+		return request(ctx, params, c.agent.NewSession)
+
+	case schema.AgentMethodsSessionLoad:
+		if loader, ok := c.agent.(SessionLoader); ok {
+			return request(ctx, params, loader.LoadSession)
+		}
+	case schema.AgentMethodsSessionList:
+		if lister, ok := c.agent.(SessionLister); ok {
+			return request(ctx, params, lister.ListSessions)
+		}
+	case schema.AgentMethodsSessionDelete:
+		if deleter, ok := c.agent.(SessionDeleter); ok {
+			return request(ctx, params, deleter.DeleteSession)
+		}
+
+	case schema.AgentMethodsSessionFork:
 		if forker, ok := c.agent.(SessionForker); ok {
-			return unmarshalAndCall(ctx, params, forker.ForkSession)
+			return request(ctx, params, forker.ForkSession)
 		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethodsUnstable.SessionResume:
+	case schema.AgentMethodsSessionResume:
 		if resumer, ok := c.agent.(SessionResumer); ok {
-			return unmarshalAndCall(ctx, params, resumer.ResumeSession)
+			return request(ctx, params, resumer.ResumeSession)
 		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethodsUnstable.SessionClose:
+	case schema.AgentMethodsSessionClose:
 		if closer, ok := c.agent.(SessionCloser); ok {
-			return unmarshalAndCall(ctx, params, closer.CloseSession)
+			return request(ctx, params, closer.CloseSession)
 		}
-		return nil, ErrMethodNotFound(method)
-	case AgentMethodsUnstable.SessionSetModel:
-		if setter, ok := c.agent.(ModelSetter); ok {
-			return unmarshalAndCall(ctx, params, setter.SetSessionModel)
+	case schema.AgentMethodsSessionSetMode:
+		if setter, ok := c.agent.(SessionModeSetter); ok {
+			return request(ctx, params, setter.SetSessionMode)
 		}
-		return nil, ErrMethodNotFound(method)
+	case schema.AgentMethodsSessionSetConfigOption:
+		if setter, ok := c.agent.(SessionConfigOptionSetter); ok {
+			return request(ctx, params, setter.SetSessionConfigOption)
+		}
+
+	case schema.AgentMethodsProvidersList:
+		if providers, ok := c.agent.(ProviderManager); ok {
+			return request(ctx, params, providers.ListProviders)
+		}
+	case schema.AgentMethodsProvidersSet:
+		if providers, ok := c.agent.(ProviderManager); ok {
+			return request(ctx, params, providers.SetProvider)
+		}
+	case schema.AgentMethodsProvidersDisable:
+		if providers, ok := c.agent.(ProviderManager); ok {
+			return request(ctx, params, providers.DisableProvider)
+		}
+	case schema.AgentMethodsLogout:
+		if handler, ok := c.agent.(LogoutHandler); ok {
+			return request(ctx, params, handler.Logout)
+		}
+
+	case schema.AgentMethodsNesStart:
+		if nes, ok := c.agent.(NesHandler); ok {
+			return request(ctx, params, nes.StartNes)
+		}
+	case schema.AgentMethodsNesSuggest:
+		if nes, ok := c.agent.(NesHandler); ok {
+			return request(ctx, params, nes.SuggestNes)
+		}
+	case schema.AgentMethodsNesClose:
+		if nes, ok := c.agent.(NesHandler); ok {
+			return request(ctx, params, nes.CloseNes)
+		}
 
 	default:
+		// Extension methods, including mcp/*, which the reference SDKs also
+		// leave to extensions.
 		if handler, ok := c.agent.(ExtMethodHandler); ok {
 			return handler.ExtMethod(ctx, method, params)
 		}
-		return nil, ErrMethodNotFound(method)
 	}
+	return nil, jsonrpc.MethodNotFound(method)
+}
+
+func (c *AgentSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
+	switch method {
+	case schema.AgentMethodsSessionCancel:
+		return notify(ctx, params, c.agent.Cancel)
+
+	case schema.AgentMethodsNesAccept:
+		if nes, ok := c.agent.(NesHandler); ok {
+			return notify(ctx, params, nes.AcceptNes)
+		}
+	case schema.AgentMethodsNesReject:
+		if nes, ok := c.agent.(NesHandler); ok {
+			return notify(ctx, params, nes.RejectNes)
+		}
+
+	case schema.AgentMethodsDocumentDidOpen:
+		if docs, ok := c.agent.(DocumentHandler); ok {
+			return notify(ctx, params, docs.DidOpenDocument)
+		}
+	case schema.AgentMethodsDocumentDidChange:
+		if docs, ok := c.agent.(DocumentHandler); ok {
+			return notify(ctx, params, docs.DidChangeDocument)
+		}
+	case schema.AgentMethodsDocumentDidClose:
+		if docs, ok := c.agent.(DocumentHandler); ok {
+			return notify(ctx, params, docs.DidCloseDocument)
+		}
+	case schema.AgentMethodsDocumentDidSave:
+		if docs, ok := c.agent.(DocumentHandler); ok {
+			return notify(ctx, params, docs.DidSaveDocument)
+		}
+	case schema.AgentMethodsDocumentDidFocus:
+		if docs, ok := c.agent.(DocumentHandler); ok {
+			return notify(ctx, params, docs.DidFocusDocument)
+		}
+
+	default:
+		if handler, ok := c.agent.(ExtNotificationHandler); ok {
+			return handler.ExtNotification(ctx, method, params)
+		}
+	}
+	return jsonrpc.MethodNotFound(method)
 }

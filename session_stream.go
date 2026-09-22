@@ -1,17 +1,21 @@
 package acp
 
-import "context"
+import (
+	"context"
 
-// SendOption configures optional fields on session update notifications.
+	schema "github.com/ironpark/go-acp/schema/v1"
+)
+
+// SendOption sets optional fields on an outgoing session update.
 type SendOption func(*sendOptions)
 
 type sendOptions struct {
-	messageID string
+	messageID *MessageID
 }
 
-// WithMessageID sets the message ID on the content chunk.
-func WithMessageID(id string) SendOption {
-	return func(o *sendOptions) { o.messageID = id }
+// WithMessageID groups consecutive chunks into one logical message.
+func WithMessageID(id MessageID) SendOption {
+	return func(o *sendOptions) { o.messageID = &id }
 }
 
 func applySendOptions(opts []SendOption) sendOptions {
@@ -22,137 +26,147 @@ func applySendOptions(opts []SendOption) sendOptions {
 	return o
 }
 
-// SessionStream provides convenience methods for sending session updates.
+// SessionStream sends session/update notifications for one session.
 //
-// It wraps a Client and a session ID to reduce boilerplate when sending
-// common update patterns like streaming text, tool call lifecycle, etc.
-//
-// Example:
+// It removes the boilerplate of naming the session and building a
+// [SessionUpdate] variant for each chunk:
 //
 //	stream := acp.NewSessionStream(client, sessionID)
-//	stream.SendText(ctx, "Hello, ")
-//	stream.SendText(ctx, "world!")
-//	stream.StartToolCall(ctx, toolID, "Reading file", acp.ToolKindRead)
-//	stream.CompleteToolCall(ctx, toolID, acp.NewToolCallContentContent(acp.NewContentBlockText("done")))
+//	stream.SendText(ctx, "Reading the file…")
+//	stream.StartToolCall(ctx, toolID, "Read file", schema.ToolKindRead)
+//	stream.CompleteToolCall(ctx, toolID)
+//
+// Use [SessionStream.Send] for any update the helpers do not cover.
 type SessionStream struct {
 	client    Client
 	sessionID SessionID
 }
 
-// NewSessionStream creates a new SessionStream for the given session.
+// NewSessionStream binds a client to a session id.
 func NewSessionStream(client Client, sessionID SessionID) *SessionStream {
-	return &SessionStream{
-		client:    client,
-		sessionID: sessionID,
-	}
+	return &SessionStream{client: client, sessionID: sessionID}
 }
 
-// SendText sends an agent message chunk with text content.
-// Use WithMessageID to attach a message ID to the chunk.
+// SessionID returns the session this stream reports on.
+func (s *SessionStream) SessionID() SessionID { return s.sessionID }
+
+// SendText streams agent message text.
 func (s *SessionStream) SendText(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
-	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockText(text), o.messageID))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentMessageChunk{
+		Content:   textBlock(text),
+		MessageID: o.messageID,
+	}))
 }
 
-// SendImage sends an agent message chunk with image content.
-// Use WithMessageID to attach a message ID to the chunk.
-func (s *SessionStream) SendImage(ctx context.Context, data, mimeType, uri string, opts ...SendOption) error {
-	o := applySendOptions(opts)
-	return s.send(ctx, NewSessionUpdateAgentMessageChunk(NewContentBlockImage(data, mimeType, uri), o.messageID))
-}
-
-// SendThought sends an agent thought chunk with text content.
-// Use WithMessageID to attach a message ID to the chunk.
+// SendThought streams the agent's reasoning, which clients display separately
+// from its message.
 func (s *SessionStream) SendThought(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
-	return s.send(ctx, NewSessionUpdateAgentThoughtChunk(NewContentBlockText(text), o.messageID))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentThoughtChunk{
+		Content:   textBlock(text),
+		MessageID: o.messageID,
+	}))
 }
 
-// SendUserMessage sends a user message chunk with text content.
-// Use WithMessageID to attach a message ID to the chunk.
+// SendUserMessage echoes user message text, which agents use when replaying a
+// loaded session's history.
 func (s *SessionStream) SendUserMessage(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
-	return s.send(ctx, NewSessionUpdateUserMessageChunk(NewContentBlockText(text), o.messageID))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateUserMessageChunk{
+		Content:   textBlock(text),
+		MessageID: o.messageID,
+	}))
 }
 
-// StartToolCall sends a tool_call update with the given parameters.
+// SendContent streams an arbitrary content block as an agent message chunk,
+// for images, audio and embedded resources.
+func (s *SessionStream) SendContent(ctx context.Context, content ContentBlock, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentMessageChunk{
+		Content:   content,
+		MessageID: o.messageID,
+	}))
+}
+
+// StartToolCall reports a tool call that is now running.
 func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, locations ...ToolCallLocation) error {
-	status := ToolCallStatusInProgress
-	tc := ToolCall{
+	status := schema.ToolCallStatusInProgress
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCall{
 		ToolCallID: id,
 		Title:      title,
 		Kind:       &kind,
 		Status:     &status,
-	}
-	if len(locations) > 0 {
-		tc.Locations = locations
-	}
-	return s.send(ctx, NewSessionUpdateToolCall(tc))
+		Locations:  locations,
+	}))
 }
 
-// UpdateToolCallStatus sends a tool_call_update with the given status.
+// UpdateToolCallStatus moves a tool call to another status.
 func (s *SessionStream) UpdateToolCallStatus(ctx context.Context, id ToolCallID, status ToolCallStatus) error {
-	return s.send(ctx, NewSessionUpdateToolCallUpdate(ToolCallUpdate{
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Status:     &status,
 	}))
 }
 
-// CompleteToolCall sends a tool_call_update with completed status and optional content.
+// CompleteToolCall marks a tool call completed, with its output if any.
 func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	status := ToolCallStatusCompleted
-	update := ToolCallUpdate{
+	status := schema.ToolCallStatusCompleted
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Status:     &status,
-	}
-	if len(content) > 0 {
-		update.Content = content
-	}
-	return s.send(ctx, NewSessionUpdateToolCallUpdate(update))
-}
-
-// FailToolCall sends a tool_call_update with failed status.
-func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID) error {
-	status := ToolCallStatusFailed
-	return s.send(ctx, NewSessionUpdateToolCallUpdate(ToolCallUpdate{
-		ToolCallID: id,
-		Status:     &status,
+		Content:    content,
 	}))
 }
 
-// SendPlan sends a plan update.
+// FailToolCall marks a tool call failed, with any error output.
+func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
+	status := schema.ToolCallStatusFailed
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCallUpdate{
+		ToolCallID: id,
+		Status:     &status,
+		Content:    content,
+	}))
+}
+
+// SendPlan reports the agent's plan for the turn.
 func (s *SessionStream) SendPlan(ctx context.Context, entries []PlanEntry) error {
-	return s.send(ctx, NewSessionUpdatePlan(entries))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries}))
 }
 
-// SendModeUpdate sends a current mode update.
+// SendModeUpdate reports that the agent switched session mode on its own.
 func (s *SessionStream) SendModeUpdate(ctx context.Context, modeID SessionModeID) error {
-	return s.send(ctx, NewSessionUpdateCurrentModeUpdate(modeID))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateCurrentModeUpdate{CurrentModeID: modeID}))
 }
 
-// SendConfigUpdate sends a config option update.
+// SendConfigUpdate reports new values for the session's config options.
 func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionConfigOption) error {
-	return s.send(ctx, NewSessionUpdateConfigOptionUpdate(options))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options}))
 }
 
-// SendSessionInfo sends a session info update.
-func (s *SessionStream) SendSessionInfo(ctx context.Context, title, updatedAt string) error {
-	return s.send(ctx, NewSessionUpdateSessionInfoUpdate(title, updatedAt))
-}
-
-// SendCommands sends an available commands update.
+// SendCommands reports the slash commands available in this session.
 func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCommand) error {
-	return s.send(ctx, NewSessionUpdateAvailableCommandsUpdate(commands))
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands}))
 }
 
-// SendUpdate sends an arbitrary SessionUpdate (escape hatch for custom updates).
-func (s *SessionStream) SendUpdate(ctx context.Context, update SessionUpdate) error {
-	return s.send(ctx, update)
+// SendUsage reports context window usage for the turn so far: used tokens out
+// of size, with an optional running cost.
+func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost *Cost) error {
+	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateUsageUpdate{
+		Used: used,
+		Size: size,
+		Cost: cost,
+	}))
 }
 
-func (s *SessionStream) send(ctx context.Context, update SessionUpdate) error {
+// Send sends any session update, including variants without a helper.
+func (s *SessionStream) Send(ctx context.Context, update SessionUpdate) error {
 	return s.client.SessionUpdate(ctx, &SessionNotification{
 		SessionID: s.sessionID,
 		Update:    update,
 	})
+}
+
+func textBlock(text string) ContentBlock {
+	return schema.NewContentBlock(schema.ContentBlockText{Text: text})
 }

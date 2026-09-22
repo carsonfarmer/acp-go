@@ -31,9 +31,8 @@ Inputs and outputs:
 | `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/go-acp/schema/v2` |
 
 Both Go packages are named `schema`; use aliases such as `acpv1` and `acpv2` when importing both.
-The root `acp` package still uses its previous checked-in types. Connection/session runtime migration
-is a separate stage; these new packages do not yet replace that runtime's API.
-The previous JSON Schema generator, inputs and configuration have been removed.
+The root `acp` package implements ACP v1 on top of `schema/v1`; a façade over `schema/v2` does not
+exist yet. The previous JSON Schema generator, inputs and configuration have been removed.
 
 ## Supported subset
 
@@ -61,8 +60,8 @@ named fields are rejected. Caller options such as deterministic map ordering pro
 
 JSON v2 defaults reject duplicate object members and invalid UTF-8, and match field names
 case-sensitively. Required nil slices/maps encode as empty arrays/objects. Nullable pointers
-still encode nil as null. These defaults apply to the new schema packages; the existing root
-runtime still uses `encoding/json` pending its migration.
+still encode nil as null. The root runtime uses `encoding/json/v2` as well, so these defaults
+apply end to end.
 
 Literal unions produce named scalar types and constants.
 

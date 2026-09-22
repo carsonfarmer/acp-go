@@ -1,191 +1,171 @@
+// Command agent is a minimal ACP agent over stdio.
+//
+// It shows the pieces an agent implementation needs: the required Agent
+// methods, session state through an embedded acp.SessionManager, streaming
+// updates with acp.SessionStream, and a permission request before a
+// destructive tool call.
 package main
 
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"sync"
 	"time"
 
 	acp "github.com/ironpark/go-acp"
+	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// ExampleAgent implements the acp.Agent interface with full session update capabilities.
-//
-// This example demonstrates:
-//   - SessionStore for automatic session lifecycle management
-//   - SessionStream for convenient update sending
-//   - Middleware for logging and panic recovery
-//   - Tool call lifecycle (start → complete/fail)
-//   - Permission requests
-type ExampleAgent struct {
+// session holds the state the agent keeps per ACP session. Prompt and Cancel
+// run on different goroutines, so the turn's cancel func is guarded.
+type session struct {
+	mu     sync.Mutex
+	cancel context.CancelFunc
+}
+
+func (s *session) startTurn(cancel context.CancelFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cancel = cancel
+}
+
+func (s *session) cancelTurn() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cancel != nil {
+		s.cancel()
+	}
+}
+
+// exampleAgent embeds a SessionManager, which supplies NewSession plus the
+// optional session/load, session/list and session/delete handlers.
+type exampleAgent struct {
+	*acp.SessionManager[*session]
 	client acp.Client
-	store  acp.SessionStore[*AgentSession]
 }
 
-// AgentSession holds session state
-type AgentSession struct {
-	cancelContext context.Context
-	cancelFunc    context.CancelFunc
-}
-
-func (a *ExampleAgent) Initialize(ctx context.Context, params *acp.InitializeRequest) (*acp.InitializeResponse, error) {
+func (a *exampleAgent) Initialize(_ context.Context, _ *acp.InitializeRequest) (*acp.InitializeResponse, error) {
+	loadSession := true
 	return &acp.InitializeResponse{
-		ProtocolVersion: acp.ProtocolVersion(acp.CurrentProtocolVersion),
-		AgentCapabilities: &acp.AgentCapabilities{
-			LoadSession: false,
-			MCPCapabilities: &acp.MCPCapabilities{
-				HTTP: false,
-				SSE:  false,
-			},
-			PromptCapabilities: &acp.PromptCapabilities{
-				Audio:           false,
-				EmbeddedContext: false,
-				Image:           false,
+		ProtocolVersion: acp.ProtocolVersion,
+		AgentCapabilities: &schema.AgentCapabilities{
+			LoadSession: &loadSession,
+			SessionCapabilities: &schema.SessionCapabilities{
+				List:   &schema.SessionListCapabilities{},
+				Delete: &schema.SessionDeleteCapabilities{},
 			},
 		},
-		AuthMethods: []acp.AuthMethod{},
+		AgentInfo: &schema.Implementation{Name: "example-agent", Version: "0.1.0"},
 	}, nil
 }
 
-func (a *ExampleAgent) Authenticate(ctx context.Context, params *acp.AuthenticateRequest) (*acp.AuthenticateResponse, error) {
+func (a *exampleAgent) Authenticate(_ context.Context, _ *acp.AuthenticateRequest) (*acp.AuthenticateResponse, error) {
 	return &acp.AuthenticateResponse{}, nil
 }
 
-func (a *ExampleAgent) SetSessionMode(ctx context.Context, params *acp.SetSessionModeRequest) (*acp.SetSessionModeResponse, error) {
-	return &acp.SetSessionModeResponse{}, nil
-}
-
-func (a *ExampleAgent) SetSessionConfigOption(ctx context.Context, params *acp.SetSessionConfigOptionRequest) (*acp.SetSessionConfigOptionResponse, error) {
-	return &acp.SetSessionConfigOptionResponse{ConfigOptions: []acp.SessionConfigOption{}}, nil
-}
-
-func (a *ExampleAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*acp.PromptResponse, error) {
-	session, ok := a.store.Get(params.SessionID)
+func (a *exampleAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*acp.PromptResponse, error) {
+	current, ok := a.Session(params.SessionID)
 	if !ok {
-		return nil, fmt.Errorf("session %s not found", params.SessionID)
+		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
 	}
 
-	// Cancel any previous prompt processing for this session
-	session.cancelFunc()
-	sessionCtx, cancelFunc := context.WithCancel(context.Background())
-	session.cancelContext = sessionCtx
-	session.cancelFunc = cancelFunc
+	// One turn at a time per session: replace the previous turn's cancel func.
+	turnCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	current.startTurn(cancel)
 
-	err := a.simulateTurn(sessionCtx, params.SessionID)
-	if err != nil {
-		if sessionCtx.Err() == context.Canceled {
-			return &acp.PromptResponse{
-				StopReason: acp.StopReasonCancelled,
-			}, nil
+	if err := a.runTurn(turnCtx, params.SessionID); err != nil {
+		if turnCtx.Err() != nil {
+			return &acp.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
 		}
 		return nil, err
 	}
-
-	return &acp.PromptResponse{
-		StopReason: acp.StopReasonEndTurn,
-	}, nil
+	return &acp.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 
-func (a *ExampleAgent) Cancel(ctx context.Context, params *acp.CancelNotification) error {
-	if session, ok := a.store.Get(params.SessionID); ok {
-		session.cancelFunc()
+// Cancel ends the turn in progress. Prompt then returns the cancelled stop
+// reason rather than an error.
+func (a *exampleAgent) Cancel(_ context.Context, params *acp.CancelNotification) error {
+	if current, ok := a.Session(params.SessionID); ok {
+		current.cancelTurn()
 	}
 	return nil
 }
 
-func (a *ExampleAgent) simulateTurn(ctx context.Context, sessionId acp.SessionID) error {
-	// Use SessionStream for convenient update sending
-	stream := acp.NewSessionStream(a.client, sessionId)
+func (a *exampleAgent) runTurn(ctx context.Context, sessionID acp.SessionID) error {
+	stream := acp.NewSessionStream(a.client, sessionID)
 
-	// Send initial agent message
-	if err := stream.SendText(ctx, "I'll help you with that. Let me start by reading some files."); err != nil {
+	if err := stream.SendText(ctx, "Let me read the project first."); err != nil {
+		return err
+	}
+	if err := pause(ctx); err != nil {
 		return err
 	}
 
-	if err := simulateDelay(ctx); err != nil {
+	read := acp.ToolCallID("call_1")
+	if err := stream.StartToolCall(ctx, read, "Reading project files", schema.ToolKindRead); err != nil {
+		return err
+	}
+	if err := pause(ctx); err != nil {
+		return err
+	}
+	if err := stream.CompleteToolCall(ctx, read, schema.NewToolCallContent(schema.ToolCallContentContent{
+		Content: schema.NewContentBlock(schema.ContentBlockText{Text: "# My Project"}),
+	})); err != nil {
 		return err
 	}
 
-	// Tool call: read file (no permission needed)
-	toolCallId := acp.ToolCallID("call_1")
-	if err := stream.StartToolCall(ctx, toolCallId, "Reading project files", acp.ToolKindRead); err != nil {
+	edit := acp.ToolCallID("call_2")
+	if err := stream.StartToolCall(ctx, edit, "Modifying configuration", schema.ToolKindEdit); err != nil {
 		return err
 	}
 
-	if err := simulateDelay(ctx); err != nil {
-		return err
-	}
-
-	// Complete the tool call with content
-	if err := stream.CompleteToolCall(ctx, toolCallId,
-		acp.NewToolCallContentContent(acp.NewContentBlockText("# My Project\n\nThis is a sample project...")),
-	); err != nil {
-		return err
-	}
-
-	if err := simulateDelay(ctx); err != nil {
-		return err
-	}
-
-	if err := stream.SendText(ctx, " Now I understand the project. I need to make changes."); err != nil {
-		return err
-	}
-
-	if err := simulateDelay(ctx); err != nil {
-		return err
-	}
-
-	// Tool call: edit file (needs permission)
-	toolCallId2 := acp.ToolCallID("call_2")
-	if err := stream.StartToolCall(ctx, toolCallId2, "Modifying configuration", acp.ToolKindEdit); err != nil {
-		return err
-	}
-
-	// Request permission for the sensitive operation
-	permissionResponse, err := a.client.RequestPermission(ctx, &acp.RequestPermissionRequest{
-		SessionID: sessionId,
-		ToolCall: acp.ToolCallUpdate{
-			ToolCallID: toolCallId2,
-			Title:      "Modifying configuration",
-			Kind:       new(acp.ToolKindEdit),
-			Status:     new(acp.ToolCallStatusPending),
+	// Editing a file is destructive, so ask the user first.
+	pending := schema.ToolCallStatusPending
+	kind := schema.ToolKindEdit
+	title := "Modifying configuration"
+	permission, err := a.client.RequestPermission(ctx, &acp.RequestPermissionRequest{
+		SessionID: sessionID,
+		ToolCall: schema.ToolCallUpdate{
+			ToolCallID: edit,
+			Title:      &title,
+			Kind:       &kind,
+			Status:     &pending,
 			Locations:  []acp.ToolCallLocation{{Path: "/project/config.json"}},
 		},
-		Options: []acp.PermissionOption{
-			{Kind: acp.PermissionOptionKindAllowOnce, Name: "Allow this change", OptionID: "allow"},
-			{Kind: acp.PermissionOptionKindRejectOnce, Name: "Skip this change", OptionID: "reject"},
+		Options: []schema.PermissionOption{
+			{OptionID: "allow", Name: "Allow this change", Kind: schema.PermissionOptionKindAllowOnce},
+			{OptionID: "reject", Name: "Skip this change", Kind: schema.PermissionOptionKindRejectOnce},
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	// Handle permission response using Match pattern
-	return acp.MatchRequestPermissionOutcome[error](&permissionResponse.Outcome, acp.RequestPermissionOutcomeMatcher[error]{
-		Cancelled: func(_ acp.RequestPermissionOutcomeCancelled) error {
-			return stream.FailToolCall(ctx, toolCallId2)
-		},
-		Selected: func(v acp.RequestPermissionOutcomeSelected) error {
-			if v.OptionID == "allow" {
-				if err := stream.CompleteToolCall(ctx, toolCallId2); err != nil {
-					return err
-				}
-				if err := simulateDelay(ctx); err != nil {
-					return err
-				}
-				return stream.SendText(ctx, " Configuration updated successfully.")
-			}
-			if err := stream.FailToolCall(ctx, toolCallId2); err != nil {
+	switch outcome := permission.Outcome.Variant().(type) {
+	case schema.RequestPermissionOutcomeSelected:
+		if outcome.OptionID != "allow" {
+			if err := stream.FailToolCall(ctx, edit); err != nil {
 				return err
 			}
 			return stream.SendText(ctx, " Skipping the configuration update.")
-		},
-	})
+		}
+		if err := stream.CompleteToolCall(ctx, edit); err != nil {
+			return err
+		}
+		return stream.SendText(ctx, " Configuration updated.")
+	default:
+		// Cancelled, or an outcome added after this example was written.
+		return stream.FailToolCall(ctx, edit)
+	}
 }
 
-func simulateDelay(ctx context.Context) error {
+// pause stands in for real work and returns early when the turn is cancelled.
+func pause(ctx context.Context) error {
 	select {
-	case <-time.After(1 * time.Second):
+	case <-time.After(500 * time.Millisecond):
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -193,25 +173,23 @@ func simulateDelay(ctx context.Context) error {
 }
 
 func main() {
-	store := acp.NewMemoryStore[*AgentSession]()
-	agent := &ExampleAgent{store: store}
-
-	// Create connection with session store and middleware
-	conn := acp.NewAgentSideConnection(agent, os.Stdin, os.Stdout,
-		acp.WithSessionStore(store, func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *AgentSession, error) {
-			sessionCtx, cancelFunc := context.WithCancel(context.Background())
-			return acp.GenerateSessionID(), &AgentSession{
-				cancelContext: sessionCtx,
-				cancelFunc:    cancelFunc,
-			}, nil
-		}),
-		acp.WithMiddleware(acp.RecoveryMiddleware()),
+	manager := acp.NewSessionManager(
+		acp.NewMemoryStore[*session](),
+		func(_ context.Context, _ *acp.NewSessionRequest) (acp.SessionID, *session, error) {
+			return acp.GenerateSessionID(), &session{}, nil
+		},
 	)
 
-	agent.client = conn.Client()
+	// Stdout carries the protocol, so logs go to stderr.
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+	conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+		return &exampleAgent{SessionManager: manager, client: c}
+	}, os.Stdin, os.Stdout,
+		acp.WithErrorHandler(func(err error) { logger.Printf("acp: %v", err) }),
+	)
 
 	if err := conn.Start(context.Background()); err != nil {
-		fmt.Fprintf(os.Stderr, "Connection error: %v\n", err)
+		logger.Printf("connection error: %v", err)
 		os.Exit(1)
 	}
 }
