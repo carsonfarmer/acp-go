@@ -49,8 +49,8 @@ func TestGeneratedZod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data) != 2 {
-		t.Fatalf("expected schema.gen.go and zod.gen.go, got %d files", len(data))
+	if _, ok := data["zod.gen.go"]; !ok || len(data) != 5 {
+		t.Fatalf("expected the four wire files plus zod.gen.go, got %d files", len(data))
 	}
 	dir := t.TempDir()
 	writeFixture(t, dir, data, tests)

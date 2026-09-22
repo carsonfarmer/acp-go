@@ -7,8 +7,12 @@ Generation uses checked-in sources and requires no Node.js or network access.
 Go 1.27 or newer is required by both modules. CGO and a C compiler are required for the
 generator, but not for generated packages. Generated code uses `encoding/json/v2`,
 `encoding/json/jsontext` and a generic decoder helper; no `GOEXPERIMENT` setting is needed.
-Each version produces `schema.gen.go` (wire types) and `zod.gen.go` (Zod rule tables, the
-`Validated` option and generic `Decode`/`Validate`). The rule evaluator lives once in `schema/zod` and is
+Each version produces the wire types split by kind — `methods.gen.go` (method constants and the
+protocol version), `enums.gen.go` (identifier types and literal enums), `types.gen.go` (object
+structs and aliases), `unions.gen.go` (tagged and raw payload unions plus their shared helpers) and
+`envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …) —
+and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
+The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and is
 shared by both versions; it is a runtime dependency of the generated packages, not a public API.
 
 ```sh

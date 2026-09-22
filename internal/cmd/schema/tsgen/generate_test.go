@@ -37,8 +37,15 @@ func TestGeneratedWireTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(a["schema.gen.go"], b["schema.gen.go"]) || len(a) != 1 {
-		t.Fatal("non-deterministic generation")
+	// No validators, so no zod file; the other kinds are all present.
+	want := []string{"methods.gen.go", "enums.gen.go", "types.gen.go", "unions.gen.go"}
+	if len(a) != len(want) {
+		t.Fatalf("generated %d files, want %v", len(a), want)
+	}
+	for _, name := range want {
+		if !bytes.Equal(a[name], b[name]) {
+			t.Fatalf("non-deterministic generation of %s", name)
+		}
 	}
 	dir := t.TempDir()
 	wireTests, err := os.ReadFile("testdata/wire_test.go.txt")

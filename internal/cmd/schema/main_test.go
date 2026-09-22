@@ -29,7 +29,7 @@ func TestPinnedSDKGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, version := range []string{"v1", "v2"} {
-		for _, name := range []string{"schema.gen.go", "zod.gen.go"} {
+		for _, name := range []string{"methods.gen.go", "enums.gen.go", "types.gen.go", "unions.gen.go", "envelope.gen.go", "zod.gen.go"} {
 			generated, err := os.ReadFile(filepath.Join(output, version, name))
 			if err != nil {
 				t.Fatal(err)
@@ -48,7 +48,7 @@ func TestPinnedSDKGeneration(t *testing.T) {
 	if err := run(append(args, "-facade", "../../..", "-check")); err != nil {
 		t.Fatal(err)
 	}
-	stale := filepath.Join(output, "v1", "schema.gen.go")
+	stale := filepath.Join(output, "v1", "types.gen.go")
 	if err := os.WriteFile(stale, []byte("stale"), 0644); err != nil {
 		t.Fatal(err)
 	}
