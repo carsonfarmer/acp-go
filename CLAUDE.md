@@ -23,6 +23,12 @@ ACP(Agent Client Protocol) for golang
 - Outputs: `schema/{v1,v2}/schema.gen.go` (wire types), `schema/{v1,v2}/zod.gen.go` (Zod rule tables)
 - Shared Zod evaluator: `schema/zod`
 
+### Packages (`next`)
+
+- Root `acp`: ACP v1 façade on `schema/v1`. `acpv2`: draft v2 façade on `schema/v2` (never imports root).
+- `router`: `ProtocolRouter` serving both versions on one endpoint (imports both façades).
+- `internal/jsonrpc`: version-agnostic JSON-RPC 2.0 core. `internal/acpconn`: shared options and generic dispatch.
+
 ### SDK
 
 - Typescript SDK `reference/typescript-sdk`

@@ -1,4 +1,4 @@
-package acp
+package acpv2
 
 import (
 	"context"
@@ -7,15 +7,12 @@ import (
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	schema "github.com/ironpark/go-acp/schema/v2"
 )
 
-// ClientSideConnection is the client's view of an ACP connection.
-//
-// It serves a [Client] to the peer agent and exposes every agent method for
-// outgoing calls, so an editor drives a session entirely through this type.
-//
-// See protocol docs: [Client](https://agentclientprotocol.com/protocol/overview#client)
+// ClientSideConnection is the client's view of an ACP v2 connection. It serves
+// a [Client] to the peer agent and exposes every agent method for outgoing
+// calls.
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
@@ -23,20 +20,10 @@ type ClientSideConnection struct {
 
 var _ Agent = (*ClientSideConnection)(nil)
 
-// NewClientSideConnection connects a client to an agent.
-//
-// newClient receives the connection being built, so the client can call the
-// agent while handling one of its requests:
-//
-//	conn := acp.NewClientSideConnection(func(c *acp.ClientSideConnection) acp.Client {
-//		return &myClient{agent: c}
-//	}, agentStdout, agentStdin)
-//	go conn.Start(ctx)
-//
-// reader carries messages from the agent and writer carries messages to it;
-// when spawning an agent process those are its stdout and stdin.
-//
-// See protocol docs: [Communication Model](https://agentclientprotocol.com/protocol/overview#communication-model)
+// NewClientSideConnection connects a client to an agent. newClient receives
+// the connection being built so the client can call the agent from its own
+// handlers. reader carries messages from the agent and writer carries messages
+// to it; when spawning an agent process those are its stdout and stdin.
 func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
@@ -56,30 +43,26 @@ func (c *ClientSideConnection) Done() <-chan struct{} { return c.conn.Done() }
 // --- Outgoing calls to the agent ---
 
 // Initialize negotiates the protocol version and exchanges capabilities. It is
-// the first call on every connection.
+// the first call on every connection. An agent that only speaks v1 answers
+// with ProtocolVersion 1 and a v1-shaped response; reconnect with the v1
+// package in that case.
 func (c *ClientSideConnection) Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
 	return call[InitializeResponse](ctx, c.conn, schema.AgentMethodsInitialize, params)
 }
 
-// Authenticate authenticates with one of the methods the agent advertised.
-func (c *ClientSideConnection) Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error) {
-	return call[AuthenticateResponse](ctx, c.conn, schema.AgentMethodsAuthenticate, params)
+// Login authenticates with one of the methods the agent advertised.
+func (c *ClientSideConnection) Login(ctx context.Context, params *LoginAuthRequest) (*LoginAuthResponse, error) {
+	return call[LoginAuthResponse](ctx, c.conn, schema.AgentMethodsAuthLogin, params)
 }
 
 // Logout clears the credentials the agent holds.
-func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutRequest) (*LogoutResponse, error) {
-	return call[LogoutResponse](ctx, c.conn, schema.AgentMethodsLogout, params)
+func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutAuthRequest) (*LogoutAuthResponse, error) {
+	return call[LogoutAuthResponse](ctx, c.conn, schema.AgentMethodsAuthLogout, params)
 }
 
 // NewSession creates a session. It may fail with an auth-required error.
 func (c *ClientSideConnection) NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
 	return call[NewSessionResponse](ctx, c.conn, schema.AgentMethodsSessionNew, params)
-}
-
-// LoadSession resumes a session and replays its history as notifications.
-// Requires the agent's `loadSession` capability.
-func (c *ClientSideConnection) LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
-	return call[LoadSessionResponse](ctx, c.conn, schema.AgentMethodsSessionLoad, params)
 }
 
 // ListSessions lists sessions, optionally filtered and paginated.
@@ -101,22 +84,13 @@ func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSess
 }
 
 // ResumeSession continues a session without replaying its history.
-//
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	return call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
 }
 
 // CloseSession cancels any ongoing work and frees the session's resources.
-//
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
 	return call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
-}
-
-// SetSessionMode switches the session between the agent's advertised modes.
-func (c *ClientSideConnection) SetSessionMode(ctx context.Context, params *SetSessionModeRequest) (*SetSessionModeResponse, error) {
-	return call[SetSessionModeResponse](ctx, c.conn, schema.AgentMethodsSessionSetMode, params)
 }
 
 // SetSessionConfigOption sets one configuration option. The response returns
@@ -146,22 +120,30 @@ func (c *ClientSideConnection) DisableProvider(ctx context.Context, params *Disa
 	return call[DisableProviderResponse](ctx, c.conn, schema.AgentMethodsProvidersDisable, params)
 }
 
-// Prompt runs one prompt turn and returns once the agent stops.
-//
-// Cancelling ctx cancels the JSON-RPC request; to cancel the turn itself with
-// the protocol's own semantics, send [ClientSideConnection.Cancel].
-//
-// See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)
+// Prompt runs one prompt turn and returns once the agent stops. Cancelling
+// ctx cancels the JSON-RPC request; to cancel the turn itself with the
+// protocol's own semantics, send [ClientSideConnection.CancelSession].
 func (c *ClientSideConnection) Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error) {
 	return call[PromptResponse](ctx, c.conn, schema.AgentMethodsSessionPrompt, params)
 }
 
-// Cancel asks the agent to end the current turn. The pending Prompt call
-// returns with the cancelled stop reason.
-//
-// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
-func (c *ClientSideConnection) Cancel(ctx context.Context, params *CancelNotification) error {
+// CancelSession asks the agent to end the current turn.
+func (c *ClientSideConnection) CancelSession(ctx context.Context, params *CancelSessionNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsSessionCancel, params)
+}
+
+// MessageMCP forwards an MCP request to the agent and returns its result.
+//
+// **UNSTABLE**: MCP proxying is not part of the spec yet and may change.
+func (c *ClientSideConnection) MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error) {
+	return call[MessageMCPResponse](ctx, c.conn, schema.AgentMethodsMCPMessage, params)
+}
+
+// NotifyMCP forwards an MCP notification to the agent.
+//
+// **UNSTABLE**: MCP proxying is not part of the spec yet and may change.
+func (c *ClientSideConnection) NotifyMCP(ctx context.Context, params *MessageMCPNotification) error {
+	return c.conn.SendNotification(ctx, schema.AgentMethodsMCPMessage, params)
 }
 
 // StartNes starts a Next Edit Suggestions stream.
@@ -251,34 +233,17 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 	case schema.ClientMethodsSessionRequestPermission:
 		return request(ctx, params, c.client.RequestPermission)
 
-	case schema.ClientMethodsFsReadTextFile:
-		if reader, ok := c.client.(FileReader); ok {
-			return request(ctx, params, reader.ReadTextFile)
+	case schema.ClientMethodsMCPConnect:
+		if mcp, ok := c.client.(MCPConnector); ok {
+			return request(ctx, params, mcp.ConnectMCP)
 		}
-	case schema.ClientMethodsFsWriteTextFile:
-		if writer, ok := c.client.(FileWriter); ok {
-			return request(ctx, params, writer.WriteTextFile)
+	case schema.ClientMethodsMCPMessage:
+		if mcp, ok := c.client.(MCPConnector); ok {
+			return request(ctx, params, mcp.MessageMCP)
 		}
-
-	case schema.ClientMethodsTerminalCreate:
-		if terminals, ok := c.client.(TerminalHandler); ok {
-			return request(ctx, params, terminals.CreateTerminal)
-		}
-	case schema.ClientMethodsTerminalOutput:
-		if terminals, ok := c.client.(TerminalHandler); ok {
-			return request(ctx, params, terminals.TerminalOutput)
-		}
-	case schema.ClientMethodsTerminalRelease:
-		if terminals, ok := c.client.(TerminalHandler); ok {
-			return request(ctx, params, terminals.ReleaseTerminal)
-		}
-	case schema.ClientMethodsTerminalWaitForExit:
-		if terminals, ok := c.client.(TerminalHandler); ok {
-			return request(ctx, params, terminals.WaitForTerminalExit)
-		}
-	case schema.ClientMethodsTerminalKill:
-		if terminals, ok := c.client.(TerminalHandler); ok {
-			return request(ctx, params, terminals.KillTerminal)
+	case schema.ClientMethodsMCPDisconnect:
+		if mcp, ok := c.client.(MCPConnector); ok {
+			return request(ctx, params, mcp.DisconnectMCP)
 		}
 
 	case schema.ClientMethodsElicitationCreate:
@@ -287,8 +252,6 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 		}
 
 	default:
-		// Extension methods, including mcp/*, which the reference SDKs also
-		// leave to extensions.
 		if handler, ok := c.client.(ExtMethodHandler); ok {
 			return handler.ExtMethod(ctx, method, params)
 		}
@@ -300,6 +263,11 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 	switch method {
 	case schema.ClientMethodsSessionUpdate:
 		return notify(ctx, params, c.client.SessionUpdate)
+
+	case schema.ClientMethodsMCPMessage:
+		if mcp, ok := c.client.(MCPConnector); ok {
+			return notify(ctx, params, mcp.NotifyMCP)
+		}
 
 	case schema.ClientMethodsElicitationComplete:
 		if elicit, ok := c.client.(ElicitationHandler); ok {

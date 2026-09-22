@@ -31,8 +31,9 @@ Inputs and outputs:
 | `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/go-acp/schema/v2` |
 
 Both Go packages are named `schema`; use aliases such as `acpv1` and `acpv2` when importing both.
-The root `acp` package implements ACP v1 on top of `schema/v1`; a façade over `schema/v2` does not
-exist yet. The previous JSON Schema generator, inputs and configuration have been removed.
+The root `acp` package implements ACP v1 on top of `schema/v1`, `acpv2` implements the draft v2 on
+top of `schema/v2`, and `router` serves both on one endpoint. The previous JSON Schema generator,
+inputs and configuration have been removed.
 
 ## Supported subset
 

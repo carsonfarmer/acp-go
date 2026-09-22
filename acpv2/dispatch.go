@@ -1,4 +1,4 @@
-package acp
+package acpv2
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	schema "github.com/ironpark/go-acp/schema/v2"
 )
 
 // The dispatch helpers are shared with the v2 façade; only the validation

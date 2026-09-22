@@ -1,4 +1,4 @@
-package acp
+package acpv2
 
 import (
 	"io"
@@ -28,8 +28,8 @@ func NewStdioTransport(reader io.Reader, writer io.Writer) *jsonrpc.StdioTranspo
 	return jsonrpc.NewStdioTransport(reader, writer)
 }
 
-// Option configures a connection. The same option values configure the v2
-// façade, so a transport or middleware set up once serves either version.
+// Option configures a connection. It is the same type as the v1 package's
+// Option, so a transport or middleware set up once serves either version.
 type Option = acpconn.Option
 
 // WithTransport replaces the default stdio transport. The reader and writer

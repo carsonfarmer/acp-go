@@ -16,7 +16,9 @@ Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(
 이 브랜치는 Go 1.27+ 를 요구하며 SDK를 `encoding/json/v2` 기반으로 다시 만든 버전입니다.
 와이어 타입은 공식 TypeScript SDK에서 `go-tree-sitter`로 생성합니다
 ([스키마 생성](../schema/README.md) 참고).
-루트 `acp` 패키지는 `schema/v1` 위에서 ACP v1을 구현하며, `schema/v2` 용 파사드는 아직 없습니다.
+루트 `acp` 패키지는 `schema/v1` 위에서 ACP v1을 구현합니다. 초안 단계인 v2는 `schema/v2` 위의
+[`acpv2`](../acpv2/)에 있고, [`router`](../router/)가 한 엔드포인트에서 두 버전을 함께 서비스합니다.
+업스트림과 마찬가지로 v1이 안정 진입점이고 v2는 opt-in이며 바뀔 수 있습니다.
 
 ## 설치
 
@@ -84,6 +86,8 @@ conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt
 - **`Middleware`**: 요청/알림을 감싸는 래퍼
 - **`TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
 - **`schema/v1`**: 생성된 와이어 타입, union, Zod 검증
+- **`acpv2`**: 초안 ACP v2(`schema/v2`)용 동일 구조의 파사드
+- **`router.ProtocolRouter`**: v1·v2 에이전트를 한 엔드포인트로 서비스
 
 ## 주요 기능
 
@@ -93,6 +97,21 @@ conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt
 받는 쪽에서는 해당 핸들러의 컨텍스트가 취소되고, 핸들러가 먼저 응답하지 않으면
 `-32800 Request cancelled`가 전달됩니다. 프롬프트 턴 전체를 취소하는
 `session/cancel`과는 별개입니다.
+
+### v1과 v2 동시 지원
+
+```go
+r := router.New().
+    WithV1(func(c *acp.AgentSideConnection) acp.Agent { return &v1Agent{client: c} }).
+    WithV2(func(c *acpv2.AgentSideConnection) acpv2.Agent { return &v2Agent{client: c} })
+err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
+```
+
+라우터는 첫 메시지(`initialize`여야 함)를 읽어 요청 버전 이하 중 가장 높은 설정 버전을 고르고,
+initialize 파라미터만 그 버전 모양으로 고칩니다(v1 전용 에이전트에 v2 요청이 오면 `info` → `clientInfo`,
+`fs`/`terminal` 없음으로 다운그레이드). 이후 메시지는 그대로 전달합니다. 클라이언트는 import 하는
+패키지로 버전을 고르며, 에이전트가 더 낮은 `protocolVersion`으로 응답하면 다른 패키지로 재연결합니다.
+옵션·transport·미들웨어는 공유 타입이라 한 값으로 양쪽 파사드를 설정합니다.
 
 ### 세션 관리
 
@@ -184,8 +203,26 @@ ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/R
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
-`mcp/*` 메서드는 참조 SDK와 마찬가지로 전용 핸들러가 없으며 `ExtMethodHandler`로 전달됩니다.
+v1의 `mcp/*` 메서드는 참조 SDK와 마찬가지로 전용 핸들러가 없으며 `ExtMethodHandler`로 전달됩니다.
 `$/cancel_request`는 연결이 직접 처리합니다.
+
+### ACP v2 (`acpv2`, 초안)
+
+| 메서드 | Go 인터페이스 |
+| --- | --- |
+| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
+| `auth/login`, `auth/logout` | `AuthHandler` |
+| `session/list`, `session/delete`, `session/fork`, `session/resume`, `session/close` | `SessionLister`, `SessionDeleter`, `SessionForker`, `SessionResumer`, `SessionCloser` |
+| `session/set_config_option` | `SessionConfigOptionSetter` |
+| `providers/*` | `ProviderManager` (unstable) |
+| `nes/*`, `document/did*` | `NesHandler`, `DocumentHandler` (unstable) |
+| `mcp/message` (에이전트 측) | `MCPMessageHandler` (unstable) |
+| `session/update`, `session/request_permission` | `Client` (필수) |
+| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+
+v2에는 `fs/*`·`terminal/*` 메서드가 없고(파일·셸 접근은 MCP 경유) `SessionStream`과 `TerminalHandle`은
+v1 패키지에만 있습니다.
 
 ## 예제
 

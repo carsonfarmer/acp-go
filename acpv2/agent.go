@@ -1,4 +1,4 @@
-package acp
+package acpv2
 
 import (
 	"context"
@@ -7,16 +7,11 @@ import (
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	schema "github.com/ironpark/go-acp/schema/v2"
 )
 
-// AgentSideConnection is the agent's view of an ACP connection.
-//
-// It serves an [Agent] to the peer and implements [Client] for calls back to
-// it, so an agent needs no other handle to stream updates, ask for
-// permissions, read files or run terminals.
-//
-// See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#agent)
+// AgentSideConnection is the agent's view of an ACP v2 connection. It serves
+// an [Agent] to the peer and implements [Client] for calls back to it.
 type AgentSideConnection struct {
 	conn  *jsonrpc.Connection
 	agent Agent
@@ -24,20 +19,9 @@ type AgentSideConnection struct {
 
 var _ Client = (*AgentSideConnection)(nil)
 
-// NewAgentSideConnection connects an agent to a client.
-//
-// newAgent receives the connection being built, so the agent can keep it and
-// call the client while handling a request:
-//
-//	conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
-//		return &myAgent{client: c}
-//	}, os.Stdin, os.Stdout)
-//	err := conn.Start(ctx)
-//
-// reader carries messages from the client and writer carries messages to it;
-// for a stdio agent those are os.Stdin and os.Stdout.
-//
-// See protocol docs: [Communication Model](https://agentclientprotocol.com/protocol/overview#communication-model)
+// NewAgentSideConnection connects an agent to a client. newAgent receives the
+// connection being built so the agent can keep it as its [Client]. reader
+// carries messages from the client and writer carries messages to it.
 func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
@@ -60,7 +44,7 @@ func (c *AgentSideConnection) Client() Client { return c }
 // --- Outgoing calls to the client ---
 
 // SessionUpdate streams turn progress to the client.
-func (c *AgentSideConnection) SessionUpdate(ctx context.Context, params *SessionNotification) error {
+func (c *AgentSideConnection) SessionUpdate(ctx context.Context, params *UpdateSessionNotification) error {
 	return c.conn.SendNotification(ctx, schema.ClientMethodsSessionUpdate, params)
 }
 
@@ -69,56 +53,27 @@ func (c *AgentSideConnection) RequestPermission(ctx context.Context, params *Req
 	return call[RequestPermissionResponse](ctx, c.conn, schema.ClientMethodsSessionRequestPermission, params)
 }
 
-// ReadTextFile reads a text file through the client. Requires the client's
-// `fs.readTextFile` capability.
-func (c *AgentSideConnection) ReadTextFile(ctx context.Context, params *ReadTextFileRequest) (*ReadTextFileResponse, error) {
-	return call[ReadTextFileResponse](ctx, c.conn, schema.ClientMethodsFsReadTextFile, params)
+// ConnectMCP opens an MCP connection through the client.
+func (c *AgentSideConnection) ConnectMCP(ctx context.Context, params *ConnectMCPRequest) (*ConnectMCPResponse, error) {
+	return call[ConnectMCPResponse](ctx, c.conn, schema.ClientMethodsMCPConnect, params)
 }
 
-// WriteTextFile writes a text file through the client. Requires the client's
-// `fs.writeTextFile` capability.
-func (c *AgentSideConnection) WriteTextFile(ctx context.Context, params *WriteTextFileRequest) (*WriteTextFileResponse, error) {
-	return call[WriteTextFileResponse](ctx, c.conn, schema.ClientMethodsFsWriteTextFile, params)
+// MessageMCP sends an MCP request over a connection and returns its result.
+func (c *AgentSideConnection) MessageMCP(ctx context.Context, params *MessageMCPRequest) (*MessageMCPResponse, error) {
+	return call[MessageMCPResponse](ctx, c.conn, schema.ClientMethodsMCPMessage, params)
 }
 
-// CreateTerminal starts a command in a client-managed terminal. Requires the
-// client's `terminal` capability.
-func (c *AgentSideConnection) CreateTerminal(ctx context.Context, params *CreateTerminalRequest) (*CreateTerminalResponse, error) {
-	return call[CreateTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalCreate, params)
+// NotifyMCP sends an MCP notification over a connection.
+func (c *AgentSideConnection) NotifyMCP(ctx context.Context, params *MessageMCPNotification) error {
+	return c.conn.SendNotification(ctx, schema.ClientMethodsMCPMessage, params)
 }
 
-// NewTerminal is CreateTerminal plus a [TerminalHandle] bound to the new
-// terminal, which is usually what an agent wants.
-func (c *AgentSideConnection) NewTerminal(ctx context.Context, params *CreateTerminalRequest) (*TerminalHandle, error) {
-	response, err := c.CreateTerminal(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-	return NewTerminalHandle(response.TerminalID, params.SessionID, c), nil
+// DisconnectMCP closes an MCP connection.
+func (c *AgentSideConnection) DisconnectMCP(ctx context.Context, params *DisconnectMCPRequest) (*DisconnectMCPResponse, error) {
+	return call[DisconnectMCPResponse](ctx, c.conn, schema.ClientMethodsMCPDisconnect, params)
 }
 
-// TerminalOutput returns a terminal's output so far without waiting for exit.
-func (c *AgentSideConnection) TerminalOutput(ctx context.Context, params *TerminalOutputRequest) (*TerminalOutputResponse, error) {
-	return call[TerminalOutputResponse](ctx, c.conn, schema.ClientMethodsTerminalOutput, params)
-}
-
-// ReleaseTerminal kills the command if needed and frees the terminal.
-func (c *AgentSideConnection) ReleaseTerminal(ctx context.Context, params *ReleaseTerminalRequest) (*ReleaseTerminalResponse, error) {
-	return call[ReleaseTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalRelease, params)
-}
-
-// WaitForTerminalExit blocks until the terminal's command exits.
-func (c *AgentSideConnection) WaitForTerminalExit(ctx context.Context, params *WaitForTerminalExitRequest) (*WaitForTerminalExitResponse, error) {
-	return call[WaitForTerminalExitResponse](ctx, c.conn, schema.ClientMethodsTerminalWaitForExit, params)
-}
-
-// KillTerminal kills the command but keeps the terminal id valid.
-func (c *AgentSideConnection) KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error) {
-	return call[KillTerminalResponse](ctx, c.conn, schema.ClientMethodsTerminalKill, params)
-}
-
-// CreateElicitation asks the client to collect input from the user. Requires
-// the client's `elicitation` capability.
+// CreateElicitation asks the client to collect input from the user.
 func (c *AgentSideConnection) CreateElicitation(ctx context.Context, params *CreateElicitationRequest) (*CreateElicitationResponse, error) {
 	return call[CreateElicitationResponse](ctx, c.conn, schema.ClientMethodsElicitationCreate, params)
 }
@@ -144,18 +99,20 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 	switch method {
 	case schema.AgentMethodsInitialize:
 		return request(ctx, params, c.agent.Initialize)
-	case schema.AgentMethodsAuthenticate:
-		return request(ctx, params, c.agent.Authenticate)
+	case schema.AgentMethodsSessionNew:
+		return request(ctx, params, c.agent.NewSession)
 	case schema.AgentMethodsSessionPrompt:
 		return request(ctx, params, c.agent.Prompt)
 
-	case schema.AgentMethodsSessionNew:
-		return request(ctx, params, c.agent.NewSession)
-
-	case schema.AgentMethodsSessionLoad:
-		if loader, ok := c.agent.(SessionLoader); ok {
-			return request(ctx, params, loader.LoadSession)
+	case schema.AgentMethodsAuthLogin:
+		if auth, ok := c.agent.(AuthHandler); ok {
+			return request(ctx, params, auth.Login)
 		}
+	case schema.AgentMethodsAuthLogout:
+		if auth, ok := c.agent.(AuthHandler); ok {
+			return request(ctx, params, auth.Logout)
+		}
+
 	case schema.AgentMethodsSessionList:
 		if lister, ok := c.agent.(SessionLister); ok {
 			return request(ctx, params, lister.ListSessions)
@@ -164,7 +121,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if deleter, ok := c.agent.(SessionDeleter); ok {
 			return request(ctx, params, deleter.DeleteSession)
 		}
-
 	case schema.AgentMethodsSessionFork:
 		if forker, ok := c.agent.(SessionForker); ok {
 			return request(ctx, params, forker.ForkSession)
@@ -176,10 +132,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 	case schema.AgentMethodsSessionClose:
 		if closer, ok := c.agent.(SessionCloser); ok {
 			return request(ctx, params, closer.CloseSession)
-		}
-	case schema.AgentMethodsSessionSetMode:
-		if setter, ok := c.agent.(SessionModeSetter); ok {
-			return request(ctx, params, setter.SetSessionMode)
 		}
 	case schema.AgentMethodsSessionSetConfigOption:
 		if setter, ok := c.agent.(SessionConfigOptionSetter); ok {
@@ -198,10 +150,6 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		if providers, ok := c.agent.(ProviderManager); ok {
 			return request(ctx, params, providers.DisableProvider)
 		}
-	case schema.AgentMethodsLogout:
-		if handler, ok := c.agent.(LogoutHandler); ok {
-			return request(ctx, params, handler.Logout)
-		}
 
 	case schema.AgentMethodsNesStart:
 		if nes, ok := c.agent.(NesHandler); ok {
@@ -216,9 +164,12 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 			return request(ctx, params, nes.CloseNes)
 		}
 
+	case schema.AgentMethodsMCPMessage:
+		if mcp, ok := c.agent.(MCPMessageHandler); ok {
+			return request(ctx, params, mcp.MessageMCP)
+		}
+
 	default:
-		// Extension methods, including mcp/*, which the reference SDKs also
-		// leave to extensions.
 		if handler, ok := c.agent.(ExtMethodHandler); ok {
 			return handler.ExtMethod(ctx, method, params)
 		}
@@ -229,7 +180,12 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 func (c *AgentSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
 	switch method {
 	case schema.AgentMethodsSessionCancel:
-		return notify(ctx, params, c.agent.Cancel)
+		return notify(ctx, params, c.agent.CancelSession)
+
+	case schema.AgentMethodsMCPMessage:
+		if mcp, ok := c.agent.(MCPMessageHandler); ok {
+			return notify(ctx, params, mcp.NotifyMCP)
+		}
 
 	case schema.AgentMethodsNesAccept:
 		if nes, ok := c.agent.(NesHandler); ok {

@@ -16,8 +16,9 @@ Learn more about the protocol at [agentclientprotocol.com](https://agentclientpr
 This branch requires Go 1.27+ and is a rebuild of the SDK on `encoding/json/v2`.
 Wire types are generated from the official TypeScript SDK with `go-tree-sitter` — see
 [schema generation](schema/README.md) for inputs, regeneration and current limits.
-The root `acp` package implements ACP v1 on top of `schema/v1`; a v2 façade over `schema/v2`
-is not built yet.
+The root `acp` package implements ACP v1 on top of `schema/v1`. The draft v2 lives in
+[`acpv2`](./acpv2/) on top of `schema/v2`, and [`router`](./router/) serves both versions on one
+endpoint. As upstream, v1 is the stable entry point and v2 is opt-in and may change.
 
 ## Installation
 
@@ -42,6 +43,8 @@ See the [docs/example](./docs/example/) directory for complete working examples:
 - **`Middleware`** — composable wrappers around incoming requests and notifications
 - **`TerminalHandle`** — terminal id and session id bound together
 - **`schema/v1`** — generated wire types, unions and Zod-based validation
+- **`acpv2`** — the same façades for the draft ACP v2 (`schema/v2`)
+- **`router.ProtocolRouter`** — one endpoint serving v1 and v2 agents
 
 Incoming parameters are validated with the SDK's own Zod rules before a handler sees them,
 and invalid ones are answered with `-32602` without invoking the handler.
@@ -93,6 +96,22 @@ Cancelling the context of an outgoing call sends `$/cancel_request` for that req
 On the receiving side the matching handler's context is cancelled, and the peer gets
 `-32800 Request cancelled` unless the handler answers first. This is separate from
 `session/cancel`, which cancels a whole prompt turn.
+
+### Serving v1 and v2 together
+
+```go
+r := router.New().
+    WithV1(func(c *acp.AgentSideConnection) acp.Agent { return &v1Agent{client: c} }).
+    WithV2(func(c *acpv2.AgentSideConnection) acpv2.Agent { return &v2Agent{client: c} })
+err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
+```
+
+The router reads the first message, which must be `initialize`, picks the highest configured
+version not above the one requested, rewrites only the initialize params (a v2 request routed to
+a v1-only agent is downgraded: `info` → `clientInfo`, no `fs`/`terminal`), and forwards everything
+after that unchanged. Clients pick a version by which package they import; if the agent answers
+with a lower `protocolVersion`, reconnect with the other package. Options, transports and
+middleware are shared types, so one value configures either façade.
 
 ### Transport Layer
 
@@ -227,8 +246,26 @@ ACP protocol version 1, as pinned in [`schema/typescript/REVISION`](schema/types
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
-The `mcp/*` methods have no typed handler here, matching the reference SDKs; they arrive
+The `mcp/*` methods have no typed handler in v1, matching the reference SDKs; they arrive
 through `ExtMethodHandler`. `$/cancel_request` is handled by the connection itself.
+
+### ACP v2 (`acpv2`, draft)
+
+| Method | Go interface |
+| --- | --- |
+| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (required) |
+| `auth/login`, `auth/logout` | `AuthHandler` |
+| `session/list`, `session/delete`, `session/fork`, `session/resume`, `session/close` | `SessionLister`, `SessionDeleter`, `SessionForker`, `SessionResumer`, `SessionCloser` |
+| `session/set_config_option` | `SessionConfigOptionSetter` |
+| `providers/*` | `ProviderManager` (unstable) |
+| `nes/*`, `document/did*` | `NesHandler`, `DocumentHandler` (unstable) |
+| `mcp/message` (agent side) | `MCPMessageHandler` (unstable) |
+| `session/update`, `session/request_permission` | `Client` (required) |
+| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
+| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+
+v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so `SessionStream`
+and `TerminalHandle` exist only in the v1 package.
 
 ## Contributing
 
