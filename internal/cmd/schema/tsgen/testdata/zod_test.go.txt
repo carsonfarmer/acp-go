@@ -1,0 +1,82 @@
+package fixture
+
+import (
+	"encoding/json/v2"
+	"strings"
+	"testing"
+)
+
+func TestZodDefaultsAndRecovery(t *testing.T) {
+	v, err := DecodeOptionsJSON([]byte(`{"required":[1,"bad",2],"url":"not a url"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Count != 3 || v.Label == nil || *v.Label != "hello" || len(v.Required) != 2 || v.Required[1] != 2 || v.URL != nil {
+		t.Fatalf("wrong normalization: %+v", v)
+	}
+	if _, err := DecodeOptionsJSON([]byte(`{}`)); err == nil || !strings.Contains(err.Error(), `$["required"]`) {
+		t.Fatalf("missing required input accepted: %v", err)
+	}
+	v, err = DecodeOptionsJSON([]byte(`{"required":"bad"}`))
+	if err != nil || len(v.Required) != 0 {
+		t.Fatalf("required recovery failed: %+v %v", v, err)
+	}
+	if ValidateOptionsJSON([]byte(`{"required":[],"count":null}`)) == nil {
+		t.Fatal("default applied to null instead of missing")
+	}
+	if ValidateCountJSON([]byte(`3.5`)) == nil || ValidateCountJSON([]byte(`11`)) == nil || ValidateCountJSON([]byte(`-1`)) == nil {
+		t.Fatal("numeric constraints ignored")
+	}
+	if ValidateCountJSON([]byte(`0`)) != nil {
+		t.Fatal("inclusive zero bound failed")
+	}
+}
+func TestZodCustomUnion(t *testing.T) {
+	if _, err := DecodeMessageJSON([]byte(`{"kind":"text","text":42}`)); err == nil {
+		t.Fatal("malformed known variant passed through catch-all")
+	}
+	good, err := DecodeMessageJSON([]byte(`{"kind":"text","text":"ok","note":42,"vendor":true}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := string(good.RawJSON())
+	if strings.Contains(raw, "note") || strings.Contains(raw, "vendor") {
+		t.Fatalf("known variant was not normalized: %s", raw)
+	}
+	custom, err := DecodeMessageJSON([]byte(`{"kind":"future","text":42,"note":42,"_meta":42,"vendor":9007199254740993,"constructor":true,"__proto__":false}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = string(custom.RawJSON())
+	if !strings.Contains(raw, `"vendor":9007199254740993`) || !strings.Contains(raw, `"note":42`) || !strings.Contains(raw, `"constructor":true`) {
+		t.Fatalf("custom payload lost: %s", raw)
+	}
+	if strings.Contains(raw, `"_meta"`) || strings.Contains(raw, `"__proto__"`) {
+		t.Fatalf("salvaged/excluded fields restored: %s", raw)
+	}
+	if _, err := json.Marshal(custom); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestZodStringConstraints(t *testing.T) {
+	for _, source := range []string{`"usd"`, `"US"`, `123`} {
+		if ValidateCurrencyJSON([]byte(source)) == nil {
+			t.Fatalf("accepted currency %s", source)
+		}
+	}
+	if ValidateCurrencyJSON([]byte(`"USD"`)) != nil {
+		t.Fatal("rejected USD")
+	}
+	if ValidateURLJSON([]byte(`"relative/path"`)) == nil || ValidateURLJSON([]byte(`"https://"`)) == nil {
+		t.Fatal("accepted invalid URL")
+	}
+	if ValidateURLJSON([]byte(`"mailto:user@example.com"`)) != nil {
+		t.Fatal("rejected absolute opaque URL")
+	}
+	if ValidateTimestampJSON([]byte(`"2026-09-22T10:20:30+09:00"`)) != nil {
+		t.Fatal("rejected offset datetime")
+	}
+	if ValidateTimestampJSON([]byte(`"2026-02-30T10:20:30Z"`)) == nil {
+		t.Fatal("accepted invalid date")
+	}
+}

@@ -1,0 +1,60 @@
+package tsdef
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestParseSchemaSubset(t *testing.T) {
+	source := []byte(`
+ type Private = ` + "`${string}`" + `;
+ /** A message. */
+ export type Message = (Text & { kind: "text" }) | { kind: "custom"; [key: string]: unknown };
+ export type Text = { /** Body. */ body: string; tags?: Array<string> | null; };
+ export const METHODS = { session_new: "session/new" } as const;
+ export const VERSION = 2;
+ export type { Text } from "./types.gen.js";
+ `)
+	s, err := Parse("schema.ts", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Types) != 2 || len(s.Constants) != 2 {
+		t.Fatalf("unexpected schema: %+v", s)
+	}
+	message := s.Types[0]
+	if message.Comment != "A message." || message.Type.Kind != "union" || len(message.Type.Members) != 2 {
+		t.Fatalf("lost union: %+v", message)
+	}
+	if message.Type.Members[0].Kind != "intersection" {
+		t.Fatal("lost intersection")
+	}
+	fields := s.Types[1].Type.Fields
+	if fields[0].Comment != "Body." || !fields[1].Optional || fields[1].Type.Members[0].Kind != "array" || fields[1].Type.Members[1].Kind != "null" {
+		t.Fatalf("lost field semantics: %+v", fields)
+	}
+	if s.Constants[0].Members[0].Value != `"session/new"` || s.Constants[1].Value != "2" {
+		t.Fatal("lost constants")
+	}
+}
+func TestRejectUnsupportedSchema(t *testing.T) {
+	for _, source := range []string{`export type X = { value };`, `export type X = Pick<Foo, "bar">;`, `export type X = [string, number];`, `export type X = { run(): void };`, `export type X = { value: ; };`} {
+		_, err := Parse("input.ts", []byte(source))
+		if err == nil || !strings.Contains(err.Error(), "input.ts:1:") {
+			t.Fatalf("expected located error for %q, got %v", source, err)
+		}
+	}
+}
+func TestTreeOwnership(t *testing.T) {
+	source := []byte(`export type X = { name: string };`)
+	s, err := Parse("input.ts", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range source {
+		source[i] = ' '
+	}
+	if s.Types[0].Name != "X" || s.Types[0].Type.Fields[0].Name != "name" {
+		t.Fatal("schema refers to parser-owned memory")
+	}
+}

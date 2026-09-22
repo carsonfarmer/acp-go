@@ -1,0 +1,216 @@
+package fixture
+
+import (
+	"bytes"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"testing"
+)
+
+func TestRoundTrip(t *testing.T) {
+	v, err := NewMessageText(MessageText{Text: "hello"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{\"text\":\"hello\",\"kind\":\"text\"}" {
+		t.Fatalf("unexpected wire value: %s", b)
+	}
+	text, ok := v.AsText()
+	if !ok || text.Text != "hello" {
+		t.Fatal("failed to narrow text")
+	}
+	if _, ok := v.AsCustom(); ok {
+		t.Fatal("matched wrong discriminator")
+	}
+	for _, bad := range []string{"null", "{}", "{\"kind\":\"text\"}", "{\"kind\":\"text\",\"text\":42}"} {
+		value, err := ParseMessage([]byte(bad))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := value.AsText(); ok {
+			t.Fatalf("matched invalid shape %s", bad)
+		}
+	}
+	raw := []byte("{\"kind\":\"future\",\"vendor\":{\"x\":9007199254740993}}")
+	future, err := ParseMessage(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw[0] = '['
+	encoded, err := json.Marshal(future)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(encoded, []byte("9007199254740993")) {
+		t.Fatalf("lost precision: %s", encoded)
+	}
+	copy := future.RawJSON()
+	copy[0] = '['
+	if future.RawJSON()[0] != '{' {
+		t.Fatal("raw storage leaked")
+	}
+	if _, err := ParseMessage([]byte("{\"kind\":\"text\",\"kind\":\"custom\"}")); err == nil {
+		t.Fatal("accepted duplicate object member")
+	}
+	if _, err := ParseMessage([]byte{'"', 0xff, '"'}); err == nil {
+		t.Fatal("accepted invalid UTF-8")
+	}
+	var custom MessageCustom
+	if err := json.Unmarshal([]byte("{\"kind\":\"custom\",\"vendor\":true}"), &custom); err != nil {
+		t.Fatal(err)
+	}
+	custom.AdditionalProperties["kind"] = jsontext.Value("\"wrong\"")
+	if _, err := json.Marshal(custom); err == nil {
+		t.Fatal("accepted a duplicate extension key")
+	}
+	delete(custom.AdditionalProperties, "kind")
+	b, err = json.Marshal(custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]jsontext.Value
+	if err = json.Unmarshal(b, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if string(fields["kind"]) != "\"custom\"" || string(fields["vendor"]) != "true" {
+		t.Fatalf("lost custom fields: %s", b)
+	}
+	enabled := false
+	empty := []string{}
+	label := ""
+	b, err = json.Marshal(Options{Enabled: &enabled, Tags: &empty, Label: &label})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{\"enabled\":false,\"count\":null,\"tags\":[],\"label\":\"\"}" {
+		t.Fatalf("lost optional/nullable fields: %s", b)
+	}
+}
+
+func TestUnionOwnershipAndStreams(t *testing.T) {
+	original, err := ParseMessage([]byte(`{"kind":"text","text":"first"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	copied := original
+	if err := copied.UnmarshalJSON([]byte(`{"kind":"text","text":"other"}`)); err != nil {
+		t.Fatal(err)
+	}
+	first, ok := original.AsText()
+	if !ok || first.Text != "first" {
+		t.Fatal("decoding a copy changed the original")
+	}
+	encoded, err := original.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded[0] = '['
+	if original.RawJSON()[0] != '{' {
+		t.Fatal("MarshalJSON exposed mutable storage")
+	}
+	before := copied.RawJSON()
+	if err := copied.UnmarshalJSON([]byte(`{`)); err == nil {
+		t.Fatal("invalid input accepted")
+	}
+	if !bytes.Equal(before, copied.RawJSON()) {
+		t.Fatal("failed decode mutated receiver")
+	}
+	dec := jsontext.NewDecoder(bytes.NewBufferString(`{"kind":"text","text":"first"} {"kind":"text","text":"other"}`))
+	var a, b Message
+	if err := json.UnmarshalDecode(dec, &a); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.UnmarshalDecode(dec, &b); err != nil {
+		t.Fatal(err)
+	}
+	first, ok = a.AsText()
+	if !ok || first.Text != "first" {
+		t.Fatal("decoder buffer was retained")
+	}
+	var out bytes.Buffer
+	if err := json.MarshalEncode(jsontext.NewEncoder(&out), &a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ParseMessage(out.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	// Decoder options must reach the generated streaming method.
+	duplicate := []byte(`{"kind":"text","kind":"custom"}`)
+	if err := json.Unmarshal(duplicate, &a, jsontext.AllowDuplicateNames(true)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNarrowingNullAndLiterals(t *testing.T) {
+	if _, err := NewLiteralChoiceVariant1("no"); err == nil {
+		t.Fatal("constructor accepted wrong literal")
+	}
+	if _, err := NewNullableChoiceVariant2(jsontext.Value(`42`)); err == nil {
+		t.Fatal("null constructor accepted number")
+	}
+	bad, err := ParseMessage([]byte(`{"kind":"text","text":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := bad.AsText(); ok {
+		t.Fatal("null matched required string")
+	}
+	for _, source := range []string{`"no"`, `null`, `42`} {
+		v, err := ParseLiteralChoice([]byte(source))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := v.AsVariant1(); ok {
+			t.Fatalf("%s matched literal yes", source)
+		}
+	}
+	yes, err := ParseLiteralChoice([]byte(`"yes"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value, ok := yes.AsVariant1(); !ok || value != "yes" {
+		t.Fatal("literal did not match")
+	}
+	var nullable NullableChoice
+	if err := nullable.UnmarshalJSON([]byte(" \n null \t")); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := nullable.AsVariant2(); !ok {
+		t.Fatal("whitespace affected null classification")
+	}
+	if _, ok := nullable.AsVariant1(); ok {
+		t.Fatal("null matched string")
+	}
+	v, err := ParseWithNullable([]byte(`{"value":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := v.AsVariant1(); !ok {
+		t.Fatal("nullable required field was rejected")
+	}
+}
+
+func TestNativeExtensionFields(t *testing.T) {
+	var v Extras
+	if err := json.Unmarshal([]byte(`{"fixed":1,"a":2,"z":3}`), &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.AdditionalProperties["a"] != 2 {
+		t.Fatal("typed index signature was lost")
+	}
+	if err := json.Unmarshal([]byte(`{"fixed":1,"a":"wrong"}`), &v); err == nil {
+		t.Fatal("invalid extension value accepted")
+	}
+	custom := MessageCustom{Kind: "custom", AdditionalProperties: map[string]jsontext.Value{"z": []byte("1"), "a": []byte("2")}}
+	b, err := json.Marshal(custom, json.Deterministic(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != `{"kind":"custom","a":2,"z":1}` {
+		t.Fatalf("options did not propagate to extensions: %s", b)
+	}
+}

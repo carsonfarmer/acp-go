@@ -1,6 +1,6 @@
 package acp
 
-//go:generate sh -c "cd internal/cmd/schema && go run . gen -config ../../../.schema.yaml"
+//go:generate sh -c "cd internal/cmd/schema && go run . -source ../../../schema/typescript -out ../../../schema"
 
 import (
 	"context"

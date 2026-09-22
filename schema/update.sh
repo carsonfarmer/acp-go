@@ -1,51 +1,26 @@
-#!/bin/bash
-
-# Script to update ACP schema files from the official repository
-# Official repository: https://github.com/zed-industries/agent-client-protocol
-
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA_DIR="$SCRIPT_DIR"
-
-OFFICIAL_REPO_BASE="https://raw.githubusercontent.com/zed-industries/agent-client-protocol/refs/heads/main/schema"
-
-echo "🔄 Updating ACP schema files from official repository..."
-echo "📁 Schema directory: $SCHEMA_DIR"
-
-# Download schema.json
-echo "⬇️  Downloading schema.json..."
-if curl -fsSL "$OFFICIAL_REPO_BASE/schema.json" -o "$SCHEMA_DIR/schema.json.tmp"; then
-    mv "$SCHEMA_DIR/schema.json.tmp" "$SCHEMA_DIR/schema.json"
-    echo "✅ schema.json updated successfully"
-else
-    echo "❌ Failed to download schema.json"
-    rm -f "$SCHEMA_DIR/schema.json.tmp"
-    exit 1
+#!/usr/bin/env bash
+# Refresh the checked-in TypeScript SDK snapshot at an explicit commit.
+set -euo pipefail
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+revision="${1:-$(cat "$script_dir/typescript/REVISION")}"
+if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Usage: $0 <full 40-character typescript-sdk commit SHA>" >&2
+  exit 1
 fi
-
-# Download meta.json
-echo "⬇️  Downloading meta.json..."
-if curl -fsSL "$OFFICIAL_REPO_BASE/meta.json" -o "$SCHEMA_DIR/meta.json.tmp"; then
-    mv "$SCHEMA_DIR/meta.json.tmp" "$SCHEMA_DIR/meta.json"
-    echo "✅ meta.json updated successfully"
-else
-    echo "❌ Failed to download meta.json"
-    rm -f "$SCHEMA_DIR/meta.json.tmp"
-    exit 1
-fi
-
-# Show file information
-echo ""
-echo "📊 Updated files:"
-ls -la "$SCHEMA_DIR/schema.json" "$SCHEMA_DIR/meta.json"
-
-echo ""
-echo "🎉 Schema update completed successfully!"
-
-echo ""
-echo "⚡ Next steps:"
-echo "   1. Review the changes in the updated schema files"
-echo "   2. Update Go types if necessary"
-echo "   3. Run tests to ensure compatibility: go test ./..."
-echo "   4. Update documentation if new features are added"
+stage="$(mktemp -d "$script_dir/.typescript.XXXXXX")"
+trap 'rm -rf "$stage"' EXIT
+base="https://raw.githubusercontent.com/agentclientprotocol/typescript-sdk/$revision"
+for version in v1 v2; do
+  upstream="src/schema"
+  if [[ "$version" == v2 ]]; then upstream="src/v2/schema"; fi
+  mkdir -p "$stage/$version"
+  for name in types.gen.ts index.ts zod.gen.ts guards.gen.ts; do
+    curl --fail --silent --show-error --location "$base/$upstream/$name" -o "$stage/$version/$name"
+  done
+done
+curl --fail --silent --show-error --location "$base/src/schema-deserialize.ts" -o "$stage/schema-deserialize.ts"
+curl --fail --silent --show-error --location "$base/LICENSE" -o "$stage/LICENSE"
+printf '%s\n' "$revision" > "$stage/REVISION"
+# Do not replace any source until all downloads have succeeded.
+cp -R "$stage/." "$script_dir/typescript/"
+printf 'Updated TypeScript SDK snapshot to %s. Run go generate ./... and both module test suites.\n' "$revision"

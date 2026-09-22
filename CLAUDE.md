@@ -7,12 +7,20 @@ ACP(Agent Client Protocol) for golang
 - What is ACP `reference/agent-client-protocol/docs/get-started/introduction.mdx`
 - Protocol Details `reference/agent-client-protocol/docs/protocol`
 
-### json schema
+### Go baseline (`next`)
 
-- reference/agent-client-protocol/schema/schema.json
-- reference/agent-client-protocol/schema/meta.json
-- reference/agent-client-protocol/schema/schema.unstable.json
-- reference/agent-client-protocol/schema/meta.unstable.json
+- Both modules require Go 1.27 or newer.
+- New schema code uses `encoding/json/v2` and `encoding/json/jsontext`.
+- Use generics for reusable typed operations; do not maintain pre-generics compatibility.
+- Optional pointer fields use `omitzero` so explicit empty values survive JSON v2 encoding.
+
+### Schema generation (`next`)
+
+- Inputs: `schema/typescript/v1/*.ts`, `schema/typescript/v2/*.ts`
+- Upstream revision: `schema/typescript/REVISION`
+- Generator: `internal/cmd/schema` (separate Go module)
+- Details: `schema/README.md`
+- Outputs: `schema/v1/schema.gen.go`, `schema/v2/schema.gen.go`
 
 ### SDK
 

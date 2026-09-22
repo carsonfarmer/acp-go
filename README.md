@@ -11,6 +11,12 @@ This is an **unofficial** implementation of the ACP specification in Go. The off
 
 Learn more about the protocol at [agentclientprotocol.com](https://agentclientprotocol.com/).
 
+## `next` schema generator
+
+The `next` branch requires Go 1.27+ and generates versioned Go wire types from the official TypeScript SDK with
+`go-tree-sitter`. See [schema generation](schema/README.md) for inputs, regeneration and current
+limits. The root connection/session API is still awaiting migration to the new schema packages.
+
 ## Installation
 
 ```bash
@@ -34,7 +40,7 @@ This implementation provides a clean, modern architecture with bidirectional JSO
 - **`SessionStream`**: Convenience wrapper for sending session updates with minimal boilerplate
 - **`Middleware`**: Composable request/response processing chain for cross-cutting concerns
 - **`TerminalHandle`**: Resource management wrapper for terminal sessions
-- **Generated Types**: Complete type-safe Go structs generated from the official ACP JSON schema
+- **Generated Types**: Versioned Go wire types generated from the official ACP TypeScript SDK
 
 ## Quick Start
 
