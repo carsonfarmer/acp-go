@@ -825,13 +825,23 @@ var Validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[WorkspaceFolder](zodSchemas, "zWorkspaceFolder"),
 ))
 
-// Decode applies the supported SDK Zod validation, defaults and recovery rules
-// for T, then decodes the normalized value. T must be a generated non-alias type.
-func Decode[T any](raw []byte) (T, error) {
+// zodRule returns the Zod rule registered for T.
+func zodRule[T any]() (string, error) {
 	name, ok := zodTypes[reflect.TypeFor[T]()]
 	if !ok {
 		var zero T
-		return zero, fmt.Errorf("no Zod rule for %T", zero)
+		return "", fmt.Errorf("no Zod rule for %T", zero)
+	}
+	return name, nil
+}
+
+// Decode applies the supported SDK Zod validation, defaults and recovery rules
+// for T, then decodes the normalized value. T must be a generated non-alias type.
+func Decode[T any](raw []byte) (T, error) {
+	name, err := zodRule[T]()
+	if err != nil {
+		var zero T
+		return zero, err
 	}
 	return zod.Decode[T](zodSchemas, name, raw)
 }
@@ -839,11 +849,10 @@ func Decode[T any](raw []byte) (T, error) {
 // Validate reports whether the supported SDK Zod parser accepts raw as a T.
 // Recovery and defaults are applied; use Decode to obtain the normalized value.
 func Validate[T any](raw []byte) error {
-	name, ok := zodTypes[reflect.TypeFor[T]()]
-	if !ok {
-		var zero T
-		return fmt.Errorf("no Zod rule for %T", zero)
+	name, err := zodRule[T]()
+	if err != nil {
+		return err
 	}
-	_, err := zodSchemas.Normalize(name, raw)
+	_, err = zodSchemas.Normalize(name, raw)
 	return err
 }

@@ -513,9 +513,9 @@ func merge(a, b jsontext.Value, path string) (jsontext.Value, error) {
 	return nil, fmt.Errorf("%s: incompatible intersection results", path)
 }
 
-// Unmarshaler returns a json.Unmarshalers entry that normalizes values of T
-// with the named rule before decoding them. The normalized value is decoded
-// without unmarshalers: the rule already covers nested values, so they are not
+// Unmarshaler returns a json.Unmarshalers entry that decodes values of T
+// through Decode with the named rule. The normalized value is decoded without
+// unmarshalers: the rule already covers nested values, so they are not
 // normalized a second time.
 func Unmarshaler[T any](r Registry, name string) *json.Unmarshalers {
 	return json.UnmarshalFromFunc(func(dec *jsontext.Decoder, out *T) error {
@@ -523,10 +523,11 @@ func Unmarshaler[T any](r Registry, name string) *json.Unmarshalers {
 		if err != nil {
 			return err
 		}
-		normalized, err := r.Normalize(name, raw)
+		v, err := Decode[T](r, name, raw)
 		if err != nil {
 			return err
 		}
-		return json.Unmarshal(normalized, out)
+		*out = v
+		return nil
 	})
 }

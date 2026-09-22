@@ -22,7 +22,7 @@ type generator struct {
 	pending      []tsdef.Definition
 	names        map[string]bool
 	aliases      map[string]bool // Go names declared with "type X = ..."
-	unmarshalers []string        // variant interface unmarshal functions
+	unmarshalers []string        // json.UnmarshalFromFunc entries for variant interfaces
 	out          bytes.Buffer
 }
 
@@ -125,11 +125,7 @@ func unspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
 		}
 	}
 	if len(g.unmarshalers) > 0 {
-		var entries []string
-		for _, fn := range g.unmarshalers {
-			entries = append(entries, "json.UnmarshalFromFunc("+fn+")")
-		}
-		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(entries, ",\n"))
+		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
 	}
 	files := Files{}
 	if err := g.flush(files, "schema.gen.go"); err != nil {
@@ -395,8 +391,7 @@ func (g *generator) definition(d tsdef.Definition) error {
 			if err != nil {
 				return err
 			}
-			g.aliases[d.Name] = true
-			g.write("type %s = %s\n", d.Name, expr)
+			g.alias(d.Name, expr)
 			return nil
 		}
 		return g.union(d.Name, t)
@@ -405,24 +400,23 @@ func (g *generator) definition(d tsdef.Definition) error {
 		if err != nil {
 			return err
 		}
-		if scalar(expr) {
+		switch t.Kind {
+		case "string", "number", "boolean":
 			// Distinct identifier types (SessionID vs ToolCallID) cannot be mixed
 			// up, and they can carry their own Zod unmarshaler.
 			g.write("type %s %s\n", d.Name, expr)
 			return nil
 		}
-		g.aliases[d.Name] = true
-		g.write("type %s = %s\n", d.Name, expr)
+		g.alias(d.Name, expr)
 		return nil
 	}
 }
 
-func scalar(expr string) bool {
-	switch expr {
-	case "string", "bool", "float64", "int64", "uint64", "uint32", "uint16":
-		return true
-	}
-	return false
+// alias emits "type name = expr" and records it so Zod rules skip the alias:
+// it shares a reflect.Type with expr.
+func (g *generator) alias(name, expr string) {
+	g.aliases[name] = true
+	g.write("type %s = %s\n", name, expr)
 }
 
 // enum emits a named scalar type with one constant per literal. Open enums
@@ -573,8 +567,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		if err != nil {
 			return err
 		}
-		g.aliases[name] = true
-		g.write("type %s = %s\n", name, expr)
+		g.alias(name, expr)
 		return nil
 	}
 	g.write("type %s struct {\n", name)
@@ -628,27 +621,29 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 // isUnion reports whether t (through references and an optional null) is
 // generated as a union wrapper, which implements IsZero for omitzero.
 func (g *generator) isUnion(t *tsdef.Type) bool {
-	t, _ = nullable(t)
 	seen := map[string]bool{}
-	for t.Kind == "ref" && !seen[t.Name] {
+	for {
+		t, _ = nullable(t)
+		if t.Kind != "ref" || seen[t.Name] {
+			break
+		}
 		seen[t.Name] = true
-		next := g.defs[t.Name]
-		if next == nil {
+		if t = g.defs[t.Name]; t == nil {
 			return false
 		}
-		t = next
-		t, _ = nullable(t)
 	}
+	return unionWrapper(t)
+}
+
+// unionWrapper reports whether a union is emitted as a payload wrapper rather
+// than as a named enum.
+func unionWrapper(t *tsdef.Type) bool {
 	if t.Kind != "union" {
 		return false
 	}
-	if _, ok := literals(t); ok {
-		return false
-	}
-	if _, _, ok := openEnum(t); ok {
-		return false
-	}
-	return true
+	_, lit := literals(t)
+	_, _, open := openEnum(t)
+	return !lit && !open
 }
 func collection(expr string) bool {
 	return strings.HasPrefix(expr, "[]") || strings.HasPrefix(expr, "map[")
@@ -795,7 +790,7 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 	if err := g.reserve(unmarshalFn); err != nil {
 		return err
 	}
-	g.unmarshalers = append(g.unmarshalers, unmarshalFn)
+	g.unmarshalers = append(g.unmarshalers, "json.UnmarshalFromFunc("+unmarshalFn+")")
 	var variantNames []string
 	for _, m := range members {
 		label := "Custom"

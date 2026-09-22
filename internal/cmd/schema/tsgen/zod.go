@@ -68,13 +68,23 @@ func (g *generator) zod(schema *tsdef.Schema, pkg string) error {
 	}
 	g.write("// zodTypes maps generated Go types to their Zod rule. Type aliases are not\n// listed; they share a reflect.Type with their underlying type.\nvar zodTypes = map[reflect.Type]string{\n%s,\n}\n\n", strings.Join(types, ",\n"))
 	g.write("// Validated is a json.Options value that applies the SDK Zod validation, default and\n// recovery rules to every generated type encountered while unmarshaling:\n//\n//\tjson.Unmarshal(data, &v, schema.Validated)\n//\n// Type aliases are decoded as their underlying type.\nvar Validated = json.WithUnmarshalers(json.JoinUnmarshalers(\n%s,\n))\n\n", strings.Join(unmarshalers, ",\n"))
-	g.out.WriteString(`// Decode applies the supported SDK Zod validation, defaults and recovery rules
-// for T, then decodes the normalized value. T must be a generated non-alias type.
-func Decode[T any](raw []byte) (T, error) {
+	g.out.WriteString(`// zodRule returns the Zod rule registered for T.
+func zodRule[T any]() (string, error) {
 	name, ok := zodTypes[reflect.TypeFor[T]()]
 	if !ok {
 		var zero T
-		return zero, fmt.Errorf("no Zod rule for %T", zero)
+		return "", fmt.Errorf("no Zod rule for %T", zero)
+	}
+	return name, nil
+}
+
+// Decode applies the supported SDK Zod validation, defaults and recovery rules
+// for T, then decodes the normalized value. T must be a generated non-alias type.
+func Decode[T any](raw []byte) (T, error) {
+	name, err := zodRule[T]()
+	if err != nil {
+		var zero T
+		return zero, err
 	}
 	return zod.Decode[T](zodSchemas, name, raw)
 }
@@ -82,12 +92,11 @@ func Decode[T any](raw []byte) (T, error) {
 // Validate reports whether the supported SDK Zod parser accepts raw as a T.
 // Recovery and defaults are applied; use Decode to obtain the normalized value.
 func Validate[T any](raw []byte) error {
-	name, ok := zodTypes[reflect.TypeFor[T]()]
-	if !ok {
-		var zero T
-		return fmt.Errorf("no Zod rule for %T", zero)
+	name, err := zodRule[T]()
+	if err != nil {
+		return err
 	}
-	_, err := zodSchemas.Normalize(name, raw)
+	_, err = zodSchemas.Normalize(name, raw)
 	return err
 }
 `)
