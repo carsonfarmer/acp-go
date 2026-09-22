@@ -6,14 +6,15 @@ using [go-tree-sitter](https://github.com/tree-sitter/go-tree-sitter) and the Ty
 Generation uses checked-in sources and requires no Node.js or network access.
 Go 1.27 or newer is required by both modules. CGO and a C compiler are required for the
 generator, but not for generated packages. Generated code uses `encoding/json/v2`,
-`encoding/json/jsontext` and a generic decoder helper; no `GOEXPERIMENT` setting is needed.
+`encoding/json/jsontext`; no `GOEXPERIMENT` setting is needed.
 Each version produces the wire types split by kind — `methods.gen.go` (method constants and the
 protocol version), `enums.gen.go` (identifier types and literal enums), `types.gen.go` (object
 structs and aliases), `unions.gen.go` (tagged and raw payload unions plus their shared helpers) and
 `envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …) —
 and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
-The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and is
-shared by both versions; it is a runtime dependency of the generated packages, not a public API.
+The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and the
+raw-union alternative matcher once in `schema/union`; both are shared by the versions as runtime
+dependencies of the generated packages, not public APIs.
 
 ```sh
 # From the repository root:
@@ -121,11 +122,12 @@ id, err := schemav1.NewRequestID("abc")                     // string | float64 
 ```
 
 Alternatives that name the same Go type (`ExtResponse` and `MessageMCPResponse` are both
-`jsontext.Value`) become one type-set term and one rule group. Each alternative contributes a rule
-— required and non-nullable members, literal tags, scalar literal, null — kept in a per-union
-`altRules` table; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
-not, and `New<Union>` splices in the literal members an object alternative requires and rejects
-values that match no rule. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
+`jsontext.Value`) become one type-set term and one rule group; the generator resolves aliases through
+the schema, so declaration order does not matter. Each alternative contributes a `union.Rule` —
+required and non-nullable members, literal tags, scalar literal, null — kept in a per-union
+`union.Table`; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
+not, and `New<Union>` splices in the literal members an object alternative requires when the
+value does not already match, and rejects values that match no rule. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
 alongside the `Variant()` type switch. Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods
 integrate with JSON v2 encoders and decoders. Stored JSON is copied on decode and when returned
 to the caller, so decoding a copied union value does not mutate the original.

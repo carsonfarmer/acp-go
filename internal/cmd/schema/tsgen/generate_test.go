@@ -24,9 +24,9 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type NullableChoice = string | null | number;
  export type Extras = { fixed: number; [key: string]: number; };
  export type WithNullable = { value: string | null; } | { done: true; };
+ export type Either = A | B | string;
  export type A = unknown;
  export type B = unknown;
- export type Either = A | B | string;
  export type Answer = "yes" | number | "no";
  export const PROTOCOL_VERSION = 2;
  `))

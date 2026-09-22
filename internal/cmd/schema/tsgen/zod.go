@@ -12,6 +12,9 @@ import (
 // ZodRuntime is the import path of the shared rule evaluator.
 const ZodRuntime = "github.com/ironpark/go-acp/schema/zod"
 
+// UnionRuntime is the import path of the shared raw-union alternative matcher.
+const UnionRuntime = "github.com/ironpark/go-acp/schema/union"
+
 // zodKinds maps parsed builder names to zod.Kind constant names. Unknown
 // builders fail generation instead of producing an unsupported rule.
 var zodKinds = map[string]string{

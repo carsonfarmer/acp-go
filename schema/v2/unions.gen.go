@@ -6,120 +6,13 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
-	"reflect"
+	"github.com/ironpark/go-acp/schema/union"
 )
 
 var _ = json.Marshal
 var _ = fmt.Errorf
 var _ jsontext.Value
-var _ = reflect.TypeFor[int]
-
-// altRule describes when a JSON payload is one alternative of a raw union.
-type altRule struct {
-	null     bool                      // the payload must be JSON null
-	nonNull  bool                      // the payload must not be null or empty
-	required []string                  // object members that must be present
-	notNull  []string                  // object members that must not be null when present
-	tags     map[string]jsontext.Value // literal members the object must carry
-	literal  jsontext.Value            // scalar literal the whole payload must equal
-}
-
-// altRules maps each alternative Go type of a union to the rules under which
-// a payload is that alternative; a payload matches if any rule matches.
-type altRules map[reflect.Type][]altRule
-
-func jsonEqual(a, b jsontext.Value) bool {
-	a, b = a.Clone(), b.Clone()
-	if a.Canonicalize() != nil || b.Canonicalize() != nil {
-		return false
-	}
-	return string(a) == string(b)
-}
-
-func (r altRule) matches(raw jsontext.Value) bool {
-	if r.null && raw.Kind() != 'n' {
-		return false
-	}
-	if r.nonNull && (raw.Kind() == 'n' || len(raw) == 0) {
-		return false
-	}
-	if len(r.literal) > 0 && !jsonEqual(raw, r.literal) {
-		return false
-	}
-	if len(r.required) == 0 && len(r.notNull) == 0 && len(r.tags) == 0 {
-		return true
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(raw, &fields) != nil || fields == nil {
-		return false
-	}
-	for _, name := range r.required {
-		if _, ok := fields[name]; !ok {
-			return false
-		}
-	}
-	for _, name := range r.notNull {
-		if v, ok := fields[name]; ok && v.Kind() == 'n' {
-			return false
-		}
-	}
-	for name, want := range r.tags {
-		if got, ok := fields[name]; !ok || !jsonEqual(got, want) {
-			return false
-		}
-	}
-	return true
-}
-
-// asAlternative decodes raw as T once one of T's rules accepts it.
-func asAlternative[T any](union string, rules altRules, raw jsontext.Value) (T, error) {
-	var out T
-	for _, rule := range rules[reflect.TypeFor[T]()] {
-		if rule.matches(raw) {
-			if err := json.Unmarshal(raw, &out); err != nil {
-				return out, fmt.Errorf("%s: decode %T: %w", union, out, err)
-			}
-			return out, nil
-		}
-	}
-	return out, fmt.Errorf("%s: payload is not a %T", union, out)
-}
-
-// newAlternative encodes value, splices in the literal members its
-// alternative requires, and checks the result is that alternative.
-func newAlternative[T any](union string, rules altRules, value T) (jsontext.Value, error) {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	group := rules[reflect.TypeFor[T]()]
-	if len(group) == 1 && len(group[0].tags) > 0 {
-		var fields map[string]jsontext.Value
-		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
-			return nil, fmt.Errorf("%s: %T must encode as an object", union, value)
-		}
-		for name, tag := range group[0].tags {
-			fields[name] = tag
-		}
-		if raw, err = json.Marshal(fields, json.Deterministic(true)); err != nil {
-			return nil, err
-		}
-	}
-	for _, rule := range group {
-		if rule.matches(raw) {
-			return raw, nil
-		}
-	}
-	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
-}
-
-func decodeJSON[T any](raw jsontext.Value) (T, bool) {
-	var value T
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return value, false
-	}
-	return value, true
-}
+var _ = union.Table
 
 // spliceTag writes payload as an object with the discriminator as its first member.
 func spliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
@@ -948,21 +841,21 @@ type EmbeddedResourceResourceAlternative interface {
 	TextResourceContents | BlobResourceContents
 }
 
-var embeddedResourceResourceAlternatives = altRules{
-	reflect.TypeFor[TextResourceContents](): {{nonNull: true, required: []string{"text", "uri"}, notNull: []string{"text", "uri"}}},
-	reflect.TypeFor[BlobResourceContents](): {{nonNull: true, required: []string{"blob", "uri"}, notNull: []string{"blob", "uri"}}},
-}
+var embeddedResourceResourceAlternatives = union.Table(
+	union.Alt[TextResourceContents](union.Rule{NonNull: true, Required: []string{"text", "uri"}, NotNull: []string{"text", "uri"}}),
+	union.Alt[BlobResourceContents](union.Rule{NonNull: true, Required: []string{"blob", "uri"}, NotNull: []string{"blob", "uri"}}),
+)
 
 // NewEmbeddedResourceResource encodes value as a EmbeddedResourceResource, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T) (EmbeddedResourceResource, error) {
-	raw, err := newAlternative("EmbeddedResourceResource", embeddedResourceResourceAlternatives, value)
+	raw, err := union.New("EmbeddedResourceResource", embeddedResourceResourceAlternatives, value)
 	return EmbeddedResourceResource{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v EmbeddedResourceResource) As[T EmbeddedResourceResourceAlternative]() (T, error) {
-	return asAlternative[T]("EmbeddedResourceResource", embeddedResourceResourceAlternatives, v.raw)
+	return union.As[T]("EmbeddedResourceResource", embeddedResourceResourceAlternatives, v.raw)
 }
 func (v EmbeddedResourceResource) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -1387,25 +1280,25 @@ type CreateElicitationRequestAlternative interface {
 	CreateElicitationRequestForm | CreateElicitationRequestForm2 | CreateElicitationRequestURL | CreateElicitationRequestURL4 | CreateElicitationRequestObject | CreateElicitationRequestObject6
 }
 
-var createElicitationRequestAlternatives = altRules{
-	reflect.TypeFor[CreateElicitationRequestForm]():    {{nonNull: true, required: []string{"sessionId", "requestedSchema", "mode", "message"}, notNull: []string{"sessionId", "requestedSchema", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"form\"")}}},
-	reflect.TypeFor[CreateElicitationRequestForm2]():   {{nonNull: true, required: []string{"requestId", "requestedSchema", "mode", "message"}, notNull: []string{"requestedSchema", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"form\"")}}},
-	reflect.TypeFor[CreateElicitationRequestURL]():     {{nonNull: true, required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, notNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"url\"")}}},
-	reflect.TypeFor[CreateElicitationRequestURL4]():    {{nonNull: true, required: []string{"requestId", "elicitationId", "url", "mode", "message"}, notNull: []string{"elicitationId", "url", "mode", "message"}, tags: map[string]jsontext.Value{"mode": jsontext.Value("\"url\"")}}},
-	reflect.TypeFor[CreateElicitationRequestObject]():  {{nonNull: true, required: []string{"sessionId", "mode", "message"}, notNull: []string{"sessionId", "mode", "message"}}},
-	reflect.TypeFor[CreateElicitationRequestObject6](): {{nonNull: true, required: []string{"requestId", "mode", "message"}, notNull: []string{"mode", "message"}}},
-}
+var createElicitationRequestAlternatives = union.Table(
+	union.Alt[CreateElicitationRequestForm](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema", "mode", "message"}, NotNull: []string{"sessionId", "requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
+	union.Alt[CreateElicitationRequestForm2](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema", "mode", "message"}, NotNull: []string{"requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
+	union.Alt[CreateElicitationRequestURL](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
+	union.Alt[CreateElicitationRequestURL4](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
+	union.Alt[CreateElicitationRequestObject](union.Rule{NonNull: true, Required: []string{"sessionId", "mode", "message"}, NotNull: []string{"sessionId", "mode", "message"}}),
+	union.Alt[CreateElicitationRequestObject6](union.Rule{NonNull: true, Required: []string{"requestId", "mode", "message"}, NotNull: []string{"mode", "message"}}),
+)
 
 // NewCreateElicitationRequest encodes value as a CreateElicitationRequest, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T) (CreateElicitationRequest, error) {
-	raw, err := newAlternative("CreateElicitationRequest", createElicitationRequestAlternatives, value)
+	raw, err := union.New("CreateElicitationRequest", createElicitationRequestAlternatives, value)
 	return CreateElicitationRequest{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v CreateElicitationRequest) As[T CreateElicitationRequestAlternative]() (T, error) {
-	return asAlternative[T]("CreateElicitationRequest", createElicitationRequestAlternatives, v.raw)
+	return union.As[T]("CreateElicitationRequest", createElicitationRequestAlternatives, v.raw)
 }
 func (v CreateElicitationRequest) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -1885,22 +1778,22 @@ type MultiSelectItemsAlternative interface {
 	MultiSelectItemsString | MultiSelectItemsObject | TitledMultiSelectItems
 }
 
-var multiSelectItemsAlternatives = altRules{
-	reflect.TypeFor[MultiSelectItemsString](): {{nonNull: true, required: []string{"enum", "type"}, notNull: []string{"enum", "type"}, tags: map[string]jsontext.Value{"type": jsontext.Value("\"string\"")}}},
-	reflect.TypeFor[MultiSelectItemsObject](): {{nonNull: true, required: []string{"type"}, notNull: []string{"type"}}},
-	reflect.TypeFor[TitledMultiSelectItems](): {{nonNull: true, required: []string{"anyOf"}, notNull: []string{"anyOf"}}},
-}
+var multiSelectItemsAlternatives = union.Table(
+	union.Alt[MultiSelectItemsString](union.Rule{NonNull: true, Required: []string{"enum", "type"}, NotNull: []string{"enum", "type"}, Tags: []union.Tag{{Name: "type", Value: jsontext.Value("\"string\"")}}}),
+	union.Alt[MultiSelectItemsObject](union.Rule{NonNull: true, Required: []string{"type"}, NotNull: []string{"type"}}),
+	union.Alt[TitledMultiSelectItems](union.Rule{NonNull: true, Required: []string{"anyOf"}, NotNull: []string{"anyOf"}}),
+)
 
 // NewMultiSelectItems encodes value as a MultiSelectItems, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewMultiSelectItems[T MultiSelectItemsAlternative](value T) (MultiSelectItems, error) {
-	raw, err := newAlternative("MultiSelectItems", multiSelectItemsAlternatives, value)
+	raw, err := union.New("MultiSelectItems", multiSelectItemsAlternatives, value)
 	return MultiSelectItems{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v MultiSelectItems) As[T MultiSelectItemsAlternative]() (T, error) {
-	return asAlternative[T]("MultiSelectItems", multiSelectItemsAlternatives, v.raw)
+	return union.As[T]("MultiSelectItems", multiSelectItemsAlternatives, v.raw)
 }
 func (v MultiSelectItems) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -1949,21 +1842,21 @@ type ElicitationFormModeAlternative interface {
 	ElicitationFormModeSessionID | ElicitationFormModeRequestID
 }
 
-var elicitationFormModeAlternatives = altRules{
-	reflect.TypeFor[ElicitationFormModeSessionID](): {{nonNull: true, required: []string{"sessionId", "requestedSchema"}, notNull: []string{"sessionId", "requestedSchema"}}},
-	reflect.TypeFor[ElicitationFormModeRequestID](): {{nonNull: true, required: []string{"requestId", "requestedSchema"}, notNull: []string{"requestedSchema"}}},
-}
+var elicitationFormModeAlternatives = union.Table(
+	union.Alt[ElicitationFormModeSessionID](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema"}, NotNull: []string{"sessionId", "requestedSchema"}}),
+	union.Alt[ElicitationFormModeRequestID](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema"}, NotNull: []string{"requestedSchema"}}),
+)
 
 // NewElicitationFormMode encodes value as a ElicitationFormMode, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewElicitationFormMode[T ElicitationFormModeAlternative](value T) (ElicitationFormMode, error) {
-	raw, err := newAlternative("ElicitationFormMode", elicitationFormModeAlternatives, value)
+	raw, err := union.New("ElicitationFormMode", elicitationFormModeAlternatives, value)
 	return ElicitationFormMode{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ElicitationFormMode) As[T ElicitationFormModeAlternative]() (T, error) {
-	return asAlternative[T]("ElicitationFormMode", elicitationFormModeAlternatives, v.raw)
+	return union.As[T]("ElicitationFormMode", elicitationFormModeAlternatives, v.raw)
 }
 func (v ElicitationFormMode) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -2012,21 +1905,21 @@ type ElicitationURLModeAlternative interface {
 	ElicitationURLModeSessionID | ElicitationURLModeRequestID
 }
 
-var elicitationURLModeAlternatives = altRules{
-	reflect.TypeFor[ElicitationURLModeSessionID](): {{nonNull: true, required: []string{"sessionId", "elicitationId", "url"}, notNull: []string{"sessionId", "elicitationId", "url"}}},
-	reflect.TypeFor[ElicitationURLModeRequestID](): {{nonNull: true, required: []string{"requestId", "elicitationId", "url"}, notNull: []string{"elicitationId", "url"}}},
-}
+var elicitationURLModeAlternatives = union.Table(
+	union.Alt[ElicitationURLModeSessionID](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url"}, NotNull: []string{"sessionId", "elicitationId", "url"}}),
+	union.Alt[ElicitationURLModeRequestID](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url"}, NotNull: []string{"elicitationId", "url"}}),
+)
 
 // NewElicitationURLMode encodes value as a ElicitationURLMode, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewElicitationURLMode[T ElicitationURLModeAlternative](value T) (ElicitationURLMode, error) {
-	raw, err := newAlternative("ElicitationURLMode", elicitationURLModeAlternatives, value)
+	raw, err := union.New("ElicitationURLMode", elicitationURLModeAlternatives, value)
 	return ElicitationURLMode{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ElicitationURLMode) As[T ElicitationURLModeAlternative]() (T, error) {
-	return asAlternative[T]("ElicitationURLMode", elicitationURLModeAlternatives, v.raw)
+	return union.As[T]("ElicitationURLMode", elicitationURLModeAlternatives, v.raw)
 }
 func (v ElicitationURLMode) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -2495,21 +2388,21 @@ type SessionConfigSelectOptionsAlternative interface {
 	[]SessionConfigSelectOption | []SessionConfigSelectGroup
 }
 
-var sessionConfigSelectOptionsAlternatives = altRules{
-	reflect.TypeFor[[]SessionConfigSelectOption](): {{nonNull: true}},
-	reflect.TypeFor[[]SessionConfigSelectGroup]():  {{nonNull: true}},
-}
+var sessionConfigSelectOptionsAlternatives = union.Table(
+	union.Alt[[]SessionConfigSelectOption](union.Rule{NonNull: true}),
+	union.Alt[[]SessionConfigSelectGroup](union.Rule{NonNull: true}),
+)
 
 // NewSessionConfigSelectOptions encodes value as a SessionConfigSelectOptions, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewSessionConfigSelectOptions[T SessionConfigSelectOptionsAlternative](value T) (SessionConfigSelectOptions, error) {
-	raw, err := newAlternative("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, value)
+	raw, err := union.New("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, value)
 	return SessionConfigSelectOptions{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v SessionConfigSelectOptions) As[T SessionConfigSelectOptionsAlternative]() (T, error) {
-	return asAlternative[T]("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, v.raw)
+	return union.As[T]("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, v.raw)
 }
 func (v SessionConfigSelectOptions) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -5478,23 +5371,23 @@ type ElicitationContentValueAlternative interface {
 	string | float64 | bool | []string
 }
 
-var elicitationContentValueAlternatives = altRules{
-	reflect.TypeFor[string]():   {{nonNull: true}},
-	reflect.TypeFor[float64]():  {{nonNull: true}, {nonNull: true}},
-	reflect.TypeFor[bool]():     {{nonNull: true}},
-	reflect.TypeFor[[]string](): {{nonNull: true}},
-}
+var elicitationContentValueAlternatives = union.Table(
+	union.Alt[string](union.Rule{NonNull: true}),
+	union.Alt[float64](union.Rule{NonNull: true}),
+	union.Alt[bool](union.Rule{NonNull: true}),
+	union.Alt[[]string](union.Rule{NonNull: true}),
+)
 
 // NewElicitationContentValue encodes value as a ElicitationContentValue, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (ElicitationContentValue, error) {
-	raw, err := newAlternative("ElicitationContentValue", elicitationContentValueAlternatives, value)
+	raw, err := union.New("ElicitationContentValue", elicitationContentValueAlternatives, value)
 	return ElicitationContentValue{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ElicitationContentValue) As[T ElicitationContentValueAlternative]() (T, error) {
-	return asAlternative[T]("ElicitationContentValue", elicitationContentValueAlternatives, v.raw)
+	return union.As[T]("ElicitationContentValue", elicitationContentValueAlternatives, v.raw)
 }
 func (v ElicitationContentValue) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {

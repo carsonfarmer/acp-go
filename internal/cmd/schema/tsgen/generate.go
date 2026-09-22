@@ -21,9 +21,8 @@ type generator struct {
 	defs         map[string]*tsdef.Type
 	pending      []tsdef.Definition
 	names        map[string]bool
-	aliases      map[string]bool   // Go names declared with "type X = ..."
-	aliasOf      map[string]string // alias name -> the expression it stands for
-	unmarshalers []string          // json.UnmarshalFromFunc entries for variant interfaces
+	aliases      map[string]bool // Go names declared with "type X = ..."
+	unmarshalers []string        // json.UnmarshalFromFunc entries for variant interfaces
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -75,8 +74,8 @@ func (g *generator) use(name string) {
 	case fileTypes:
 		g.write("import (\"encoding/json/v2\"; \"encoding/json/jsontext\"; \"fmt\")\n\nvar _ = json.Marshal\nvar _ = fmt.Errorf\nvar _ jsontext.Value\n\n")
 	default:
-		// unions and envelope: the altRules tables key on reflect.Type.
-		g.write("import (\"encoding/json/v2\"; \"encoding/json/jsontext\"; \"fmt\"; \"reflect\")\n\nvar _ = json.Marshal\nvar _ = fmt.Errorf\nvar _ jsontext.Value\nvar _ = reflect.TypeFor[int]\n\n")
+		// unions and envelope: raw union tables use the shared union runtime.
+		g.write("import (\"encoding/json/v2\"; \"encoding/json/jsontext\"; \"fmt\"; %q)\n\nvar _ = json.Marshal\nvar _ = fmt.Errorf\nvar _ jsontext.Value\nvar _ = union.Table\n\n", UnionRuntime)
 	}
 	if name == fileUnions {
 		g.helpers()
@@ -95,7 +94,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
 		return nil, fmt.Errorf("invalid package name %q", pkg)
 	}
-	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, aliasOf: map[string]string{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
+	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
 		if g.names[name] {
@@ -153,10 +152,8 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	return files, nil
 }
 
-// helpers emits the decode and discriminator functions shared by the unions.
+// helpers emits the discriminator functions shared by the tagged unions.
 func (g *generator) helpers() {
-	g.out.WriteString(alternativeRuntime)
-	g.write("func decodeJSON[T any](raw jsontext.Value) (T, bool) { var value T; if err := json.Unmarshal(raw, &value); err != nil { return value, false }; return value, true }\n\n")
 	g.out.WriteString(`// spliceTag writes payload as an object with the discriminator as its first member.
 func spliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
 	raw, err := json.Marshal(payload, enc.Options())
@@ -205,109 +202,6 @@ func unspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
 `)
 
 }
-
-// alternativeRuntime is the generic machinery behind every raw union's
-// As[T] and New<Union>[T]: one rule per alternative, grouped by Go type.
-const alternativeRuntime = `// altRule describes when a JSON payload is one alternative of a raw union.
-type altRule struct {
-	null     bool                      // the payload must be JSON null
-	nonNull  bool                      // the payload must not be null or empty
-	required []string                  // object members that must be present
-	notNull  []string                  // object members that must not be null when present
-	tags     map[string]jsontext.Value // literal members the object must carry
-	literal  jsontext.Value            // scalar literal the whole payload must equal
-}
-
-// altRules maps each alternative Go type of a union to the rules under which
-// a payload is that alternative; a payload matches if any rule matches.
-type altRules map[reflect.Type][]altRule
-
-func jsonEqual(a, b jsontext.Value) bool {
-	a, b = a.Clone(), b.Clone()
-	if a.Canonicalize() != nil || b.Canonicalize() != nil {
-		return false
-	}
-	return string(a) == string(b)
-}
-
-func (r altRule) matches(raw jsontext.Value) bool {
-	if r.null && raw.Kind() != 'n' {
-		return false
-	}
-	if r.nonNull && (raw.Kind() == 'n' || len(raw) == 0) {
-		return false
-	}
-	if len(r.literal) > 0 && !jsonEqual(raw, r.literal) {
-		return false
-	}
-	if len(r.required) == 0 && len(r.notNull) == 0 && len(r.tags) == 0 {
-		return true
-	}
-	var fields map[string]jsontext.Value
-	if json.Unmarshal(raw, &fields) != nil || fields == nil {
-		return false
-	}
-	for _, name := range r.required {
-		if _, ok := fields[name]; !ok {
-			return false
-		}
-	}
-	for _, name := range r.notNull {
-		if v, ok := fields[name]; ok && v.Kind() == 'n' {
-			return false
-		}
-	}
-	for name, want := range r.tags {
-		if got, ok := fields[name]; !ok || !jsonEqual(got, want) {
-			return false
-		}
-	}
-	return true
-}
-
-// asAlternative decodes raw as T once one of T's rules accepts it.
-func asAlternative[T any](union string, rules altRules, raw jsontext.Value) (T, error) {
-	var out T
-	for _, rule := range rules[reflect.TypeFor[T]()] {
-		if rule.matches(raw) {
-			if err := json.Unmarshal(raw, &out); err != nil {
-				return out, fmt.Errorf("%s: decode %T: %w", union, out, err)
-			}
-			return out, nil
-		}
-	}
-	return out, fmt.Errorf("%s: payload is not a %T", union, out)
-}
-
-// newAlternative encodes value, splices in the literal members its
-// alternative requires, and checks the result is that alternative.
-func newAlternative[T any](union string, rules altRules, value T) (jsontext.Value, error) {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	group := rules[reflect.TypeFor[T]()]
-	if len(group) == 1 && len(group[0].tags) > 0 {
-		var fields map[string]jsontext.Value
-		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
-			return nil, fmt.Errorf("%s: %T must encode as an object", union, value)
-		}
-		for name, tag := range group[0].tags {
-			fields[name] = tag
-		}
-		if raw, err = json.Marshal(fields, json.Deterministic(true)); err != nil {
-			return nil, err
-		}
-	}
-	for _, rule := range group {
-		if rule.matches(raw) {
-			return raw, nil
-		}
-	}
-	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
-}
-
-`
 
 // flush formats the buffered source into files[name] and resets the buffer.
 func (g *generator) flush(files Files, name string) error {
@@ -606,21 +500,35 @@ func (g *generator) definition(d tsdef.Definition) error {
 // it shares a reflect.Type with expr.
 func (g *generator) alias(name, expr string) {
 	g.aliases[name] = true
-	g.aliasOf[name] = expr
 	g.write("type %s = %s\n", name, expr)
 }
 
-// canonical follows aliases so that two alternatives naming the same Go type
-// (ExtResponse and MessageMCPResponse are both jsontext.Value) share one
-// type-set term and one rule group.
-func (g *generator) canonical(expr string) string {
-	for {
-		target, ok := g.aliasOf[expr]
-		if !ok {
+// canonical resolves the Go type behind a union member so that two aliases of
+// one type (ExtResponse and MessageMCPResponse are both jsontext.Value) share
+// a single type-set term and rule group. It follows references through the
+// schema rather than emitted aliases, so declaration order does not matter,
+// and stops at anything definition() turns into a distinct named type.
+func (g *generator) canonical(m *tsdef.Type, expr string) string {
+	seen := map[string]bool{}
+	for m.Kind == "ref" && !seen[m.Name] {
+		seen[m.Name] = true
+		d := g.defs[m.Name]
+		if _, ok := literals(d); ok {
 			return expr
 		}
-		expr = target
+		if _, _, ok := openEnum(d); ok {
+			return expr
+		}
+		switch d.Kind {
+		case "ref":
+			m = d
+		case "unknown", "any", "null", "never":
+			return "jsontext.Value"
+		default:
+			return expr
+		}
 	}
+	return expr
 }
 
 // enum emits a named scalar type with one constant per literal. Open enums
@@ -1202,12 +1110,8 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 	}
 	// One rule per alternative, grouped by the canonical Go type so aliases of
 	// the same type become one type-set term.
-	type group struct {
-		expr  string
-		rules []string
-	}
-	var groups []*group
-	byType := map[string]*group{}
+	var terms []string
+	rules := map[string][]string{}
 	used := map[string]bool{}
 	for i, m := range t.Members {
 		expanded, err := g.expand(m, map[string]bool{})
@@ -1226,37 +1130,28 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 		if err != nil {
 			return err
 		}
-		rule, err := g.altRule(expanded)
-		if err != nil {
-			return err
+		key := g.canonical(m, expr)
+		if _, ok := rules[key]; !ok {
+			terms = append(terms, key)
 		}
-		key := g.canonical(expr)
-		grp, ok := byType[key]
-		if !ok {
-			grp = &group{expr: key}
-			byType[key] = grp
-			groups = append(groups, grp)
+		if rule := g.altRule(expanded); !slices.Contains(rules[key], rule) {
+			rules[key] = append(rules[key], rule)
 		}
-		grp.rules = append(grp.rules, rule)
-	}
-	var terms []string
-	for _, grp := range groups {
-		terms = append(terms, grp.expr)
 	}
 	g.write("// %s preserves the complete JSON payload, including future variants.\n", name)
 	g.write("// Use As to read one alternative and New%s to build one.\n", name)
 	g.write("type %s struct { raw jsontext.Value }\n", name)
 	g.write("// %s is the set of Go types a %s can hold.\n", constraint, name)
 	g.write("type %s interface { %s }\n", constraint, strings.Join(terms, " | "))
-	g.write("var %s = altRules{\n", table)
-	for _, grp := range groups {
-		g.write("reflect.TypeFor[%s](): {%s},\n", grp.expr, strings.Join(grp.rules, ", "))
+	g.write("var %s = union.Table(\n", table)
+	for _, key := range terms {
+		g.write("union.Alt[%s](%s),\n", key, strings.Join(rules[key], ", "))
 	}
-	g.write("}\n")
+	g.write(")\n")
 	g.write("// New%s encodes value as a %s, adding any literal members the alternative\n// requires and rejecting values that are not that alternative.\n", name, name)
-	g.write("func New%s[T %s](value T) (%s, error) { raw, err := newAlternative(%q, %s, value); return %s{raw: raw}, err }\n", name, constraint, name, name, table, name)
+	g.write("func New%s[T %s](value T) (%s, error) { raw, err := union.New(%q, %s, value); return %s{raw: raw}, err }\n", name, constraint, name, name, table, name)
 	g.write("// As decodes the payload as the alternative T, or reports why it is not one.\n")
-	g.write("func (v %s) As[T %s]() (T, error) { return asAlternative[T](%q, %s, v.raw) }\n", name, constraint, name, table)
+	g.write("func (v %s) As[T %s]() (T, error) { return union.As[T](%q, %s, v.raw) }\n", name, constraint, name, table)
 	g.write("func (v %s) MarshalJSON() ([]byte,error) {if len(v.raw)==0{return []byte(\"null\"),nil};return v.raw.Clone(),nil}\n", name)
 	g.write("func (v *%s) UnmarshalJSON(b []byte) error {if !jsontext.Value(b).IsValid(){return fmt.Errorf(\"invalid %s JSON\")};v.raw=jsontext.Value(b).Clone();return nil}\n", name, name)
 	g.write("func (v %s) RawJSON() jsontext.Value {return v.raw.Clone()}\n", name)
@@ -1268,18 +1163,17 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 	return nil
 }
 
-// altRule renders the altRule literal that recognizes one union alternative:
-// the same checks the former As<Label> methods hard-coded.
-func (g *generator) altRule(expanded *tsdef.Type) (string, error) {
+// altRule renders the union.Rule literal that recognizes one union alternative.
+func (g *generator) altRule(expanded *tsdef.Type) string {
 	var parts []string
 	if expanded.Kind == "null" {
-		parts = append(parts, "null: true")
+		parts = append(parts, "Null: true")
 	}
 	if !g.acceptsNull(expanded, map[string]bool{}) {
-		parts = append(parts, "nonNull: true")
+		parts = append(parts, "NonNull: true")
 	}
 	if expanded.Kind == "literal" {
-		parts = append(parts, fmt.Sprintf("literal: jsontext.Value(%q)", expanded.Literal))
+		parts = append(parts, fmt.Sprintf("Literal: jsontext.Value(%q)", expanded.Literal))
 	}
 	if expanded.Kind == "object" {
 		var required, notNull, tags []string
@@ -1291,21 +1185,21 @@ func (g *generator) altRule(expanded *tsdef.Type) (string, error) {
 				notNull = append(notNull, strconv.Quote(f.Name))
 			}
 			if f.Type.Kind == "literal" && !f.Optional {
-				tags = append(tags, fmt.Sprintf("%q: jsontext.Value(%q)", f.Name, f.Type.Literal))
+				tags = append(tags, fmt.Sprintf("{Name: %q, Value: jsontext.Value(%q)}", f.Name, f.Type.Literal))
 			}
 		}
 		if len(required) > 0 {
-			parts = append(parts, "required: []string{"+strings.Join(required, ", ")+"}")
+			parts = append(parts, "Required: []string{"+strings.Join(required, ", ")+"}")
 		}
 		if len(notNull) > 0 {
-			parts = append(parts, "notNull: []string{"+strings.Join(notNull, ", ")+"}")
+			parts = append(parts, "NotNull: []string{"+strings.Join(notNull, ", ")+"}")
 		}
 		if len(tags) > 0 {
 			sort.Strings(tags)
-			parts = append(parts, "tags: map[string]jsontext.Value{"+strings.Join(tags, ", ")+"}")
+			parts = append(parts, "Tags: []union.Tag{"+strings.Join(tags, ", ")+"}")
 		}
 	}
-	return "{" + strings.Join(parts, ", ") + "}", nil
+	return "union.Rule{" + strings.Join(parts, ", ") + "}"
 }
 
 // acceptsNull follows references without expanding recursive object fields.

@@ -6,13 +6,13 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
-	"reflect"
+	"github.com/ironpark/go-acp/schema/union"
 )
 
 var _ = json.Marshal
 var _ = fmt.Errorf
 var _ jsontext.Value
-var _ = reflect.TypeFor[int]
+var _ = union.Table
 
 // A JSON-RPC request object.
 type AgentRequest struct {
@@ -42,22 +42,22 @@ type RequestIDAlternative interface {
 	jsontext.Value | float64 | string
 }
 
-var requestIDAlternatives = altRules{
-	reflect.TypeFor[jsontext.Value](): {{null: true}},
-	reflect.TypeFor[float64]():        {{nonNull: true}},
-	reflect.TypeFor[string]():         {{nonNull: true}},
-}
+var requestIDAlternatives = union.Table(
+	union.Alt[jsontext.Value](union.Rule{Null: true}),
+	union.Alt[float64](union.Rule{NonNull: true}),
+	union.Alt[string](union.Rule{NonNull: true}),
+)
 
 // NewRequestID encodes value as a RequestID, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewRequestID[T RequestIDAlternative](value T) (RequestID, error) {
-	raw, err := newAlternative("RequestID", requestIDAlternatives, value)
+	raw, err := union.New("RequestID", requestIDAlternatives, value)
 	return RequestID{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v RequestID) As[T RequestIDAlternative]() (T, error) {
-	return asAlternative[T]("RequestID", requestIDAlternatives, v.raw)
+	return union.As[T]("RequestID", requestIDAlternatives, v.raw)
 }
 func (v RequestID) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -106,21 +106,21 @@ type AgentResponseAlternative interface {
 	AgentResponseResult | AgentResponseError
 }
 
-var agentResponseAlternatives = altRules{
-	reflect.TypeFor[AgentResponseResult](): {{nonNull: true, required: []string{"id", "result"}}},
-	reflect.TypeFor[AgentResponseError]():  {{nonNull: true, required: []string{"id", "error"}, notNull: []string{"error"}}},
-}
+var agentResponseAlternatives = union.Table(
+	union.Alt[AgentResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}}),
+	union.Alt[AgentResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
+)
 
 // NewAgentResponse encodes value as a AgentResponse, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewAgentResponse[T AgentResponseAlternative](value T) (AgentResponse, error) {
-	raw, err := newAlternative("AgentResponse", agentResponseAlternatives, value)
+	raw, err := union.New("AgentResponse", agentResponseAlternatives, value)
 	return AgentResponse{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v AgentResponse) As[T AgentResponseAlternative]() (T, error) {
-	return asAlternative[T]("AgentResponse", agentResponseAlternatives, v.raw)
+	return union.As[T]("AgentResponse", agentResponseAlternatives, v.raw)
 }
 func (v AgentResponse) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -205,21 +205,21 @@ type ClientResponseAlternative interface {
 	ClientResponseResult | ClientResponseError
 }
 
-var clientResponseAlternatives = altRules{
-	reflect.TypeFor[ClientResponseResult](): {{nonNull: true, required: []string{"id", "result"}}},
-	reflect.TypeFor[ClientResponseError]():  {{nonNull: true, required: []string{"id", "error"}, notNull: []string{"error"}}},
-}
+var clientResponseAlternatives = union.Table(
+	union.Alt[ClientResponseResult](union.Rule{NonNull: true, Required: []string{"id", "result"}}),
+	union.Alt[ClientResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
+)
 
 // NewClientResponse encodes value as a ClientResponse, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewClientResponse[T ClientResponseAlternative](value T) (ClientResponse, error) {
-	raw, err := newAlternative("ClientResponse", clientResponseAlternatives, value)
+	raw, err := union.New("ClientResponse", clientResponseAlternatives, value)
 	return ClientResponse{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ClientResponse) As[T ClientResponseAlternative]() (T, error) {
-	return asAlternative[T]("ClientResponse", clientResponseAlternatives, v.raw)
+	return union.As[T]("ClientResponse", clientResponseAlternatives, v.raw)
 }
 func (v ClientResponse) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -275,32 +275,32 @@ type AgentRequestParamsAlternative interface {
 	WriteTextFileRequest | ReadTextFileRequest | RequestPermissionRequest | CreateTerminalRequest | TerminalOutputRequest | ReleaseTerminalRequest | WaitForTerminalExitRequest | KillTerminalRequest | CreateElicitationRequest | ConnectMCPRequest | MessageMCPRequest | DisconnectMCPRequest | jsontext.Value
 }
 
-var agentRequestParamsAlternatives = altRules{
-	reflect.TypeFor[WriteTextFileRequest]():       {{nonNull: true, required: []string{"sessionId", "path", "content"}, notNull: []string{"sessionId", "path", "content"}}},
-	reflect.TypeFor[ReadTextFileRequest]():        {{nonNull: true, required: []string{"sessionId", "path"}, notNull: []string{"sessionId", "path"}}},
-	reflect.TypeFor[RequestPermissionRequest]():   {{nonNull: true, required: []string{"sessionId", "toolCall", "options"}, notNull: []string{"sessionId", "toolCall", "options"}}},
-	reflect.TypeFor[CreateTerminalRequest]():      {{nonNull: true, required: []string{"sessionId", "command"}, notNull: []string{"sessionId", "command", "args", "env"}}},
-	reflect.TypeFor[TerminalOutputRequest]():      {{nonNull: true, required: []string{"sessionId", "terminalId"}, notNull: []string{"sessionId", "terminalId"}}},
-	reflect.TypeFor[ReleaseTerminalRequest]():     {{nonNull: true, required: []string{"sessionId", "terminalId"}, notNull: []string{"sessionId", "terminalId"}}},
-	reflect.TypeFor[WaitForTerminalExitRequest](): {{nonNull: true, required: []string{"sessionId", "terminalId"}, notNull: []string{"sessionId", "terminalId"}}},
-	reflect.TypeFor[KillTerminalRequest]():        {{nonNull: true, required: []string{"sessionId", "terminalId"}, notNull: []string{"sessionId", "terminalId"}}},
-	reflect.TypeFor[CreateElicitationRequest]():   {{nonNull: true}},
-	reflect.TypeFor[ConnectMCPRequest]():          {{nonNull: true, required: []string{"serverId"}, notNull: []string{"serverId"}}},
-	reflect.TypeFor[MessageMCPRequest]():          {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
-	reflect.TypeFor[DisconnectMCPRequest]():       {{nonNull: true, required: []string{"connectionId"}, notNull: []string{"connectionId"}}},
-	reflect.TypeFor[jsontext.Value]():             {{}},
-}
+var agentRequestParamsAlternatives = union.Table(
+	union.Alt[WriteTextFileRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "path", "content"}, NotNull: []string{"sessionId", "path", "content"}}),
+	union.Alt[ReadTextFileRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "path"}, NotNull: []string{"sessionId", "path"}}),
+	union.Alt[RequestPermissionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "toolCall", "options"}, NotNull: []string{"sessionId", "toolCall", "options"}}),
+	union.Alt[CreateTerminalRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "command"}, NotNull: []string{"sessionId", "command", "args", "env"}}),
+	union.Alt[TerminalOutputRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
+	union.Alt[ReleaseTerminalRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
+	union.Alt[WaitForTerminalExitRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
+	union.Alt[KillTerminalRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "terminalId"}, NotNull: []string{"sessionId", "terminalId"}}),
+	union.Alt[CreateElicitationRequest](union.Rule{NonNull: true}),
+	union.Alt[ConnectMCPRequest](union.Rule{NonNull: true, Required: []string{"serverId"}, NotNull: []string{"serverId"}}),
+	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[DisconnectMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewAgentRequestParams encodes value as a AgentRequestParams, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewAgentRequestParams[T AgentRequestParamsAlternative](value T) (AgentRequestParams, error) {
-	raw, err := newAlternative("AgentRequestParams", agentRequestParamsAlternatives, value)
+	raw, err := union.New("AgentRequestParams", agentRequestParamsAlternatives, value)
 	return AgentRequestParams{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v AgentRequestParams) As[T AgentRequestParamsAlternative]() (T, error) {
-	return asAlternative[T]("AgentRequestParams", agentRequestParamsAlternatives, v.raw)
+	return union.As[T]("AgentRequestParams", agentRequestParamsAlternatives, v.raw)
 }
 func (v AgentRequestParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -362,23 +362,23 @@ type AgentNotificationParamsAlternative interface {
 	SessionNotification | CompleteElicitationNotification | MessageMCPNotification | jsontext.Value
 }
 
-var agentNotificationParamsAlternatives = altRules{
-	reflect.TypeFor[SessionNotification]():             {{nonNull: true, required: []string{"sessionId", "update"}, notNull: []string{"sessionId", "update"}}},
-	reflect.TypeFor[CompleteElicitationNotification](): {{nonNull: true, required: []string{"elicitationId"}, notNull: []string{"elicitationId"}}},
-	reflect.TypeFor[MessageMCPNotification]():          {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
-	reflect.TypeFor[jsontext.Value]():                  {{}},
-}
+var agentNotificationParamsAlternatives = union.Table(
+	union.Alt[SessionNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "update"}, NotNull: []string{"sessionId", "update"}}),
+	union.Alt[CompleteElicitationNotification](union.Rule{NonNull: true, Required: []string{"elicitationId"}, NotNull: []string{"elicitationId"}}),
+	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewAgentNotificationParams encodes value as a AgentNotificationParams, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewAgentNotificationParams[T AgentNotificationParamsAlternative](value T) (AgentNotificationParams, error) {
-	raw, err := newAlternative("AgentNotificationParams", agentNotificationParamsAlternatives, value)
+	raw, err := union.New("AgentNotificationParams", agentNotificationParamsAlternatives, value)
 	return AgentNotificationParams{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v AgentNotificationParams) As[T AgentNotificationParamsAlternative]() (T, error) {
-	return asAlternative[T]("AgentNotificationParams", agentNotificationParamsAlternatives, v.raw)
+	return union.As[T]("AgentNotificationParams", agentNotificationParamsAlternatives, v.raw)
 }
 func (v AgentNotificationParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -426,40 +426,40 @@ type ClientRequestParamsAlternative interface {
 	InitializeRequest | AuthenticateRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutRequest | NewSessionRequest | LoadSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionModeRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | MessageMCPRequest | jsontext.Value
 }
 
-var clientRequestParamsAlternatives = altRules{
-	reflect.TypeFor[InitializeRequest]():             {{nonNull: true, required: []string{"protocolVersion"}, notNull: []string{"protocolVersion", "clientCapabilities"}}},
-	reflect.TypeFor[AuthenticateRequest]():           {{nonNull: true, required: []string{"methodId"}, notNull: []string{"methodId"}}},
-	reflect.TypeFor[ListProvidersRequest]():          {{nonNull: true}},
-	reflect.TypeFor[SetProviderRequest]():            {{nonNull: true, required: []string{"providerId", "apiType", "baseUrl"}, notNull: []string{"providerId", "apiType", "baseUrl", "headers"}}},
-	reflect.TypeFor[DisableProviderRequest]():        {{nonNull: true, required: []string{"providerId"}, notNull: []string{"providerId"}}},
-	reflect.TypeFor[LogoutRequest]():                 {{nonNull: true}},
-	reflect.TypeFor[NewSessionRequest]():             {{nonNull: true, required: []string{"cwd", "mcpServers"}, notNull: []string{"cwd", "additionalDirectories", "mcpServers"}}},
-	reflect.TypeFor[LoadSessionRequest]():            {{nonNull: true, required: []string{"mcpServers", "cwd", "sessionId"}, notNull: []string{"mcpServers", "cwd", "additionalDirectories", "sessionId"}}},
-	reflect.TypeFor[ListSessionsRequest]():           {{nonNull: true}},
-	reflect.TypeFor[DeleteSessionRequest]():          {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[ForkSessionRequest]():            {{nonNull: true, required: []string{"sessionId", "cwd"}, notNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}},
-	reflect.TypeFor[ResumeSessionRequest]():          {{nonNull: true, required: []string{"sessionId", "cwd"}, notNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}},
-	reflect.TypeFor[CloseSessionRequest]():           {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[SetSessionModeRequest]():         {{nonNull: true, required: []string{"sessionId", "modeId"}, notNull: []string{"sessionId", "modeId"}}},
-	reflect.TypeFor[SetSessionConfigOptionRequest](): {{nonNull: true}},
-	reflect.TypeFor[PromptRequest]():                 {{nonNull: true, required: []string{"sessionId", "prompt"}, notNull: []string{"sessionId", "prompt"}}},
-	reflect.TypeFor[StartNesRequest]():               {{nonNull: true}},
-	reflect.TypeFor[SuggestNesRequest]():             {{nonNull: true, required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, notNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}},
-	reflect.TypeFor[CloseNesRequest]():               {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[MessageMCPRequest]():             {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
-	reflect.TypeFor[jsontext.Value]():                {{}},
-}
+var clientRequestParamsAlternatives = union.Table(
+	union.Alt[InitializeRequest](union.Rule{NonNull: true, Required: []string{"protocolVersion"}, NotNull: []string{"protocolVersion", "clientCapabilities"}}),
+	union.Alt[AuthenticateRequest](union.Rule{NonNull: true, Required: []string{"methodId"}, NotNull: []string{"methodId"}}),
+	union.Alt[ListProvidersRequest](union.Rule{NonNull: true}),
+	union.Alt[SetProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId", "apiType", "baseUrl"}, NotNull: []string{"providerId", "apiType", "baseUrl", "headers"}}),
+	union.Alt[DisableProviderRequest](union.Rule{NonNull: true, Required: []string{"providerId"}, NotNull: []string{"providerId"}}),
+	union.Alt[LogoutRequest](union.Rule{NonNull: true}),
+	union.Alt[NewSessionRequest](union.Rule{NonNull: true, Required: []string{"cwd", "mcpServers"}, NotNull: []string{"cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[LoadSessionRequest](union.Rule{NonNull: true, Required: []string{"mcpServers", "cwd", "sessionId"}, NotNull: []string{"mcpServers", "cwd", "additionalDirectories", "sessionId"}}),
+	union.Alt[ListSessionsRequest](union.Rule{NonNull: true}),
+	union.Alt[DeleteSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[ForkSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[ResumeSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "cwd"}, NotNull: []string{"sessionId", "cwd", "additionalDirectories", "mcpServers"}}),
+	union.Alt[CloseSessionRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SetSessionModeRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "modeId"}, NotNull: []string{"sessionId", "modeId"}}),
+	union.Alt[SetSessionConfigOptionRequest](union.Rule{NonNull: true}),
+	union.Alt[PromptRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "prompt"}, NotNull: []string{"sessionId", "prompt"}}),
+	union.Alt[StartNesRequest](union.Rule{NonNull: true}),
+	union.Alt[SuggestNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "triggerKind"}, NotNull: []string{"sessionId", "uri", "version", "position", "triggerKind"}}),
+	union.Alt[CloseNesRequest](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[MessageMCPRequest](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewClientRequestParams encodes value as a ClientRequestParams, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewClientRequestParams[T ClientRequestParamsAlternative](value T) (ClientRequestParams, error) {
-	raw, err := newAlternative("ClientRequestParams", clientRequestParamsAlternatives, value)
+	raw, err := union.New("ClientRequestParams", clientRequestParamsAlternatives, value)
 	return ClientRequestParams{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ClientRequestParams) As[T ClientRequestParamsAlternative]() (T, error) {
-	return asAlternative[T]("ClientRequestParams", clientRequestParamsAlternatives, v.raw)
+	return union.As[T]("ClientRequestParams", clientRequestParamsAlternatives, v.raw)
 }
 func (v ClientRequestParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -521,29 +521,29 @@ type ClientNotificationParamsAlternative interface {
 	CancelNotification | DidOpenDocumentNotification | DidChangeDocumentNotification | DidCloseDocumentNotification | DidSaveDocumentNotification | DidFocusDocumentNotification | AcceptNesNotification | RejectNesNotification | MessageMCPNotification | jsontext.Value
 }
 
-var clientNotificationParamsAlternatives = altRules{
-	reflect.TypeFor[CancelNotification]():            {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[DidOpenDocumentNotification]():   {{nonNull: true, required: []string{"sessionId", "uri", "languageId", "version", "text"}, notNull: []string{"sessionId", "uri", "languageId", "version", "text"}}},
-	reflect.TypeFor[DidChangeDocumentNotification](): {{nonNull: true, required: []string{"sessionId", "uri", "version", "contentChanges"}, notNull: []string{"sessionId", "uri", "version", "contentChanges"}}},
-	reflect.TypeFor[DidCloseDocumentNotification]():  {{nonNull: true, required: []string{"sessionId", "uri"}, notNull: []string{"sessionId", "uri"}}},
-	reflect.TypeFor[DidSaveDocumentNotification]():   {{nonNull: true, required: []string{"sessionId", "uri"}, notNull: []string{"sessionId", "uri"}}},
-	reflect.TypeFor[DidFocusDocumentNotification]():  {{nonNull: true, required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, notNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}},
-	reflect.TypeFor[AcceptNesNotification]():         {{nonNull: true, required: []string{"sessionId", "id"}, notNull: []string{"sessionId", "id"}}},
-	reflect.TypeFor[RejectNesNotification]():         {{nonNull: true, required: []string{"sessionId", "id"}, notNull: []string{"sessionId", "id"}}},
-	reflect.TypeFor[MessageMCPNotification]():        {{nonNull: true, required: []string{"connectionId", "method"}, notNull: []string{"connectionId", "method"}}},
-	reflect.TypeFor[jsontext.Value]():                {{}},
-}
+var clientNotificationParamsAlternatives = union.Table(
+	union.Alt[CancelNotification](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[DidOpenDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "languageId", "version", "text"}, NotNull: []string{"sessionId", "uri", "languageId", "version", "text"}}),
+	union.Alt[DidChangeDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "contentChanges"}, NotNull: []string{"sessionId", "uri", "version", "contentChanges"}}),
+	union.Alt[DidCloseDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri"}, NotNull: []string{"sessionId", "uri"}}),
+	union.Alt[DidSaveDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri"}, NotNull: []string{"sessionId", "uri"}}),
+	union.Alt[DidFocusDocumentNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "uri", "version", "position", "visibleRange"}, NotNull: []string{"sessionId", "uri", "version", "position", "visibleRange"}}),
+	union.Alt[AcceptNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
+	union.Alt[RejectNesNotification](union.Rule{NonNull: true, Required: []string{"sessionId", "id"}, NotNull: []string{"sessionId", "id"}}),
+	union.Alt[MessageMCPNotification](union.Rule{NonNull: true, Required: []string{"connectionId", "method"}, NotNull: []string{"connectionId", "method"}}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewClientNotificationParams encodes value as a ClientNotificationParams, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewClientNotificationParams[T ClientNotificationParamsAlternative](value T) (ClientNotificationParams, error) {
-	raw, err := newAlternative("ClientNotificationParams", clientNotificationParamsAlternatives, value)
+	raw, err := union.New("ClientNotificationParams", clientNotificationParamsAlternatives, value)
 	return ClientNotificationParams{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ClientNotificationParams) As[T ClientNotificationParamsAlternative]() (T, error) {
-	return asAlternative[T]("ClientNotificationParams", clientNotificationParamsAlternatives, v.raw)
+	return union.As[T]("ClientNotificationParams", clientNotificationParamsAlternatives, v.raw)
 }
 func (v ClientNotificationParams) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -591,39 +591,39 @@ type AgentResponseResultResultAlternative interface {
 	InitializeResponse | AuthenticateResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutResponse | NewSessionResponse | LoadSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionModeResponse | SetSessionConfigOptionResponse | PromptResponse | StartNesResponse | SuggestNesResponse | CloseNesResponse | jsontext.Value
 }
 
-var agentResponseResultResultAlternatives = altRules{
-	reflect.TypeFor[InitializeResponse]():             {{nonNull: true, required: []string{"protocolVersion"}, notNull: []string{"protocolVersion", "agentCapabilities", "authMethods"}}},
-	reflect.TypeFor[AuthenticateResponse]():           {{nonNull: true}},
-	reflect.TypeFor[ListProvidersResponse]():          {{nonNull: true, required: []string{"providers"}, notNull: []string{"providers"}}},
-	reflect.TypeFor[SetProviderResponse]():            {{nonNull: true}},
-	reflect.TypeFor[DisableProviderResponse]():        {{nonNull: true}},
-	reflect.TypeFor[LogoutResponse]():                 {{nonNull: true}},
-	reflect.TypeFor[NewSessionResponse]():             {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[LoadSessionResponse]():            {{nonNull: true}},
-	reflect.TypeFor[ListSessionsResponse]():           {{nonNull: true, required: []string{"sessions"}, notNull: []string{"sessions"}}},
-	reflect.TypeFor[DeleteSessionResponse]():          {{nonNull: true}},
-	reflect.TypeFor[ForkSessionResponse]():            {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[ResumeSessionResponse]():          {{nonNull: true}},
-	reflect.TypeFor[CloseSessionResponse]():           {{nonNull: true}},
-	reflect.TypeFor[SetSessionModeResponse]():         {{nonNull: true}},
-	reflect.TypeFor[SetSessionConfigOptionResponse](): {{nonNull: true, required: []string{"configOptions"}, notNull: []string{"configOptions"}}},
-	reflect.TypeFor[PromptResponse]():                 {{nonNull: true, required: []string{"stopReason"}, notNull: []string{"stopReason"}}},
-	reflect.TypeFor[StartNesResponse]():               {{nonNull: true, required: []string{"sessionId"}, notNull: []string{"sessionId"}}},
-	reflect.TypeFor[SuggestNesResponse]():             {{nonNull: true, required: []string{"suggestions"}, notNull: []string{"suggestions"}}},
-	reflect.TypeFor[CloseNesResponse]():               {{nonNull: true}},
-	reflect.TypeFor[jsontext.Value]():                 {{}, {}},
-}
+var agentResponseResultResultAlternatives = union.Table(
+	union.Alt[InitializeResponse](union.Rule{NonNull: true, Required: []string{"protocolVersion"}, NotNull: []string{"protocolVersion", "agentCapabilities", "authMethods"}}),
+	union.Alt[AuthenticateResponse](union.Rule{NonNull: true}),
+	union.Alt[ListProvidersResponse](union.Rule{NonNull: true, Required: []string{"providers"}, NotNull: []string{"providers"}}),
+	union.Alt[SetProviderResponse](union.Rule{NonNull: true}),
+	union.Alt[DisableProviderResponse](union.Rule{NonNull: true}),
+	union.Alt[LogoutResponse](union.Rule{NonNull: true}),
+	union.Alt[NewSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[LoadSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[ListSessionsResponse](union.Rule{NonNull: true, Required: []string{"sessions"}, NotNull: []string{"sessions"}}),
+	union.Alt[DeleteSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[ForkSessionResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[ResumeSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[CloseSessionResponse](union.Rule{NonNull: true}),
+	union.Alt[SetSessionModeResponse](union.Rule{NonNull: true}),
+	union.Alt[SetSessionConfigOptionResponse](union.Rule{NonNull: true, Required: []string{"configOptions"}, NotNull: []string{"configOptions"}}),
+	union.Alt[PromptResponse](union.Rule{NonNull: true, Required: []string{"stopReason"}, NotNull: []string{"stopReason"}}),
+	union.Alt[StartNesResponse](union.Rule{NonNull: true, Required: []string{"sessionId"}, NotNull: []string{"sessionId"}}),
+	union.Alt[SuggestNesResponse](union.Rule{NonNull: true, Required: []string{"suggestions"}, NotNull: []string{"suggestions"}}),
+	union.Alt[CloseNesResponse](union.Rule{NonNull: true}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewAgentResponseResultResult encodes value as a AgentResponseResultResult, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewAgentResponseResultResult[T AgentResponseResultResultAlternative](value T) (AgentResponseResultResult, error) {
-	raw, err := newAlternative("AgentResponseResultResult", agentResponseResultResultAlternatives, value)
+	raw, err := union.New("AgentResponseResultResult", agentResponseResultResultAlternatives, value)
 	return AgentResponseResultResult{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v AgentResponseResultResult) As[T AgentResponseResultResultAlternative]() (T, error) {
-	return asAlternative[T]("AgentResponseResultResult", agentResponseResultResultAlternatives, v.raw)
+	return union.As[T]("AgentResponseResultResult", agentResponseResultResultAlternatives, v.raw)
 }
 func (v AgentResponseResultResult) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
@@ -671,31 +671,31 @@ type ClientResponseResultResultAlternative interface {
 	WriteTextFileResponse | ReadTextFileResponse | RequestPermissionResponse | CreateTerminalResponse | TerminalOutputResponse | ReleaseTerminalResponse | WaitForTerminalExitResponse | KillTerminalResponse | CreateElicitationResponse | ConnectMCPResponse | DisconnectMCPResponse | jsontext.Value
 }
 
-var clientResponseResultResultAlternatives = altRules{
-	reflect.TypeFor[WriteTextFileResponse]():       {{nonNull: true}},
-	reflect.TypeFor[ReadTextFileResponse]():        {{nonNull: true, required: []string{"content"}, notNull: []string{"content"}}},
-	reflect.TypeFor[RequestPermissionResponse]():   {{nonNull: true, required: []string{"outcome"}, notNull: []string{"outcome"}}},
-	reflect.TypeFor[CreateTerminalResponse]():      {{nonNull: true, required: []string{"terminalId"}, notNull: []string{"terminalId"}}},
-	reflect.TypeFor[TerminalOutputResponse]():      {{nonNull: true, required: []string{"output", "truncated"}, notNull: []string{"output", "truncated"}}},
-	reflect.TypeFor[ReleaseTerminalResponse]():     {{nonNull: true}},
-	reflect.TypeFor[WaitForTerminalExitResponse](): {{nonNull: true}},
-	reflect.TypeFor[KillTerminalResponse]():        {{nonNull: true}},
-	reflect.TypeFor[CreateElicitationResponse]():   {{nonNull: true}},
-	reflect.TypeFor[ConnectMCPResponse]():          {{nonNull: true, required: []string{"connectionId"}, notNull: []string{"connectionId"}}},
-	reflect.TypeFor[DisconnectMCPResponse]():       {{nonNull: true}},
-	reflect.TypeFor[jsontext.Value]():              {{}, {}},
-}
+var clientResponseResultResultAlternatives = union.Table(
+	union.Alt[WriteTextFileResponse](union.Rule{NonNull: true}),
+	union.Alt[ReadTextFileResponse](union.Rule{NonNull: true, Required: []string{"content"}, NotNull: []string{"content"}}),
+	union.Alt[RequestPermissionResponse](union.Rule{NonNull: true, Required: []string{"outcome"}, NotNull: []string{"outcome"}}),
+	union.Alt[CreateTerminalResponse](union.Rule{NonNull: true, Required: []string{"terminalId"}, NotNull: []string{"terminalId"}}),
+	union.Alt[TerminalOutputResponse](union.Rule{NonNull: true, Required: []string{"output", "truncated"}, NotNull: []string{"output", "truncated"}}),
+	union.Alt[ReleaseTerminalResponse](union.Rule{NonNull: true}),
+	union.Alt[WaitForTerminalExitResponse](union.Rule{NonNull: true}),
+	union.Alt[KillTerminalResponse](union.Rule{NonNull: true}),
+	union.Alt[CreateElicitationResponse](union.Rule{NonNull: true}),
+	union.Alt[ConnectMCPResponse](union.Rule{NonNull: true, Required: []string{"connectionId"}, NotNull: []string{"connectionId"}}),
+	union.Alt[DisconnectMCPResponse](union.Rule{NonNull: true}),
+	union.Alt[jsontext.Value](union.Rule{}),
+)
 
 // NewClientResponseResultResult encodes value as a ClientResponseResultResult, adding any literal members the alternative
 // requires and rejecting values that are not that alternative.
 func NewClientResponseResultResult[T ClientResponseResultResultAlternative](value T) (ClientResponseResultResult, error) {
-	raw, err := newAlternative("ClientResponseResultResult", clientResponseResultResultAlternatives, value)
+	raw, err := union.New("ClientResponseResultResult", clientResponseResultResultAlternatives, value)
 	return ClientResponseResultResult{raw: raw}, err
 }
 
 // As decodes the payload as the alternative T, or reports why it is not one.
 func (v ClientResponseResultResult) As[T ClientResponseResultResultAlternative]() (T, error) {
-	return asAlternative[T]("ClientResponseResultResult", clientResponseResultResultAlternatives, v.raw)
+	return union.As[T]("ClientResponseResultResult", clientResponseResultResultAlternatives, v.raw)
 }
 func (v ClientResponseResultResult) MarshalJSON() ([]byte, error) {
 	if len(v.raw) == 0 {
