@@ -46,8 +46,11 @@ The previous JSON Schema generator, inputs and configuration have been removed.
   expressions fail with a source location; no JavaScript code is evaluated.
 - `guards.gen.ts`: retained with the upstream snapshot for reference; not executed or translated.
 
-Optional fields use pointers with `omitzero`, retaining explicit false, zero, empty strings and empty collections.
+Optional scalar fields use pointers with `omitzero`, retaining explicit false, zero and empty strings.
+Optional slices and maps are plain values: nil is omitted and an empty non-nil value encodes as `[]` or `{}`.
 Nullable fields use pointers; optional null and absence share the nil representation.
+Literal unions that also admit the underlying primitive, such as `"a" | "b" | string`, produce a
+named scalar type with constants, a `<Type>Values` list and a `Known` method.
 Unconstrained TypeScript numbers use `float64`; unknown payloads use `jsontext.Value` to preserve
 large numbers and extension data. Object index signatures use JSON v2's `embed` fallback:
 additional properties retain their declared value type, and duplicate keys that collide with

@@ -82,12 +82,19 @@ func TestRoundTrip(t *testing.T) {
 	enabled := false
 	empty := []string{}
 	label := ""
-	b, err = json.Marshal(Options{Enabled: &enabled, Tags: &empty, Label: &label})
+	b, err = json.Marshal(Options{Enabled: &enabled, Tags: empty, Label: &label})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(b) != "{\"enabled\":false,\"count\":null,\"tags\":[],\"label\":\"\"}" {
 		t.Fatalf("lost optional/nullable fields: %s", b)
+	}
+	b, err = json.Marshal(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "{\"count\":null}" {
+		t.Fatalf("nil optional collection was not omitted: %s", b)
 	}
 }
 

@@ -494,8 +494,15 @@ func (g *generator) object(name string, t *tsdef.Type) error {
 		if err != nil {
 			return err
 		}
-		if f.Optional && !strings.HasPrefix(expr, "*") && expr != "jsontext.Value" {
-			expr = "*" + expr
+		if f.Optional {
+			// omitzero already distinguishes nil collections from empty ones, so
+			// optional slices and maps do not need a pointer. Optional null and
+			// absence share the nil representation.
+			if collection(strings.TrimPrefix(expr, "*")) {
+				expr = strings.TrimPrefix(expr, "*")
+			} else if !strings.HasPrefix(expr, "*") && expr != "jsontext.Value" {
+				expr = "*" + expr
+			}
 		}
 		tag := f.Name
 		if f.Optional {
@@ -512,6 +519,9 @@ func (g *generator) object(name string, t *tsdef.Type) error {
 	}
 	g.write("}\n")
 	return nil
+}
+func collection(expr string) bool {
+	return strings.HasPrefix(expr, "[]") || strings.HasPrefix(expr, "map[")
 }
 func (g *generator) union(name string, t *tsdef.Type) error {
 	if err := g.reserve("Parse" + name); err != nil {
