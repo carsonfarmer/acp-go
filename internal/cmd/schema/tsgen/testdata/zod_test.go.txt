@@ -7,35 +7,35 @@ import (
 )
 
 func TestZodDefaultsAndRecovery(t *testing.T) {
-	v, err := DecodeOptionsJSON([]byte(`{"required":[1,"bad",2],"url":"not a url"}`))
+	v, err := Decode[Options]([]byte(`{"required":[1,"bad",2],"url":"not a url"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v.Count != 3 || v.Label == nil || *v.Label != "hello" || len(v.Required) != 2 || v.Required[1] != 2 || v.URL != nil {
 		t.Fatalf("wrong normalization: %+v", v)
 	}
-	if _, err := DecodeOptionsJSON([]byte(`{}`)); err == nil || !strings.Contains(err.Error(), `$["required"]`) {
+	if _, err := Decode[Options]([]byte(`{}`)); err == nil || !strings.Contains(err.Error(), `$["required"]`) {
 		t.Fatalf("missing required input accepted: %v", err)
 	}
-	v, err = DecodeOptionsJSON([]byte(`{"required":"bad"}`))
+	v, err = Decode[Options]([]byte(`{"required":"bad"}`))
 	if err != nil || len(v.Required) != 0 {
 		t.Fatalf("required recovery failed: %+v %v", v, err)
 	}
-	if ValidateOptionsJSON([]byte(`{"required":[],"count":null}`)) == nil {
+	if Validate[Options]([]byte(`{"required":[],"count":null}`)) == nil {
 		t.Fatal("default applied to null instead of missing")
 	}
-	if ValidateCountJSON([]byte(`3.5`)) == nil || ValidateCountJSON([]byte(`11`)) == nil || ValidateCountJSON([]byte(`-1`)) == nil {
+	if Validate[Count]([]byte(`3.5`)) == nil || Validate[Count]([]byte(`11`)) == nil || Validate[Count]([]byte(`-1`)) == nil {
 		t.Fatal("numeric constraints ignored")
 	}
-	if ValidateCountJSON([]byte(`0`)) != nil {
+	if Validate[Count]([]byte(`0`)) != nil {
 		t.Fatal("inclusive zero bound failed")
 	}
 }
 func TestZodCustomUnion(t *testing.T) {
-	if _, err := DecodeMessageJSON([]byte(`{"kind":"text","text":42}`)); err == nil {
+	if _, err := Decode[Message]([]byte(`{"kind":"text","text":42}`)); err == nil {
 		t.Fatal("malformed known variant passed through catch-all")
 	}
-	good, err := DecodeMessageJSON([]byte(`{"kind":"text","text":"ok","note":42,"vendor":true}`))
+	good, err := Decode[Message]([]byte(`{"kind":"text","text":"ok","note":42,"vendor":true}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestZodCustomUnion(t *testing.T) {
 	if strings.Contains(raw, "note") || strings.Contains(raw, "vendor") {
 		t.Fatalf("known variant was not normalized: %s", raw)
 	}
-	custom, err := DecodeMessageJSON([]byte(`{"kind":"future","text":42,"note":42,"_meta":42,"vendor":9007199254740993,"constructor":true,"__proto__":false}`))
+	custom, err := Decode[Message]([]byte(`{"kind":"future","text":42,"note":42,"_meta":42,"vendor":9007199254740993,"constructor":true,"__proto__":false}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,23 +68,46 @@ func TestZodCustomUnion(t *testing.T) {
 }
 func TestZodStringConstraints(t *testing.T) {
 	for _, source := range []string{`"usd"`, `"US"`, `123`} {
-		if ValidateCurrencyJSON([]byte(source)) == nil {
+		if Validate[Currency]([]byte(source)) == nil {
 			t.Fatalf("accepted currency %s", source)
 		}
 	}
-	if ValidateCurrencyJSON([]byte(`"USD"`)) != nil {
+	if Validate[Currency]([]byte(`"USD"`)) != nil {
 		t.Fatal("rejected USD")
 	}
-	if ValidateURLJSON([]byte(`"relative/path"`)) == nil || ValidateURLJSON([]byte(`"https://"`)) == nil {
+	if Validate[URL]([]byte(`"relative/path"`)) == nil || Validate[URL]([]byte(`"https://"`)) == nil {
 		t.Fatal("accepted invalid URL")
 	}
-	if ValidateURLJSON([]byte(`"mailto:user@example.com"`)) != nil {
+	if Validate[URL]([]byte(`"mailto:user@example.com"`)) != nil {
 		t.Fatal("rejected absolute opaque URL")
 	}
-	if ValidateTimestampJSON([]byte(`"2026-09-22T10:20:30+09:00"`)) != nil {
+	if Validate[Timestamp]([]byte(`"2026-09-22T10:20:30+09:00"`)) != nil {
 		t.Fatal("rejected offset datetime")
 	}
-	if ValidateTimestampJSON([]byte(`"2026-02-30T10:20:30Z"`)) == nil {
+	if Validate[Timestamp]([]byte(`"2026-02-30T10:20:30Z"`)) == nil {
 		t.Fatal("accepted invalid date")
+	}
+}
+
+func TestValidatedOption(t *testing.T) {
+	var holder struct {
+		Inner Options `json:"inner"`
+		List  []Count `json:"list"`
+	}
+	err := json.Unmarshal([]byte(`{"inner":{"required":[1,"bad"]},"list":[1.0,2]}`), &holder, Validated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if holder.Inner.Count != 3 || len(holder.Inner.Required) != 1 || holder.List[0] != 1 {
+		t.Fatalf("nested rules not applied: %+v", holder)
+	}
+	if err := json.Unmarshal([]byte(`{"inner":{"required":[]},"list":[11]}`), &holder, Validated); err == nil {
+		t.Fatal("nested bound ignored")
+	}
+	if err := json.Unmarshal([]byte(`{"inner":{"required":[]},"list":[11]}`), &holder); err != nil {
+		t.Fatal("plain decoding must stay lenient")
+	}
+	if _, err := Decode[struct{}]([]byte(`{}`)); err == nil {
+		t.Fatal("unknown type accepted")
 	}
 }

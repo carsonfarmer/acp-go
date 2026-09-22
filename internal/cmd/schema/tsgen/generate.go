@@ -18,10 +18,12 @@ import (
 )
 
 type generator struct {
-	defs    map[string]*tsdef.Type
-	pending []tsdef.Definition
-	names   map[string]bool
-	out     bytes.Buffer
+	defs         map[string]*tsdef.Type
+	pending      []tsdef.Definition
+	names        map[string]bool
+	aliases      map[string]bool // Go names declared with "type X = ..."
+	unmarshalers []string        // variant interface unmarshal functions
+	out          bytes.Buffer
 }
 
 // Files maps generated file names to their formatted Go source.
@@ -35,7 +37,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
 		return nil, fmt.Errorf("invalid package name %q", pkg)
 	}
-	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}}
+	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
 		if g.names[name] {
@@ -121,6 +123,13 @@ func unspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
 		if err := g.definition(g.pending[i]); err != nil {
 			return nil, fmt.Errorf("%s: %w", g.pending[i].Name, err)
 		}
+	}
+	if len(g.unmarshalers) > 0 {
+		var entries []string
+		for _, fn := range g.unmarshalers {
+			entries = append(entries, "json.UnmarshalFromFunc("+fn+")")
+		}
+		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(entries, ",\n"))
 	}
 	files := Files{}
 	if err := g.flush(files, "schema.gen.go"); err != nil {
@@ -386,6 +395,7 @@ func (g *generator) definition(d tsdef.Definition) error {
 			if err != nil {
 				return err
 			}
+			g.aliases[d.Name] = true
 			g.write("type %s = %s\n", d.Name, expr)
 			return nil
 		}
@@ -395,9 +405,24 @@ func (g *generator) definition(d tsdef.Definition) error {
 		if err != nil {
 			return err
 		}
+		if scalar(expr) {
+			// Distinct identifier types (SessionID vs ToolCallID) cannot be mixed
+			// up, and they can carry their own Zod unmarshaler.
+			g.write("type %s %s\n", d.Name, expr)
+			return nil
+		}
+		g.aliases[d.Name] = true
 		g.write("type %s = %s\n", d.Name, expr)
 		return nil
 	}
+}
+
+func scalar(expr string) bool {
+	switch expr {
+	case "string", "bool", "float64", "int64", "uint64", "uint32", "uint16":
+		return true
+	}
+	return false
 }
 
 // enum emits a named scalar type with one constant per literal. Open enums
@@ -548,6 +573,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		if err != nil {
 			return err
 		}
+		g.aliases[name] = true
 		g.write("type %s = %s\n", name, expr)
 		return nil
 	}
@@ -576,7 +602,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			// omitzero already distinguishes nil collections from empty ones, so
 			// optional slices and maps do not need a pointer. Optional null and
 			// absence share the nil representation.
-			if collection(strings.TrimPrefix(expr, "*")) {
+			if collection(strings.TrimPrefix(expr, "*")) || g.isUnion(f.Type) {
 				expr = strings.TrimPrefix(expr, "*")
 			} else if !strings.HasPrefix(expr, "*") && expr != "jsontext.Value" {
 				expr = "*" + expr
@@ -597,6 +623,32 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 	}
 	g.write("}\n")
 	return nil
+}
+
+// isUnion reports whether t (through references and an optional null) is
+// generated as a union wrapper, which implements IsZero for omitzero.
+func (g *generator) isUnion(t *tsdef.Type) bool {
+	t, _ = nullable(t)
+	seen := map[string]bool{}
+	for t.Kind == "ref" && !seen[t.Name] {
+		seen[t.Name] = true
+		next := g.defs[t.Name]
+		if next == nil {
+			return false
+		}
+		t = next
+		t, _ = nullable(t)
+	}
+	if t.Kind != "union" {
+		return false
+	}
+	if _, ok := literals(t); ok {
+		return false
+	}
+	if _, _, ok := openEnum(t); ok {
+		return false
+	}
+	return true
 }
 func collection(expr string) bool {
 	return strings.HasPrefix(expr, "[]") || strings.HasPrefix(expr, "map[")
@@ -739,6 +791,11 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 		}
 	}
 	marker := lowerFirst(name) + "Variant"
+	unmarshalFn := "unmarshal" + iface
+	if err := g.reserve(unmarshalFn); err != nil {
+		return err
+	}
+	g.unmarshalers = append(g.unmarshalers, unmarshalFn)
 	var variantNames []string
 	for _, m := range members {
 		label := "Custom"
@@ -767,10 +824,14 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 	g.write("func (u %s) Variant() %s { return u.value }\n", name, iface)
 	g.write("// Tag returns the %q discriminator, or \"\" for the zero value.\n", tag)
 	g.write("func (u %s) Tag() string { if u.value == nil { return \"\" }; return u.value.Tag() }\n", name)
+	g.write("// IsZero reports whether no variant is set, so omitzero omits the field.\n")
+	g.write("func (u %s) IsZero() bool { return u.value == nil }\n", name)
 	g.write("func (u %s) MarshalJSONTo(enc *jsontext.Encoder) error { if u.value == nil { return enc.WriteToken(jsontext.Null) }; return json.MarshalEncode(enc, u.value) }\n", name)
-	g.write("func (u *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n", name)
+	g.write("func (u *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return %s(dec, &u.value) }\n", name, unmarshalFn)
+	g.write("// %s decodes a %s by its %q member; it backs Unmarshalers.\n", unmarshalFn, iface, tag)
+	g.write("func %s(dec *jsontext.Decoder, out *%s) error {\n", unmarshalFn, iface)
 	g.write("raw, err := dec.ReadValue(); if err != nil { return err }\n")
-	g.write("if raw.Kind() == 'n' { u.value = nil; return nil }\n")
+	g.write("if raw.Kind() == 'n' { *out = nil; return nil }\n")
 	g.write("if raw.Kind() != '{' { return fmt.Errorf(\"%s: expected object, got %%s\", raw.Kind()) }\n", name)
 	g.write("var probe struct{ Tag string `json:%q` }\n", tag)
 	g.write("if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", name)
@@ -781,10 +842,10 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 			customIndex = i
 			continue
 		}
-		g.write("case %s: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; u.value = v\n", m.value, variantNames[i])
+		g.write("case %s: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", m.value, variantNames[i])
 	}
 	if customIndex >= 0 {
-		g.write("default: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; u.value = v\n", variantNames[customIndex])
+		g.write("default: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variantNames[customIndex])
 	} else {
 		g.write("default: return fmt.Errorf(\"%s: unknown %s %%q\", probe.Tag)\n", name, tag)
 	}
@@ -939,6 +1000,8 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 	g.write("func (v %s) MarshalJSON() ([]byte,error) {if len(v.raw)==0{return []byte(\"null\"),nil};return v.raw.Clone(),nil}\n", name)
 	g.write("func (v *%s) UnmarshalJSON(b []byte) error {if !jsontext.Value(b).IsValid(){return fmt.Errorf(\"invalid %s JSON\")};v.raw=jsontext.Value(b).Clone();return nil}\n", name, name)
 	g.write("func (v %s) RawJSON() jsontext.Value {return v.raw.Clone()}\n", name)
+	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
+	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
 	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteValue(jsontext.Value(\"null\"))};return enc.WriteValue(v.raw)}\n", name)
 	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
 	g.write("func Parse%s(b []byte) (%s,error) {var v %s;err:=json.Unmarshal(b,&v);return v,err}\n", name, name, name)

@@ -109,7 +109,7 @@ type AgentRequest struct {
 	// The method name to invoke.
 	Method string `json:"method"`
 	// Method-specific request parameters.
-	Params *AgentRequestParams `json:"params,omitzero"`
+	Params AgentRequestParams `json:"params,omitzero"`
 }
 
 // JSON RPC Request Id
@@ -138,6 +138,9 @@ func (v *RequestID) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v RequestID) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v RequestID) IsZero() bool { return len(v.raw) == 0 }
 func (v RequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -222,7 +225,7 @@ type RequestPermissionRequest struct {
 	// Optional structured context about the operation requiring permission.
 	//
 	// Omitted or `null` both mean no structured subject was provided.
-	Subject *RequestPermissionSubject `json:"subject,omitzero"`
+	Subject RequestPermissionSubject `json:"subject,omitzero"`
 	// Available permission options for the user to choose from.
 	// Must contain at least one option.
 	Options []PermissionOption `json:"options"`
@@ -240,7 +243,7 @@ type RequestPermissionRequest struct {
 // allowing multiple independent interactions with the same agent.
 //
 // See protocol docs: [Session ID](https://agentclientprotocol.com/protocol/v2/draft/session-setup#session-id)
-type SessionID = string
+type SessionID string
 
 // The operation requiring permission.
 // RequestPermissionSubject is a tagged union discriminated by the "type" member. The zero value
@@ -270,6 +273,9 @@ func (u RequestPermissionSubject) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u RequestPermissionSubject) IsZero() bool { return u.value == nil }
 func (u RequestPermissionSubject) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -277,12 +283,17 @@ func (u RequestPermissionSubject) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *RequestPermissionSubject) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalRequestPermissionSubjectVariant(dec, &u.value)
+}
+
+// unmarshalRequestPermissionSubjectVariant decodes a RequestPermissionSubjectVariant by its "type" member; it backs Unmarshalers.
+func unmarshalRequestPermissionSubjectVariant(dec *jsontext.Decoder, out *RequestPermissionSubjectVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -300,19 +311,19 @@ func (u *RequestPermissionSubject) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "command":
 		var v RequestPermissionSubjectCommand
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v RequestPermissionSubjectCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -455,7 +466,7 @@ type ToolCallUpdate struct {
 }
 
 // Unique identifier for a tool call within a session.
-type ToolCallID = string
+type ToolCallID string
 
 // Categories of tools that can be invoked.
 //
@@ -536,6 +547,9 @@ func (u ToolCallContent) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u ToolCallContent) IsZero() bool { return u.value == nil }
 func (u ToolCallContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -543,12 +557,17 @@ func (u ToolCallContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *ToolCallContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalToolCallContentVariant(dec, &u.value)
+}
+
+// unmarshalToolCallContentVariant decodes a ToolCallContentVariant by its "type" member; it backs Unmarshalers.
+func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContentVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -566,25 +585,25 @@ func (u *ToolCallContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "diff":
 		var v ToolCallContentDiff
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "terminal":
 		var v ToolCallContentTerminal
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v ToolCallContentCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -763,6 +782,9 @@ func (u ContentBlock) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u ContentBlock) IsZero() bool { return u.value == nil }
 func (u ContentBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -770,12 +792,17 @@ func (u ContentBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *ContentBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalContentBlockVariant(dec, &u.value)
+}
+
+// unmarshalContentBlockVariant decodes a ContentBlockVariant by its "type" member; it backs Unmarshalers.
+func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -793,37 +820,37 @@ func (u *ContentBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "image":
 		var v ContentBlockImage
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "audio":
 		var v ContentBlockAudio
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "resource_link":
 		var v ContentBlockResourceLink
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "resource":
 		var v ContentBlockResource
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v ContentBlockCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -1108,7 +1135,7 @@ type TextContent struct {
 }
 
 // An Internet media type identifying the format of protocol content.
-type MediaType = string
+type MediaType string
 
 // An image provided to or from an LLM.
 type ImageContent struct {
@@ -1219,6 +1246,9 @@ func (v *EmbeddedResourceResource) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v EmbeddedResourceResource) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v EmbeddedResourceResource) IsZero() bool { return len(v.raw) == 0 }
 func (v EmbeddedResourceResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -1382,6 +1412,9 @@ func (u DiffChange) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u DiffChange) IsZero() bool { return u.value == nil }
 func (u DiffChange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -1389,12 +1422,17 @@ func (u DiffChange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *DiffChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalDiffChangeVariant(dec, &u.value)
+}
+
+// unmarshalDiffChangeVariant decodes a DiffChangeVariant by its "operation" member; it backs Unmarshalers.
+func unmarshalDiffChangeVariant(dec *jsontext.Decoder, out *DiffChangeVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -1412,37 +1450,37 @@ func (u *DiffChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "delete":
 		var v DiffChangeDelete
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "modify":
 		var v DiffChangeModify
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "move":
 		var v DiffChangeMove
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "copy":
 		var v DiffChangeCopy
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v DiffChangeCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -1727,7 +1765,7 @@ var DiffFileTypeValues = []DiffFileType{DiffFileTypeText, DiffFileTypeBinary, Di
 func (v DiffFileType) Known() bool { return slices.Contains(DiffFileTypeValues, v) }
 
 // An absolute filesystem path used by the protocol.
-type AbsolutePath = string
+type AbsolutePath string
 
 // Operation metadata for add, delete, and modify changes.
 type DiffPathChange struct {
@@ -1792,7 +1830,7 @@ type Diff struct {
 }
 
 // Unique identifier for an agent-owned terminal within a session.
-type TerminalID = string
+type TerminalID string
 
 // A display-only reference to an agent-owned terminal.
 //
@@ -1870,7 +1908,7 @@ type PermissionOption struct {
 }
 
 // Unique identifier for a permission option.
-type PermissionOptionID = string
+type PermissionOptionID string
 
 // The type of permission option being presented to the user.
 //
@@ -1913,6 +1951,9 @@ func (v *CreateElicitationRequest) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v CreateElicitationRequest) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v CreateElicitationRequest) IsZero() bool { return len(v.raw) == 0 }
 func (v CreateElicitationRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -2282,6 +2323,9 @@ func (u ElicitationPropertySchema) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u ElicitationPropertySchema) IsZero() bool { return u.value == nil }
 func (u ElicitationPropertySchema) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -2289,12 +2333,17 @@ func (u ElicitationPropertySchema) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *ElicitationPropertySchema) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalElicitationPropertySchemaVariant(dec, &u.value)
+}
+
+// unmarshalElicitationPropertySchemaVariant decodes a ElicitationPropertySchemaVariant by its "type" member; it backs Unmarshalers.
+func unmarshalElicitationPropertySchemaVariant(dec *jsontext.Decoder, out *ElicitationPropertySchemaVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -2312,37 +2361,37 @@ func (u *ElicitationPropertySchema) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "number":
 		var v ElicitationPropertySchemaNumber
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "integer":
 		var v ElicitationPropertySchemaInteger
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "boolean":
 		var v ElicitationPropertySchemaBoolean
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "array":
 		var v ElicitationPropertySchemaArray
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v ElicitationPropertySchemaCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -2859,6 +2908,9 @@ func (v *MultiSelectItems) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v MultiSelectItems) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v MultiSelectItems) IsZero() bool { return len(v.raw) == 0 }
 func (v MultiSelectItems) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -3039,6 +3091,9 @@ func (v *ElicitationFormMode) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ElicitationFormMode) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ElicitationFormMode) IsZero() bool { return len(v.raw) == 0 }
 func (v ElicitationFormMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -3115,7 +3170,7 @@ func (v ElicitationFormMode) AsRequestID() (value ElicitationFormModeRequestID, 
 }
 
 // Unique identifier for an elicitation.
-type ElicitationID = string
+type ElicitationID string
 
 // URL-based elicitation mode where the client directs the user to a URL.
 // ElicitationURLMode preserves the complete JSON payload, including future variants.
@@ -3135,6 +3190,9 @@ func (v *ElicitationURLMode) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ElicitationURLMode) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ElicitationURLMode) IsZero() bool { return len(v.raw) == 0 }
 func (v ElicitationURLMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -3251,7 +3309,7 @@ type ConnectMCPRequest struct {
 // server.
 //
 // @experimental
-type MCPServerACPID = string
+type MCPServerACPID string
 
 // **UNSTABLE**
 //
@@ -3284,7 +3342,7 @@ type MessageMCPRequest struct {
 // A unique identifier for an active MCP-over-ACP connection.
 //
 // @experimental
-type MCPConnectionID = string
+type MCPConnectionID string
 
 // **UNSTABLE**
 //
@@ -3329,6 +3387,9 @@ func (v *AgentResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v AgentResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v AgentResponse) IsZero() bool { return len(v.raw) == 0 }
 func (v AgentResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -3431,7 +3492,7 @@ type InitializeResponse struct {
 //
 // This version is only bumped for breaking changes.
 // Non-breaking changes should be introduced via capabilities.
-type ProtocolVersion = uint16
+type ProtocolVersion uint16
 
 // Metadata about the implementation of the client or agent.
 // Describes the name and version of an ACP implementation, with an optional
@@ -4030,6 +4091,9 @@ func (u AuthMethod) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u AuthMethod) IsZero() bool { return u.value == nil }
 func (u AuthMethod) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -4037,12 +4101,17 @@ func (u AuthMethod) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *AuthMethod) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalAuthMethodVariant(dec, &u.value)
+}
+
+// unmarshalAuthMethodVariant decodes a AuthMethodVariant by its "type" member; it backs Unmarshalers.
+func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -4060,19 +4129,19 @@ func (u *AuthMethod) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "agent":
 		var v AuthMethodAgentVariant
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v AuthMethodCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -4194,7 +4263,7 @@ func (AuthMethodCustom) authMethodVariant() {}
 func (v AuthMethodCustom) Tag() string      { return v.Type }
 
 // Typed identifier used for auth method values on the wire.
-type AuthMethodID = string
+type AuthMethodID string
 
 // An environment variable to set when launching a process.
 type EnvVariable struct {
@@ -4317,7 +4386,7 @@ type ProviderInfo struct {
 // Unique identifier for a configurable LLM provider.
 //
 // @experimental
-type ProviderID = string
+type ProviderID string
 
 // **UNSTABLE**
 //
@@ -4454,6 +4523,9 @@ func (u SessionConfigOption) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u SessionConfigOption) IsZero() bool { return u.value == nil }
 func (u SessionConfigOption) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -4461,12 +4533,17 @@ func (u SessionConfigOption) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *SessionConfigOption) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionConfigOptionVariant(dec, &u.value)
+}
+
+// unmarshalSessionConfigOptionVariant decodes a SessionConfigOptionVariant by its "type" member; it backs Unmarshalers.
+func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConfigOptionVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -4484,19 +4561,19 @@ func (u *SessionConfigOption) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "boolean":
 		var v SessionConfigOptionBoolean
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v SessionConfigOptionCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -4624,7 +4701,7 @@ func (SessionConfigOptionCustom) sessionConfigOptionVariant() {}
 func (v SessionConfigOptionCustom) Tag() string               { return v.Type }
 
 // Unique identifier for a session configuration option.
-type SessionConfigID = string
+type SessionConfigID string
 
 // Semantic category for a session configuration option.
 //
@@ -4654,7 +4731,7 @@ func (v SessionConfigOptionCategory) Known() bool {
 }
 
 // Unique identifier for a session configuration option value.
-type SessionConfigValueID = string
+type SessionConfigValueID string
 
 // Possible values for a session configuration option.
 // SessionConfigSelectOptions preserves the complete JSON payload, including future variants.
@@ -4674,6 +4751,9 @@ func (v *SessionConfigSelectOptions) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v SessionConfigSelectOptions) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v SessionConfigSelectOptions) IsZero() bool { return len(v.raw) == 0 }
 func (v SessionConfigSelectOptions) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -4753,7 +4833,7 @@ type SessionConfigSelectGroup struct {
 }
 
 // Unique identifier for a session configuration option value group.
-type SessionConfigGroupID = string
+type SessionConfigGroupID string
 
 // A single-value selector (dropdown) session configuration option payload.
 type SessionConfigSelect struct {
@@ -4809,7 +4889,7 @@ type SessionInfo struct {
 }
 
 // An opaque cursor used to paginate `session/list` results.
-type SessionListCursor = string
+type SessionListCursor string
 
 // Response from deleting a session.
 type DeleteSessionResponse struct {
@@ -4900,7 +4980,7 @@ type PromptResponse struct {
 }
 
 // Unique identifier for a message within a session.
-type MessageID = string
+type MessageID string
 
 // Response to `nes/start`.
 type StartNesResponse struct {
@@ -4950,6 +5030,9 @@ func (u NesSuggestion) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u NesSuggestion) IsZero() bool { return u.value == nil }
 func (u NesSuggestion) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -4957,12 +5040,17 @@ func (u NesSuggestion) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *NesSuggestion) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalNesSuggestionVariant(dec, &u.value)
+}
+
+// unmarshalNesSuggestionVariant decodes a NesSuggestionVariant by its "kind" member; it backs Unmarshalers.
+func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -4980,31 +5068,31 @@ func (u *NesSuggestion) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "jump":
 		var v NesSuggestionJump
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "rename":
 		var v NesSuggestionRename
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "searchAndReplace":
 		var v NesSuggestionSearchAndReplace
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v NesSuggestionCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -5208,7 +5296,7 @@ func (v NesSuggestionCustom) Tag() string         { return v.Kind }
 // Unique identifier for an NES suggestion.
 //
 // @experimental
-type NesSuggestionID = string
+type NesSuggestionID string
 
 // A text edit within a suggestion.
 type NesTextEdit struct {
@@ -5401,7 +5489,7 @@ type AgentNotification struct {
 	// The notification method name.
 	Method string `json:"method"`
 	// Method-specific notification parameters.
-	Params *AgentNotificationParams `json:"params,omitzero"`
+	Params AgentNotificationParams `json:"params,omitzero"`
 }
 
 // Notification containing a session update from the agent.
@@ -5450,6 +5538,9 @@ func (u SessionUpdate) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u SessionUpdate) IsZero() bool { return u.value == nil }
 func (u SessionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -5457,12 +5548,17 @@ func (u SessionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *SessionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSessionUpdateVariant(dec, &u.value)
+}
+
+// unmarshalSessionUpdateVariant decodes a SessionUpdateVariant by its "sessionUpdate" member; it backs Unmarshalers.
+func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -5480,127 +5576,127 @@ func (u *SessionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "user_message":
 		var v SessionUpdateUserMessage
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "agent_message_chunk":
 		var v SessionUpdateAgentMessageChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "agent_message":
 		var v SessionUpdateAgentMessage
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "agent_thought_chunk":
 		var v SessionUpdateAgentThoughtChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "agent_thought":
 		var v SessionUpdateAgentThought
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "state_update":
 		var v SessionUpdateStateUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "tool_call_content_chunk":
 		var v SessionUpdateToolCallContentChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "tool_call_update":
 		var v SessionUpdateToolCallUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "terminal_update":
 		var v SessionUpdateTerminalUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "terminal_output_chunk":
 		var v SessionUpdateTerminalOutputChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "plan_update":
 		var v SessionUpdatePlanUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "plan_removed":
 		var v SessionUpdatePlanRemoved
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "available_commands_update":
 		var v SessionUpdateAvailableCommandsUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "config_option_update":
 		var v SessionUpdateConfigOptionUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "session_info_update":
 		var v SessionUpdateSessionInfoUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "usage_update":
 		var v SessionUpdateUsageUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "notice":
 		var v SessionUpdateNotice
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "compaction_update":
 		var v SessionUpdateCompactionUpdate
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "compaction_summary_chunk":
 		var v SessionUpdateCompactionSummaryChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v SessionUpdateCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -6639,6 +6735,9 @@ func (u StateUpdate) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u StateUpdate) IsZero() bool { return u.value == nil }
 func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -6646,12 +6745,17 @@ func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *StateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalStateUpdateVariant(dec, &u.value)
+}
+
+// unmarshalStateUpdateVariant decodes a StateUpdateVariant by its "state" member; it backs Unmarshalers.
+func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -6669,25 +6773,25 @@ func (u *StateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "idle":
 		var v StateUpdateIdle
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "requires_action":
 		var v StateUpdateRequiresAction
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v StateUpdateCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -6950,6 +7054,9 @@ func (u PlanUpdateContent) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u PlanUpdateContent) IsZero() bool { return u.value == nil }
 func (u PlanUpdateContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -6957,12 +7064,17 @@ func (u PlanUpdateContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *PlanUpdateContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalPlanUpdateContentVariant(dec, &u.value)
+}
+
+// unmarshalPlanUpdateContentVariant decodes a PlanUpdateContentVariant by its "type" member; it backs Unmarshalers.
+func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateContentVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -6980,25 +7092,25 @@ func (u *PlanUpdateContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "file":
 		var v PlanUpdateContentFile
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "markdown":
 		var v PlanUpdateContentMarkdown
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v PlanUpdateContentCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -7143,7 +7255,7 @@ func (PlanUpdateContentCustom) planUpdateContentVariant() {}
 func (v PlanUpdateContentCustom) Tag() string             { return v.Type }
 
 // Unique identifier for a plan within a session.
-type PlanID = string
+type PlanID string
 
 // A single entry in the execution plan.
 //
@@ -7300,7 +7412,7 @@ type AvailableCommand struct {
 	// Human-readable description of what the command does.
 	Description string `json:"description"`
 	// Input for the command if required
-	Input *AvailableCommandInput `json:"input,omitzero"`
+	Input AvailableCommandInput `json:"input,omitzero"`
 	// The _meta property is reserved by ACP to allow clients and agents to attach additional
 	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
 	// these keys.
@@ -7335,6 +7447,9 @@ func (u AvailableCommandInput) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u AvailableCommandInput) IsZero() bool { return u.value == nil }
 func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -7342,12 +7457,17 @@ func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *AvailableCommandInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalAvailableCommandInputVariant(dec, &u.value)
+}
+
+// unmarshalAvailableCommandInputVariant decodes a AvailableCommandInputVariant by its "type" member; it backs Unmarshalers.
+func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *AvailableCommandInputVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -7365,13 +7485,13 @@ func (u *AvailableCommandInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v AvailableCommandInputCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -7571,7 +7691,7 @@ type Notice struct {
 // Unique identifier for a context compaction within a session.
 //
 // @experimental
-type CompactionID = string
+type CompactionID string
 
 // **UNSTABLE**
 //
@@ -7695,7 +7815,7 @@ type ClientRequest struct {
 	// The method name to invoke.
 	Method string `json:"method"`
 	// Method-specific request parameters.
-	Params *ClientRequestParams `json:"params,omitzero"`
+	Params ClientRequestParams `json:"params,omitzero"`
 }
 
 // Request parameters for the initialize method.
@@ -8043,6 +8163,9 @@ func (u MCPServer) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u MCPServer) IsZero() bool { return u.value == nil }
 func (u MCPServer) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -8050,12 +8173,17 @@ func (u MCPServer) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *MCPServer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalMCPServerVariant(dec, &u.value)
+}
+
+// unmarshalMCPServerVariant decodes a MCPServerVariant by its "type" member; it backs Unmarshalers.
+func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -8073,25 +8201,25 @@ func (u *MCPServer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "acp":
 		var v MCPServerACPVariant
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "stdio":
 		var v MCPServerStdioVariant
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v MCPServerCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -8399,7 +8527,7 @@ type ResumeSessionRequest struct {
 	// replay includes the position identified by the cursor. Supplying
 	// `{ "type": "start" }` means the Agent should replay all retained
 	// conversation history before responding.
-	ReplayFrom *ReplayFrom `json:"replayFrom,omitzero"`
+	ReplayFrom ReplayFrom `json:"replayFrom,omitzero"`
 	// The _meta property is reserved by ACP to allow clients and agents to attach additional
 	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
 	// these keys.
@@ -8434,6 +8562,9 @@ func (u ReplayFrom) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u ReplayFrom) IsZero() bool { return u.value == nil }
 func (u ReplayFrom) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -8441,12 +8572,17 @@ func (u ReplayFrom) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *ReplayFrom) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalReplayFromVariant(dec, &u.value)
+}
+
+// unmarshalReplayFromVariant decodes a ReplayFromVariant by its "type" member; it backs Unmarshalers.
+func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -8464,13 +8600,13 @@ func (u *ReplayFrom) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v ReplayFromCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -8585,6 +8721,9 @@ func (u SetSessionConfigOptionRequest) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u SetSessionConfigOptionRequest) IsZero() bool { return u.value == nil }
 func (u SetSessionConfigOptionRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -8592,12 +8731,17 @@ func (u SetSessionConfigOptionRequest) MarshalJSONTo(enc *jsontext.Encoder) erro
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *SetSessionConfigOptionRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalSetSessionConfigOptionRequestVariant(dec, &u.value)
+}
+
+// unmarshalSetSessionConfigOptionRequestVariant decodes a SetSessionConfigOptionRequestVariant by its "type" member; it backs Unmarshalers.
+func unmarshalSetSessionConfigOptionRequestVariant(dec *jsontext.Decoder, out *SetSessionConfigOptionRequestVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -8615,19 +8759,19 @@ func (u *SetSessionConfigOptionRequest) UnmarshalJSONFrom(dec *jsontext.Decoder)
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "boolean":
 		var v SetSessionConfigOptionRequestBoolean
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v SetSessionConfigOptionRequestCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -9044,6 +9188,9 @@ func (v *ClientResponse) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ClientResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ClientResponse) IsZero() bool { return len(v.raw) == 0 }
 func (v ClientResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -9153,6 +9300,9 @@ func (u RequestPermissionOutcome) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u RequestPermissionOutcome) IsZero() bool { return u.value == nil }
 func (u RequestPermissionOutcome) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -9160,12 +9310,17 @@ func (u RequestPermissionOutcome) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *RequestPermissionOutcome) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalRequestPermissionOutcomeVariant(dec, &u.value)
+}
+
+// unmarshalRequestPermissionOutcomeVariant decodes a RequestPermissionOutcomeVariant by its "outcome" member; it backs Unmarshalers.
+func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *RequestPermissionOutcomeVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -9183,19 +9338,19 @@ func (u *RequestPermissionOutcome) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "selected":
 		var v RequestPermissionOutcomeSelected
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v RequestPermissionOutcomeCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -9322,6 +9477,9 @@ func (u CreateElicitationResponse) Tag() string {
 	}
 	return u.value.Tag()
 }
+
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u CreateElicitationResponse) IsZero() bool { return u.value == nil }
 func (u CreateElicitationResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
@@ -9329,12 +9487,17 @@ func (u CreateElicitationResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, u.value)
 }
 func (u *CreateElicitationResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalCreateElicitationResponseVariant(dec, &u.value)
+}
+
+// unmarshalCreateElicitationResponseVariant decodes a CreateElicitationResponseVariant by its "action" member; it backs Unmarshalers.
+func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *CreateElicitationResponseVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
 	if raw.Kind() == 'n' {
-		u.value = nil
+		*out = nil
 		return nil
 	}
 	if raw.Kind() != '{' {
@@ -9352,25 +9515,25 @@ func (u *CreateElicitationResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "decline":
 		var v CreateElicitationResponseDecline
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	case "cancel":
 		var v CreateElicitationResponseCancel
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	default:
 		var v CreateElicitationResponseCustom
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
-		u.value = v
+		*out = v
 	}
 	return nil
 }
@@ -9531,6 +9694,9 @@ func (v *ElicitationContentValue) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ElicitationContentValue) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ElicitationContentValue) IsZero() bool { return len(v.raw) == 0 }
 func (v ElicitationContentValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -9661,7 +9827,7 @@ type ClientNotification struct {
 	// The notification method name.
 	Method string `json:"method"`
 	// Method-specific notification parameters.
-	Params *ClientNotificationParams `json:"params,omitzero"`
+	Params ClientNotificationParams `json:"params,omitzero"`
 }
 
 // Notification to cancel ongoing operations for a session.
@@ -9867,6 +10033,9 @@ func (v *AgentRequestParams) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v AgentRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v AgentRequestParams) IsZero() bool { return len(v.raw) == 0 }
 func (v AgentRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -10252,6 +10421,9 @@ func (v *AgentNotificationParams) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v AgentNotificationParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v AgentNotificationParams) IsZero() bool { return len(v.raw) == 0 }
 func (v AgentNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -10380,6 +10552,9 @@ func (v *ClientRequestParams) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ClientRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ClientRequestParams) IsZero() bool { return len(v.raw) == 0 }
 func (v ClientRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -10911,6 +11086,9 @@ func (v *ClientNotificationParams) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ClientNotificationParams) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ClientNotificationParams) IsZero() bool { return len(v.raw) == 0 }
 func (v ClientNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -11261,6 +11439,9 @@ func (v *AgentResponseResultResult) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v AgentResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v AgentResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
 func (v AgentResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -11682,6 +11863,9 @@ func (v *ClientResponseResultResult) UnmarshalJSON(b []byte) error {
 	return nil
 }
 func (v ClientResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
+
+// IsZero reports whether no payload is stored, so omitzero omits the field.
+func (v ClientResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
 func (v ClientResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
@@ -11797,3 +11981,27 @@ func NewClientResponseResultResultExtResponse(value ExtResponse) (ClientResponse
 func (v ClientResponseResultResult) AsExtResponse() (value ExtResponse, ok bool) {
 	return decodeJSON[ExtResponse](v.raw)
 }
+
+// Unmarshalers decodes the tagged-union variant interfaces directly, for callers
+// that declare fields of those interface types instead of the wrapper structs:
+//
+//	json.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))
+var Unmarshalers = json.JoinUnmarshalers(
+	json.UnmarshalFromFunc(unmarshalRequestPermissionSubjectVariant),
+	json.UnmarshalFromFunc(unmarshalToolCallContentVariant),
+	json.UnmarshalFromFunc(unmarshalContentBlockVariant),
+	json.UnmarshalFromFunc(unmarshalDiffChangeVariant),
+	json.UnmarshalFromFunc(unmarshalElicitationPropertySchemaVariant),
+	json.UnmarshalFromFunc(unmarshalAuthMethodVariant),
+	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
+	json.UnmarshalFromFunc(unmarshalNesSuggestionVariant),
+	json.UnmarshalFromFunc(unmarshalSessionUpdateVariant),
+	json.UnmarshalFromFunc(unmarshalStateUpdateVariant),
+	json.UnmarshalFromFunc(unmarshalPlanUpdateContentVariant),
+	json.UnmarshalFromFunc(unmarshalAvailableCommandInputVariant),
+	json.UnmarshalFromFunc(unmarshalMCPServerVariant),
+	json.UnmarshalFromFunc(unmarshalReplayFromVariant),
+	json.UnmarshalFromFunc(unmarshalSetSessionConfigOptionRequestVariant),
+	json.UnmarshalFromFunc(unmarshalRequestPermissionOutcomeVariant),
+	json.UnmarshalFromFunc(unmarshalCreateElicitationResponseVariant),
+)

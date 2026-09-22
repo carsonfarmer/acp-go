@@ -284,3 +284,45 @@ func TestOpenEnum(t *testing.T) {
 		t.Fatal("wrong enum value list")
 	}
 }
+
+func TestVariantInterfaceFields(t *testing.T) {
+	var direct struct {
+		Block MessageVariant   `json:"block"`
+		Many  []MessageVariant `json:"many"`
+	}
+	data := []byte(`{"block":{"kind":"text","text":"a"},"many":[{"kind":"zzz","x":1}]}`)
+	if err := json.Unmarshal(data, &direct); err == nil {
+		t.Fatal("interface field decoded without Unmarshalers")
+	}
+	if err := json.Unmarshal(data, &direct, json.WithUnmarshalers(Unmarshalers)); err != nil {
+		t.Fatal(err)
+	}
+	if direct.Block.(MessageText).Text != "a" || direct.Many[0].(MessageCustom).Kind != "zzz" {
+		t.Fatalf("interface fields not decoded: %+v", direct)
+	}
+	b, err := json.Marshal(direct)
+	if err != nil || string(b) != `{"block":{"kind":"text","text":"a"},"many":[{"kind":"zzz","x":1}]}` {
+		t.Fatalf("interface fields did not encode: %s %v", b, err)
+	}
+}
+
+func TestUnionIsZero(t *testing.T) {
+	var holder struct {
+		Tagged Message       `json:"tagged,omitzero"`
+		Raw    LiteralChoice `json:"raw,omitzero"`
+	}
+	b, err := json.Marshal(holder)
+	if err != nil || string(b) != `{}` {
+		t.Fatalf("zero unions not omitted: %s %v", b, err)
+	}
+	holder.Tagged = NewMessage(MessageText{})
+	holder.Raw, _ = NewLiteralChoiceNumber(1)
+	b, err = json.Marshal(holder)
+	if err != nil || string(b) != `{"tagged":{"kind":"text","text":""},"raw":1}` {
+		t.Fatalf("set unions omitted: %s %v", b, err)
+	}
+	var ids struct{ ID Ident }
+	if err := json.Unmarshal([]byte(`{"ID":"x"}`), &ids); err != nil || ids.ID != "x" {
+		t.Fatal("defined identifier type failed to decode")
+	}
+}

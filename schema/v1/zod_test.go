@@ -40,7 +40,7 @@ func TestZodSDKReference(t *testing.T) {
 
 func TestZodIntegerWireNotation(t *testing.T) {
 	for _, raw := range []string{"1.0", "1e0", "-0"} {
-		value, err := DecodeProtocolVersionJSON([]byte(raw))
+		value, err := Decode[ProtocolVersion]([]byte(raw))
 		if err != nil {
 			t.Fatalf("%s: %v", raw, err)
 		}

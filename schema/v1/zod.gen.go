@@ -4,7 +4,10 @@ package schema
 
 import (
 	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"fmt"
 	"github.com/ironpark/go-acp/schema/zod"
+	"reflect"
 	"regexp"
 )
 
@@ -283,3177 +286,561 @@ var zodSchemas = zod.Registry{
 	"zWriteTextFileResponse":                    &zod.Rule{Kind: zod.KindObject, Fields: []zod.Field{{Name: "_meta", Schema: &zod.Rule{Kind: zod.KindCatch, Inner: &zod.Rule{Kind: zod.KindNullish, Inner: &zod.Rule{Kind: zod.KindRecord, Inner: &zod.Rule{Kind: zod.KindUnknown}, Key: &zod.Rule{Kind: zod.KindString}}}}}}},
 }
 
-// DecodeAcceptNesNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAcceptNesNotificationJSON(raw []byte) (AcceptNesNotification, error) {
-	return zod.Decode[AcceptNesNotification](zodSchemas, "zAcceptNesNotification", raw)
-}
-
-// ValidateAcceptNesNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAcceptNesNotificationJSON to obtain the normalized value.
-func ValidateAcceptNesNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAcceptNesNotification", raw)
-	return err
-}
-
-// DecodeAgentAuthCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAgentAuthCapabilitiesJSON(raw []byte) (AgentAuthCapabilities, error) {
-	return zod.Decode[AgentAuthCapabilities](zodSchemas, "zAgentAuthCapabilities", raw)
-}
-
-// ValidateAgentAuthCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAgentAuthCapabilitiesJSON to obtain the normalized value.
-func ValidateAgentAuthCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAgentAuthCapabilities", raw)
-	return err
-}
-
-// DecodeAgentCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAgentCapabilitiesJSON(raw []byte) (AgentCapabilities, error) {
-	return zod.Decode[AgentCapabilities](zodSchemas, "zAgentCapabilities", raw)
-}
-
-// ValidateAgentCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAgentCapabilitiesJSON to obtain the normalized value.
-func ValidateAgentCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAgentCapabilities", raw)
-	return err
-}
-
-// DecodeAgentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAgentNotificationJSON(raw []byte) (AgentNotification, error) {
-	return zod.Decode[AgentNotification](zodSchemas, "zAgentNotification", raw)
-}
-
-// ValidateAgentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAgentNotificationJSON to obtain the normalized value.
-func ValidateAgentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAgentNotification", raw)
-	return err
-}
-
-// DecodeAgentRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAgentRequestJSON(raw []byte) (AgentRequest, error) {
-	return zod.Decode[AgentRequest](zodSchemas, "zAgentRequest", raw)
-}
-
-// ValidateAgentRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAgentRequestJSON to obtain the normalized value.
-func ValidateAgentRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAgentRequest", raw)
-	return err
-}
-
-// DecodeAgentResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAgentResponseJSON(raw []byte) (AgentResponse, error) {
-	return zod.Decode[AgentResponse](zodSchemas, "zAgentResponse", raw)
-}
-
-// ValidateAgentResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAgentResponseJSON to obtain the normalized value.
-func ValidateAgentResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAgentResponse", raw)
-	return err
-}
-
-// DecodeAnnotationsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAnnotationsJSON(raw []byte) (Annotations, error) {
-	return zod.Decode[Annotations](zodSchemas, "zAnnotations", raw)
-}
-
-// ValidateAnnotationsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAnnotationsJSON to obtain the normalized value.
-func ValidateAnnotationsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAnnotations", raw)
-	return err
-}
-
-// DecodeAudioContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAudioContentJSON(raw []byte) (AudioContent, error) {
-	return zod.Decode[AudioContent](zodSchemas, "zAudioContent", raw)
-}
-
-// ValidateAudioContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAudioContentJSON to obtain the normalized value.
-func ValidateAudioContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAudioContent", raw)
-	return err
-}
-
-// DecodeAuthCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthCapabilitiesJSON(raw []byte) (AuthCapabilities, error) {
-	return zod.Decode[AuthCapabilities](zodSchemas, "zAuthCapabilities", raw)
-}
-
-// ValidateAuthCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthCapabilitiesJSON to obtain the normalized value.
-func ValidateAuthCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthCapabilities", raw)
-	return err
-}
-
-// DecodeAuthMethodJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthMethodJSON(raw []byte) (AuthMethod, error) {
-	return zod.Decode[AuthMethod](zodSchemas, "zAuthMethod", raw)
-}
-
-// ValidateAuthMethodJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthMethodJSON to obtain the normalized value.
-func ValidateAuthMethodJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthMethod", raw)
-	return err
-}
-
-// DecodeAuthMethodAgentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthMethodAgentJSON(raw []byte) (AuthMethodAgent, error) {
-	return zod.Decode[AuthMethodAgent](zodSchemas, "zAuthMethodAgent", raw)
-}
-
-// ValidateAuthMethodAgentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthMethodAgentJSON to obtain the normalized value.
-func ValidateAuthMethodAgentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthMethodAgent", raw)
-	return err
-}
-
-// DecodeAuthMethodIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthMethodIDJSON(raw []byte) (AuthMethodID, error) {
-	return zod.Decode[AuthMethodID](zodSchemas, "zAuthMethodId", raw)
-}
-
-// ValidateAuthMethodIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthMethodIDJSON to obtain the normalized value.
-func ValidateAuthMethodIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthMethodId", raw)
-	return err
-}
-
-// DecodeAuthMethodTerminalJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthMethodTerminalJSON(raw []byte) (AuthMethodTerminal, error) {
-	return zod.Decode[AuthMethodTerminal](zodSchemas, "zAuthMethodTerminal", raw)
-}
-
-// ValidateAuthMethodTerminalJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthMethodTerminalJSON to obtain the normalized value.
-func ValidateAuthMethodTerminalJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthMethodTerminal", raw)
-	return err
-}
-
-// DecodeAuthenticateRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthenticateRequestJSON(raw []byte) (AuthenticateRequest, error) {
-	return zod.Decode[AuthenticateRequest](zodSchemas, "zAuthenticateRequest", raw)
-}
-
-// ValidateAuthenticateRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthenticateRequestJSON to obtain the normalized value.
-func ValidateAuthenticateRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthenticateRequest", raw)
-	return err
-}
-
-// DecodeAuthenticateResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAuthenticateResponseJSON(raw []byte) (AuthenticateResponse, error) {
-	return zod.Decode[AuthenticateResponse](zodSchemas, "zAuthenticateResponse", raw)
-}
-
-// ValidateAuthenticateResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAuthenticateResponseJSON to obtain the normalized value.
-func ValidateAuthenticateResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAuthenticateResponse", raw)
-	return err
-}
-
-// DecodeAvailableCommandJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAvailableCommandJSON(raw []byte) (AvailableCommand, error) {
-	return zod.Decode[AvailableCommand](zodSchemas, "zAvailableCommand", raw)
-}
-
-// ValidateAvailableCommandJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAvailableCommandJSON to obtain the normalized value.
-func ValidateAvailableCommandJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAvailableCommand", raw)
-	return err
-}
-
-// DecodeAvailableCommandInputJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAvailableCommandInputJSON(raw []byte) (AvailableCommandInput, error) {
-	return zod.Decode[AvailableCommandInput](zodSchemas, "zAvailableCommandInput", raw)
-}
-
-// ValidateAvailableCommandInputJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAvailableCommandInputJSON to obtain the normalized value.
-func ValidateAvailableCommandInputJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAvailableCommandInput", raw)
-	return err
-}
-
-// DecodeAvailableCommandsUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeAvailableCommandsUpdateJSON(raw []byte) (AvailableCommandsUpdate, error) {
-	return zod.Decode[AvailableCommandsUpdate](zodSchemas, "zAvailableCommandsUpdate", raw)
-}
-
-// ValidateAvailableCommandsUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeAvailableCommandsUpdateJSON to obtain the normalized value.
-func ValidateAvailableCommandsUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zAvailableCommandsUpdate", raw)
-	return err
-}
-
-// DecodeBlobResourceContentsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeBlobResourceContentsJSON(raw []byte) (BlobResourceContents, error) {
-	return zod.Decode[BlobResourceContents](zodSchemas, "zBlobResourceContents", raw)
-}
-
-// ValidateBlobResourceContentsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeBlobResourceContentsJSON to obtain the normalized value.
-func ValidateBlobResourceContentsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zBlobResourceContents", raw)
-	return err
-}
-
-// DecodeBooleanConfigOptionCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeBooleanConfigOptionCapabilitiesJSON(raw []byte) (BooleanConfigOptionCapabilities, error) {
-	return zod.Decode[BooleanConfigOptionCapabilities](zodSchemas, "zBooleanConfigOptionCapabilities", raw)
-}
-
-// ValidateBooleanConfigOptionCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeBooleanConfigOptionCapabilitiesJSON to obtain the normalized value.
-func ValidateBooleanConfigOptionCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zBooleanConfigOptionCapabilities", raw)
-	return err
-}
-
-// DecodeBooleanPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeBooleanPropertySchemaJSON(raw []byte) (BooleanPropertySchema, error) {
-	return zod.Decode[BooleanPropertySchema](zodSchemas, "zBooleanPropertySchema", raw)
-}
-
-// ValidateBooleanPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeBooleanPropertySchemaJSON to obtain the normalized value.
-func ValidateBooleanPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zBooleanPropertySchema", raw)
-	return err
-}
-
-// DecodeCancelNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCancelNotificationJSON(raw []byte) (CancelNotification, error) {
-	return zod.Decode[CancelNotification](zodSchemas, "zCancelNotification", raw)
-}
-
-// ValidateCancelNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCancelNotificationJSON to obtain the normalized value.
-func ValidateCancelNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCancelNotification", raw)
-	return err
-}
-
-// DecodeCancelRequestNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCancelRequestNotificationJSON(raw []byte) (CancelRequestNotification, error) {
-	return zod.Decode[CancelRequestNotification](zodSchemas, "zCancelRequestNotification", raw)
-}
-
-// ValidateCancelRequestNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCancelRequestNotificationJSON to obtain the normalized value.
-func ValidateCancelRequestNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCancelRequestNotification", raw)
-	return err
-}
-
-// DecodeClientCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientCapabilitiesJSON(raw []byte) (ClientCapabilities, error) {
-	return zod.Decode[ClientCapabilities](zodSchemas, "zClientCapabilities", raw)
-}
-
-// ValidateClientCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientCapabilitiesJSON to obtain the normalized value.
-func ValidateClientCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientCapabilities", raw)
-	return err
-}
-
-// DecodeClientNesCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientNesCapabilitiesJSON(raw []byte) (ClientNesCapabilities, error) {
-	return zod.Decode[ClientNesCapabilities](zodSchemas, "zClientNesCapabilities", raw)
-}
-
-// ValidateClientNesCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientNesCapabilitiesJSON to obtain the normalized value.
-func ValidateClientNesCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientNesCapabilities", raw)
-	return err
-}
-
-// DecodeClientNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientNotificationJSON(raw []byte) (ClientNotification, error) {
-	return zod.Decode[ClientNotification](zodSchemas, "zClientNotification", raw)
-}
-
-// ValidateClientNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientNotificationJSON to obtain the normalized value.
-func ValidateClientNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientNotification", raw)
-	return err
-}
-
-// DecodeClientRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientRequestJSON(raw []byte) (ClientRequest, error) {
-	return zod.Decode[ClientRequest](zodSchemas, "zClientRequest", raw)
-}
-
-// ValidateClientRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientRequestJSON to obtain the normalized value.
-func ValidateClientRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientRequest", raw)
-	return err
-}
-
-// DecodeClientResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientResponseJSON(raw []byte) (ClientResponse, error) {
-	return zod.Decode[ClientResponse](zodSchemas, "zClientResponse", raw)
-}
-
-// ValidateClientResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientResponseJSON to obtain the normalized value.
-func ValidateClientResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientResponse", raw)
-	return err
-}
-
-// DecodeClientSessionCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeClientSessionCapabilitiesJSON(raw []byte) (ClientSessionCapabilities, error) {
-	return zod.Decode[ClientSessionCapabilities](zodSchemas, "zClientSessionCapabilities", raw)
-}
-
-// ValidateClientSessionCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeClientSessionCapabilitiesJSON to obtain the normalized value.
-func ValidateClientSessionCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zClientSessionCapabilities", raw)
-	return err
-}
-
-// DecodeCloseNesRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCloseNesRequestJSON(raw []byte) (CloseNesRequest, error) {
-	return zod.Decode[CloseNesRequest](zodSchemas, "zCloseNesRequest", raw)
-}
-
-// ValidateCloseNesRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCloseNesRequestJSON to obtain the normalized value.
-func ValidateCloseNesRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCloseNesRequest", raw)
-	return err
-}
-
-// DecodeCloseNesResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCloseNesResponseJSON(raw []byte) (CloseNesResponse, error) {
-	return zod.Decode[CloseNesResponse](zodSchemas, "zCloseNesResponse", raw)
-}
-
-// ValidateCloseNesResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCloseNesResponseJSON to obtain the normalized value.
-func ValidateCloseNesResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCloseNesResponse", raw)
-	return err
-}
-
-// DecodeCloseSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCloseSessionRequestJSON(raw []byte) (CloseSessionRequest, error) {
-	return zod.Decode[CloseSessionRequest](zodSchemas, "zCloseSessionRequest", raw)
-}
-
-// ValidateCloseSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCloseSessionRequestJSON to obtain the normalized value.
-func ValidateCloseSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCloseSessionRequest", raw)
-	return err
-}
-
-// DecodeCloseSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCloseSessionResponseJSON(raw []byte) (CloseSessionResponse, error) {
-	return zod.Decode[CloseSessionResponse](zodSchemas, "zCloseSessionResponse", raw)
-}
-
-// ValidateCloseSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCloseSessionResponseJSON to obtain the normalized value.
-func ValidateCloseSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCloseSessionResponse", raw)
-	return err
-}
-
-// DecodeCompactionCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompactionCapabilitiesJSON(raw []byte) (CompactionCapabilities, error) {
-	return zod.Decode[CompactionCapabilities](zodSchemas, "zCompactionCapabilities", raw)
-}
-
-// ValidateCompactionCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompactionCapabilitiesJSON to obtain the normalized value.
-func ValidateCompactionCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompactionCapabilities", raw)
-	return err
-}
-
-// DecodeCompactionIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompactionIDJSON(raw []byte) (CompactionID, error) {
-	return zod.Decode[CompactionID](zodSchemas, "zCompactionId", raw)
-}
-
-// ValidateCompactionIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompactionIDJSON to obtain the normalized value.
-func ValidateCompactionIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompactionId", raw)
-	return err
-}
-
-// DecodeCompactionStatusJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompactionStatusJSON(raw []byte) (CompactionStatus, error) {
-	return zod.Decode[CompactionStatus](zodSchemas, "zCompactionStatus", raw)
-}
-
-// ValidateCompactionStatusJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompactionStatusJSON to obtain the normalized value.
-func ValidateCompactionStatusJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompactionStatus", raw)
-	return err
-}
-
-// DecodeCompactionSummaryChunkJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompactionSummaryChunkJSON(raw []byte) (CompactionSummaryChunk, error) {
-	return zod.Decode[CompactionSummaryChunk](zodSchemas, "zCompactionSummaryChunk", raw)
-}
-
-// ValidateCompactionSummaryChunkJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompactionSummaryChunkJSON to obtain the normalized value.
-func ValidateCompactionSummaryChunkJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompactionSummaryChunk", raw)
-	return err
-}
-
-// DecodeCompactionUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompactionUpdateJSON(raw []byte) (CompactionUpdate, error) {
-	return zod.Decode[CompactionUpdate](zodSchemas, "zCompactionUpdate", raw)
-}
-
-// ValidateCompactionUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompactionUpdateJSON to obtain the normalized value.
-func ValidateCompactionUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompactionUpdate", raw)
-	return err
-}
-
-// DecodeCompleteElicitationNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCompleteElicitationNotificationJSON(raw []byte) (CompleteElicitationNotification, error) {
-	return zod.Decode[CompleteElicitationNotification](zodSchemas, "zCompleteElicitationNotification", raw)
-}
-
-// ValidateCompleteElicitationNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCompleteElicitationNotificationJSON to obtain the normalized value.
-func ValidateCompleteElicitationNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCompleteElicitationNotification", raw)
-	return err
-}
-
-// DecodeConfigOptionUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeConfigOptionUpdateJSON(raw []byte) (ConfigOptionUpdate, error) {
-	return zod.Decode[ConfigOptionUpdate](zodSchemas, "zConfigOptionUpdate", raw)
-}
-
-// ValidateConfigOptionUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeConfigOptionUpdateJSON to obtain the normalized value.
-func ValidateConfigOptionUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zConfigOptionUpdate", raw)
-	return err
-}
-
-// DecodeConnectMCPRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeConnectMCPRequestJSON(raw []byte) (ConnectMCPRequest, error) {
-	return zod.Decode[ConnectMCPRequest](zodSchemas, "zConnectMcpRequest", raw)
-}
-
-// ValidateConnectMCPRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeConnectMCPRequestJSON to obtain the normalized value.
-func ValidateConnectMCPRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zConnectMcpRequest", raw)
-	return err
-}
-
-// DecodeConnectMCPResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeConnectMCPResponseJSON(raw []byte) (ConnectMCPResponse, error) {
-	return zod.Decode[ConnectMCPResponse](zodSchemas, "zConnectMcpResponse", raw)
-}
-
-// ValidateConnectMCPResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeConnectMCPResponseJSON to obtain the normalized value.
-func ValidateConnectMCPResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zConnectMcpResponse", raw)
-	return err
-}
-
-// DecodeContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeContentJSON(raw []byte) (Content, error) {
-	return zod.Decode[Content](zodSchemas, "zContent", raw)
-}
-
-// ValidateContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeContentJSON to obtain the normalized value.
-func ValidateContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zContent", raw)
-	return err
-}
-
-// DecodeContentBlockJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeContentBlockJSON(raw []byte) (ContentBlock, error) {
-	return zod.Decode[ContentBlock](zodSchemas, "zContentBlock", raw)
-}
-
-// ValidateContentBlockJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeContentBlockJSON to obtain the normalized value.
-func ValidateContentBlockJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zContentBlock", raw)
-	return err
-}
-
-// DecodeContentChunkJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeContentChunkJSON(raw []byte) (ContentChunk, error) {
-	return zod.Decode[ContentChunk](zodSchemas, "zContentChunk", raw)
-}
-
-// ValidateContentChunkJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeContentChunkJSON to obtain the normalized value.
-func ValidateContentChunkJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zContentChunk", raw)
-	return err
-}
-
-// DecodeCostJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCostJSON(raw []byte) (Cost, error) { return zod.Decode[Cost](zodSchemas, "zCost", raw) }
-
-// ValidateCostJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCostJSON to obtain the normalized value.
-func ValidateCostJSON(raw []byte) error { _, err := zodSchemas.Normalize("zCost", raw); return err }
-
-// DecodeCreateElicitationRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCreateElicitationRequestJSON(raw []byte) (CreateElicitationRequest, error) {
-	return zod.Decode[CreateElicitationRequest](zodSchemas, "zCreateElicitationRequest", raw)
-}
-
-// ValidateCreateElicitationRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCreateElicitationRequestJSON to obtain the normalized value.
-func ValidateCreateElicitationRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCreateElicitationRequest", raw)
-	return err
-}
-
-// DecodeCreateElicitationResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCreateElicitationResponseJSON(raw []byte) (CreateElicitationResponse, error) {
-	return zod.Decode[CreateElicitationResponse](zodSchemas, "zCreateElicitationResponse", raw)
-}
-
-// ValidateCreateElicitationResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCreateElicitationResponseJSON to obtain the normalized value.
-func ValidateCreateElicitationResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCreateElicitationResponse", raw)
-	return err
-}
-
-// DecodeCreateTerminalRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCreateTerminalRequestJSON(raw []byte) (CreateTerminalRequest, error) {
-	return zod.Decode[CreateTerminalRequest](zodSchemas, "zCreateTerminalRequest", raw)
-}
-
-// ValidateCreateTerminalRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCreateTerminalRequestJSON to obtain the normalized value.
-func ValidateCreateTerminalRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCreateTerminalRequest", raw)
-	return err
-}
-
-// DecodeCreateTerminalResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCreateTerminalResponseJSON(raw []byte) (CreateTerminalResponse, error) {
-	return zod.Decode[CreateTerminalResponse](zodSchemas, "zCreateTerminalResponse", raw)
-}
-
-// ValidateCreateTerminalResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCreateTerminalResponseJSON to obtain the normalized value.
-func ValidateCreateTerminalResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCreateTerminalResponse", raw)
-	return err
-}
-
-// DecodeCurrentModeUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeCurrentModeUpdateJSON(raw []byte) (CurrentModeUpdate, error) {
-	return zod.Decode[CurrentModeUpdate](zodSchemas, "zCurrentModeUpdate", raw)
-}
-
-// ValidateCurrentModeUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeCurrentModeUpdateJSON to obtain the normalized value.
-func ValidateCurrentModeUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zCurrentModeUpdate", raw)
-	return err
-}
-
-// DecodeDeleteSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDeleteSessionRequestJSON(raw []byte) (DeleteSessionRequest, error) {
-	return zod.Decode[DeleteSessionRequest](zodSchemas, "zDeleteSessionRequest", raw)
-}
-
-// ValidateDeleteSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDeleteSessionRequestJSON to obtain the normalized value.
-func ValidateDeleteSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDeleteSessionRequest", raw)
-	return err
-}
-
-// DecodeDeleteSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDeleteSessionResponseJSON(raw []byte) (DeleteSessionResponse, error) {
-	return zod.Decode[DeleteSessionResponse](zodSchemas, "zDeleteSessionResponse", raw)
-}
-
-// ValidateDeleteSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDeleteSessionResponseJSON to obtain the normalized value.
-func ValidateDeleteSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDeleteSessionResponse", raw)
-	return err
-}
-
-// DecodeDidChangeDocumentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDidChangeDocumentNotificationJSON(raw []byte) (DidChangeDocumentNotification, error) {
-	return zod.Decode[DidChangeDocumentNotification](zodSchemas, "zDidChangeDocumentNotification", raw)
-}
-
-// ValidateDidChangeDocumentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDidChangeDocumentNotificationJSON to obtain the normalized value.
-func ValidateDidChangeDocumentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDidChangeDocumentNotification", raw)
-	return err
-}
-
-// DecodeDidCloseDocumentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDidCloseDocumentNotificationJSON(raw []byte) (DidCloseDocumentNotification, error) {
-	return zod.Decode[DidCloseDocumentNotification](zodSchemas, "zDidCloseDocumentNotification", raw)
-}
-
-// ValidateDidCloseDocumentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDidCloseDocumentNotificationJSON to obtain the normalized value.
-func ValidateDidCloseDocumentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDidCloseDocumentNotification", raw)
-	return err
-}
-
-// DecodeDidFocusDocumentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDidFocusDocumentNotificationJSON(raw []byte) (DidFocusDocumentNotification, error) {
-	return zod.Decode[DidFocusDocumentNotification](zodSchemas, "zDidFocusDocumentNotification", raw)
-}
-
-// ValidateDidFocusDocumentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDidFocusDocumentNotificationJSON to obtain the normalized value.
-func ValidateDidFocusDocumentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDidFocusDocumentNotification", raw)
-	return err
-}
-
-// DecodeDidOpenDocumentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDidOpenDocumentNotificationJSON(raw []byte) (DidOpenDocumentNotification, error) {
-	return zod.Decode[DidOpenDocumentNotification](zodSchemas, "zDidOpenDocumentNotification", raw)
-}
-
-// ValidateDidOpenDocumentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDidOpenDocumentNotificationJSON to obtain the normalized value.
-func ValidateDidOpenDocumentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDidOpenDocumentNotification", raw)
-	return err
-}
-
-// DecodeDidSaveDocumentNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDidSaveDocumentNotificationJSON(raw []byte) (DidSaveDocumentNotification, error) {
-	return zod.Decode[DidSaveDocumentNotification](zodSchemas, "zDidSaveDocumentNotification", raw)
-}
-
-// ValidateDidSaveDocumentNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDidSaveDocumentNotificationJSON to obtain the normalized value.
-func ValidateDidSaveDocumentNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDidSaveDocumentNotification", raw)
-	return err
-}
-
-// DecodeDiffJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDiffJSON(raw []byte) (Diff, error) { return zod.Decode[Diff](zodSchemas, "zDiff", raw) }
-
-// ValidateDiffJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDiffJSON to obtain the normalized value.
-func ValidateDiffJSON(raw []byte) error { _, err := zodSchemas.Normalize("zDiff", raw); return err }
-
-// DecodeDisableProviderRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDisableProviderRequestJSON(raw []byte) (DisableProviderRequest, error) {
-	return zod.Decode[DisableProviderRequest](zodSchemas, "zDisableProviderRequest", raw)
-}
-
-// ValidateDisableProviderRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDisableProviderRequestJSON to obtain the normalized value.
-func ValidateDisableProviderRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDisableProviderRequest", raw)
-	return err
-}
-
-// DecodeDisableProviderResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDisableProviderResponseJSON(raw []byte) (DisableProviderResponse, error) {
-	return zod.Decode[DisableProviderResponse](zodSchemas, "zDisableProviderResponse", raw)
-}
-
-// ValidateDisableProviderResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDisableProviderResponseJSON to obtain the normalized value.
-func ValidateDisableProviderResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDisableProviderResponse", raw)
-	return err
-}
-
-// DecodeDisconnectMCPRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDisconnectMCPRequestJSON(raw []byte) (DisconnectMCPRequest, error) {
-	return zod.Decode[DisconnectMCPRequest](zodSchemas, "zDisconnectMcpRequest", raw)
-}
-
-// ValidateDisconnectMCPRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDisconnectMCPRequestJSON to obtain the normalized value.
-func ValidateDisconnectMCPRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDisconnectMcpRequest", raw)
-	return err
-}
-
-// DecodeDisconnectMCPResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeDisconnectMCPResponseJSON(raw []byte) (DisconnectMCPResponse, error) {
-	return zod.Decode[DisconnectMCPResponse](zodSchemas, "zDisconnectMcpResponse", raw)
-}
-
-// ValidateDisconnectMCPResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeDisconnectMCPResponseJSON to obtain the normalized value.
-func ValidateDisconnectMCPResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zDisconnectMcpResponse", raw)
-	return err
-}
-
-// DecodeElicitationAcceptActionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationAcceptActionJSON(raw []byte) (ElicitationAcceptAction, error) {
-	return zod.Decode[ElicitationAcceptAction](zodSchemas, "zElicitationAcceptAction", raw)
-}
-
-// ValidateElicitationAcceptActionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationAcceptActionJSON to obtain the normalized value.
-func ValidateElicitationAcceptActionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationAcceptAction", raw)
-	return err
-}
-
-// DecodeElicitationCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationCapabilitiesJSON(raw []byte) (ElicitationCapabilities, error) {
-	return zod.Decode[ElicitationCapabilities](zodSchemas, "zElicitationCapabilities", raw)
-}
-
-// ValidateElicitationCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationCapabilitiesJSON to obtain the normalized value.
-func ValidateElicitationCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationCapabilities", raw)
-	return err
-}
-
-// DecodeElicitationContentValueJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationContentValueJSON(raw []byte) (ElicitationContentValue, error) {
-	return zod.Decode[ElicitationContentValue](zodSchemas, "zElicitationContentValue", raw)
-}
-
-// ValidateElicitationContentValueJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationContentValueJSON to obtain the normalized value.
-func ValidateElicitationContentValueJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationContentValue", raw)
-	return err
-}
-
-// DecodeElicitationFormCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationFormCapabilitiesJSON(raw []byte) (ElicitationFormCapabilities, error) {
-	return zod.Decode[ElicitationFormCapabilities](zodSchemas, "zElicitationFormCapabilities", raw)
-}
-
-// ValidateElicitationFormCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationFormCapabilitiesJSON to obtain the normalized value.
-func ValidateElicitationFormCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationFormCapabilities", raw)
-	return err
-}
-
-// DecodeElicitationFormModeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationFormModeJSON(raw []byte) (ElicitationFormMode, error) {
-	return zod.Decode[ElicitationFormMode](zodSchemas, "zElicitationFormMode", raw)
-}
-
-// ValidateElicitationFormModeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationFormModeJSON to obtain the normalized value.
-func ValidateElicitationFormModeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationFormMode", raw)
-	return err
-}
-
-// DecodeElicitationIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationIDJSON(raw []byte) (ElicitationID, error) {
-	return zod.Decode[ElicitationID](zodSchemas, "zElicitationId", raw)
-}
-
-// ValidateElicitationIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationIDJSON to obtain the normalized value.
-func ValidateElicitationIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationId", raw)
-	return err
-}
-
-// DecodeElicitationPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationPropertySchemaJSON(raw []byte) (ElicitationPropertySchema, error) {
-	return zod.Decode[ElicitationPropertySchema](zodSchemas, "zElicitationPropertySchema", raw)
-}
-
-// ValidateElicitationPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationPropertySchemaJSON to obtain the normalized value.
-func ValidateElicitationPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationPropertySchema", raw)
-	return err
-}
-
-// DecodeElicitationRequestScopeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationRequestScopeJSON(raw []byte) (ElicitationRequestScope, error) {
-	return zod.Decode[ElicitationRequestScope](zodSchemas, "zElicitationRequestScope", raw)
-}
-
-// ValidateElicitationRequestScopeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationRequestScopeJSON to obtain the normalized value.
-func ValidateElicitationRequestScopeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationRequestScope", raw)
-	return err
-}
-
-// DecodeElicitationSchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationSchemaJSON(raw []byte) (ElicitationSchema, error) {
-	return zod.Decode[ElicitationSchema](zodSchemas, "zElicitationSchema", raw)
-}
-
-// ValidateElicitationSchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationSchemaJSON to obtain the normalized value.
-func ValidateElicitationSchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationSchema", raw)
-	return err
-}
-
-// DecodeElicitationSchemaTypeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationSchemaTypeJSON(raw []byte) (ElicitationSchemaType, error) {
-	return zod.Decode[ElicitationSchemaType](zodSchemas, "zElicitationSchemaType", raw)
-}
-
-// ValidateElicitationSchemaTypeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationSchemaTypeJSON to obtain the normalized value.
-func ValidateElicitationSchemaTypeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationSchemaType", raw)
-	return err
-}
-
-// DecodeElicitationSessionScopeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationSessionScopeJSON(raw []byte) (ElicitationSessionScope, error) {
-	return zod.Decode[ElicitationSessionScope](zodSchemas, "zElicitationSessionScope", raw)
-}
-
-// ValidateElicitationSessionScopeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationSessionScopeJSON to obtain the normalized value.
-func ValidateElicitationSessionScopeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationSessionScope", raw)
-	return err
-}
-
-// DecodeElicitationURLCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationURLCapabilitiesJSON(raw []byte) (ElicitationURLCapabilities, error) {
-	return zod.Decode[ElicitationURLCapabilities](zodSchemas, "zElicitationUrlCapabilities", raw)
-}
-
-// ValidateElicitationURLCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationURLCapabilitiesJSON to obtain the normalized value.
-func ValidateElicitationURLCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationUrlCapabilities", raw)
-	return err
-}
-
-// DecodeElicitationURLModeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeElicitationURLModeJSON(raw []byte) (ElicitationURLMode, error) {
-	return zod.Decode[ElicitationURLMode](zodSchemas, "zElicitationUrlMode", raw)
-}
-
-// ValidateElicitationURLModeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeElicitationURLModeJSON to obtain the normalized value.
-func ValidateElicitationURLModeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zElicitationUrlMode", raw)
-	return err
-}
-
-// DecodeEmbeddedResourceJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeEmbeddedResourceJSON(raw []byte) (EmbeddedResource, error) {
-	return zod.Decode[EmbeddedResource](zodSchemas, "zEmbeddedResource", raw)
-}
-
-// ValidateEmbeddedResourceJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeEmbeddedResourceJSON to obtain the normalized value.
-func ValidateEmbeddedResourceJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zEmbeddedResource", raw)
-	return err
-}
-
-// DecodeEmbeddedResourceResourceJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeEmbeddedResourceResourceJSON(raw []byte) (EmbeddedResourceResource, error) {
-	return zod.Decode[EmbeddedResourceResource](zodSchemas, "zEmbeddedResourceResource", raw)
-}
-
-// ValidateEmbeddedResourceResourceJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeEmbeddedResourceResourceJSON to obtain the normalized value.
-func ValidateEmbeddedResourceResourceJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zEmbeddedResourceResource", raw)
-	return err
-}
-
-// DecodeEnumOptionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeEnumOptionJSON(raw []byte) (EnumOption, error) {
-	return zod.Decode[EnumOption](zodSchemas, "zEnumOption", raw)
-}
-
-// ValidateEnumOptionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeEnumOptionJSON to obtain the normalized value.
-func ValidateEnumOptionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zEnumOption", raw)
-	return err
-}
-
-// DecodeEnvVariableJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeEnvVariableJSON(raw []byte) (EnvVariable, error) {
-	return zod.Decode[EnvVariable](zodSchemas, "zEnvVariable", raw)
-}
-
-// ValidateEnvVariableJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeEnvVariableJSON to obtain the normalized value.
-func ValidateEnvVariableJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zEnvVariable", raw)
-	return err
-}
-
-// DecodeErrorJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeErrorJSON(raw []byte) (Error, error) { return zod.Decode[Error](zodSchemas, "zError", raw) }
-
-// ValidateErrorJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeErrorJSON to obtain the normalized value.
-func ValidateErrorJSON(raw []byte) error { _, err := zodSchemas.Normalize("zError", raw); return err }
-
-// DecodeErrorCodeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeErrorCodeJSON(raw []byte) (ErrorCode, error) {
-	return zod.Decode[ErrorCode](zodSchemas, "zErrorCode", raw)
-}
-
-// ValidateErrorCodeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeErrorCodeJSON to obtain the normalized value.
-func ValidateErrorCodeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zErrorCode", raw)
-	return err
-}
-
-// DecodeExtNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeExtNotificationJSON(raw []byte) (ExtNotification, error) {
-	return zod.Decode[ExtNotification](zodSchemas, "zExtNotification", raw)
-}
-
-// ValidateExtNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeExtNotificationJSON to obtain the normalized value.
-func ValidateExtNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zExtNotification", raw)
-	return err
-}
-
-// DecodeExtRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeExtRequestJSON(raw []byte) (ExtRequest, error) {
-	return zod.Decode[ExtRequest](zodSchemas, "zExtRequest", raw)
-}
-
-// ValidateExtRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeExtRequestJSON to obtain the normalized value.
-func ValidateExtRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zExtRequest", raw)
-	return err
-}
-
-// DecodeExtResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeExtResponseJSON(raw []byte) (ExtResponse, error) {
-	return zod.Decode[ExtResponse](zodSchemas, "zExtResponse", raw)
-}
-
-// ValidateExtResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeExtResponseJSON to obtain the normalized value.
-func ValidateExtResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zExtResponse", raw)
-	return err
-}
-
-// DecodeFileSystemCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeFileSystemCapabilitiesJSON(raw []byte) (FileSystemCapabilities, error) {
-	return zod.Decode[FileSystemCapabilities](zodSchemas, "zFileSystemCapabilities", raw)
-}
-
-// ValidateFileSystemCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeFileSystemCapabilitiesJSON to obtain the normalized value.
-func ValidateFileSystemCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zFileSystemCapabilities", raw)
-	return err
-}
-
-// DecodeForkSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeForkSessionRequestJSON(raw []byte) (ForkSessionRequest, error) {
-	return zod.Decode[ForkSessionRequest](zodSchemas, "zForkSessionRequest", raw)
-}
-
-// ValidateForkSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeForkSessionRequestJSON to obtain the normalized value.
-func ValidateForkSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zForkSessionRequest", raw)
-	return err
-}
-
-// DecodeForkSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeForkSessionResponseJSON(raw []byte) (ForkSessionResponse, error) {
-	return zod.Decode[ForkSessionResponse](zodSchemas, "zForkSessionResponse", raw)
-}
-
-// ValidateForkSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeForkSessionResponseJSON to obtain the normalized value.
-func ValidateForkSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zForkSessionResponse", raw)
-	return err
-}
-
-// DecodeHTTPHeaderJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeHTTPHeaderJSON(raw []byte) (HTTPHeader, error) {
-	return zod.Decode[HTTPHeader](zodSchemas, "zHttpHeader", raw)
-}
-
-// ValidateHTTPHeaderJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeHTTPHeaderJSON to obtain the normalized value.
-func ValidateHTTPHeaderJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zHttpHeader", raw)
-	return err
-}
-
-// DecodeImageContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeImageContentJSON(raw []byte) (ImageContent, error) {
-	return zod.Decode[ImageContent](zodSchemas, "zImageContent", raw)
-}
-
-// ValidateImageContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeImageContentJSON to obtain the normalized value.
-func ValidateImageContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zImageContent", raw)
-	return err
-}
-
-// DecodeImplementationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeImplementationJSON(raw []byte) (Implementation, error) {
-	return zod.Decode[Implementation](zodSchemas, "zImplementation", raw)
-}
-
-// ValidateImplementationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeImplementationJSON to obtain the normalized value.
-func ValidateImplementationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zImplementation", raw)
-	return err
-}
-
-// DecodeInitializeRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeInitializeRequestJSON(raw []byte) (InitializeRequest, error) {
-	return zod.Decode[InitializeRequest](zodSchemas, "zInitializeRequest", raw)
-}
-
-// ValidateInitializeRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeInitializeRequestJSON to obtain the normalized value.
-func ValidateInitializeRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zInitializeRequest", raw)
-	return err
-}
-
-// DecodeInitializeResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeInitializeResponseJSON(raw []byte) (InitializeResponse, error) {
-	return zod.Decode[InitializeResponse](zodSchemas, "zInitializeResponse", raw)
-}
-
-// ValidateInitializeResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeInitializeResponseJSON to obtain the normalized value.
-func ValidateInitializeResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zInitializeResponse", raw)
-	return err
-}
-
-// DecodeIntegerPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeIntegerPropertySchemaJSON(raw []byte) (IntegerPropertySchema, error) {
-	return zod.Decode[IntegerPropertySchema](zodSchemas, "zIntegerPropertySchema", raw)
-}
-
-// ValidateIntegerPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeIntegerPropertySchemaJSON to obtain the normalized value.
-func ValidateIntegerPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zIntegerPropertySchema", raw)
-	return err
-}
-
-// DecodeKillTerminalRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeKillTerminalRequestJSON(raw []byte) (KillTerminalRequest, error) {
-	return zod.Decode[KillTerminalRequest](zodSchemas, "zKillTerminalRequest", raw)
-}
-
-// ValidateKillTerminalRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeKillTerminalRequestJSON to obtain the normalized value.
-func ValidateKillTerminalRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zKillTerminalRequest", raw)
-	return err
-}
-
-// DecodeKillTerminalResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeKillTerminalResponseJSON(raw []byte) (KillTerminalResponse, error) {
-	return zod.Decode[KillTerminalResponse](zodSchemas, "zKillTerminalResponse", raw)
-}
-
-// ValidateKillTerminalResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeKillTerminalResponseJSON to obtain the normalized value.
-func ValidateKillTerminalResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zKillTerminalResponse", raw)
-	return err
-}
-
-// DecodeListProvidersRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeListProvidersRequestJSON(raw []byte) (ListProvidersRequest, error) {
-	return zod.Decode[ListProvidersRequest](zodSchemas, "zListProvidersRequest", raw)
-}
-
-// ValidateListProvidersRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeListProvidersRequestJSON to obtain the normalized value.
-func ValidateListProvidersRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zListProvidersRequest", raw)
-	return err
-}
-
-// DecodeListProvidersResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeListProvidersResponseJSON(raw []byte) (ListProvidersResponse, error) {
-	return zod.Decode[ListProvidersResponse](zodSchemas, "zListProvidersResponse", raw)
-}
-
-// ValidateListProvidersResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeListProvidersResponseJSON to obtain the normalized value.
-func ValidateListProvidersResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zListProvidersResponse", raw)
-	return err
-}
-
-// DecodeListSessionsRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeListSessionsRequestJSON(raw []byte) (ListSessionsRequest, error) {
-	return zod.Decode[ListSessionsRequest](zodSchemas, "zListSessionsRequest", raw)
-}
-
-// ValidateListSessionsRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeListSessionsRequestJSON to obtain the normalized value.
-func ValidateListSessionsRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zListSessionsRequest", raw)
-	return err
-}
-
-// DecodeListSessionsResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeListSessionsResponseJSON(raw []byte) (ListSessionsResponse, error) {
-	return zod.Decode[ListSessionsResponse](zodSchemas, "zListSessionsResponse", raw)
-}
-
-// ValidateListSessionsResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeListSessionsResponseJSON to obtain the normalized value.
-func ValidateListSessionsResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zListSessionsResponse", raw)
-	return err
-}
-
-// DecodeLlmProtocolJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLlmProtocolJSON(raw []byte) (LlmProtocol, error) {
-	return zod.Decode[LlmProtocol](zodSchemas, "zLlmProtocol", raw)
-}
-
-// ValidateLlmProtocolJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLlmProtocolJSON to obtain the normalized value.
-func ValidateLlmProtocolJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLlmProtocol", raw)
-	return err
-}
-
-// DecodeLoadSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLoadSessionRequestJSON(raw []byte) (LoadSessionRequest, error) {
-	return zod.Decode[LoadSessionRequest](zodSchemas, "zLoadSessionRequest", raw)
-}
-
-// ValidateLoadSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLoadSessionRequestJSON to obtain the normalized value.
-func ValidateLoadSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLoadSessionRequest", raw)
-	return err
-}
-
-// DecodeLoadSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLoadSessionResponseJSON(raw []byte) (LoadSessionResponse, error) {
-	return zod.Decode[LoadSessionResponse](zodSchemas, "zLoadSessionResponse", raw)
-}
-
-// ValidateLoadSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLoadSessionResponseJSON to obtain the normalized value.
-func ValidateLoadSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLoadSessionResponse", raw)
-	return err
-}
-
-// DecodeLogoutCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLogoutCapabilitiesJSON(raw []byte) (LogoutCapabilities, error) {
-	return zod.Decode[LogoutCapabilities](zodSchemas, "zLogoutCapabilities", raw)
-}
-
-// ValidateLogoutCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLogoutCapabilitiesJSON to obtain the normalized value.
-func ValidateLogoutCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLogoutCapabilities", raw)
-	return err
-}
-
-// DecodeLogoutRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLogoutRequestJSON(raw []byte) (LogoutRequest, error) {
-	return zod.Decode[LogoutRequest](zodSchemas, "zLogoutRequest", raw)
-}
-
-// ValidateLogoutRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLogoutRequestJSON to obtain the normalized value.
-func ValidateLogoutRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLogoutRequest", raw)
-	return err
-}
-
-// DecodeLogoutResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeLogoutResponseJSON(raw []byte) (LogoutResponse, error) {
-	return zod.Decode[LogoutResponse](zodSchemas, "zLogoutResponse", raw)
-}
-
-// ValidateLogoutResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeLogoutResponseJSON to obtain the normalized value.
-func ValidateLogoutResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zLogoutResponse", raw)
-	return err
-}
-
-// DecodeMCPCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPCapabilitiesJSON(raw []byte) (MCPCapabilities, error) {
-	return zod.Decode[MCPCapabilities](zodSchemas, "zMcpCapabilities", raw)
-}
-
-// ValidateMCPCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPCapabilitiesJSON to obtain the normalized value.
-func ValidateMCPCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpCapabilities", raw)
-	return err
-}
-
-// DecodeMCPConnectionIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPConnectionIDJSON(raw []byte) (MCPConnectionID, error) {
-	return zod.Decode[MCPConnectionID](zodSchemas, "zMcpConnectionId", raw)
-}
-
-// ValidateMCPConnectionIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPConnectionIDJSON to obtain the normalized value.
-func ValidateMCPConnectionIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpConnectionId", raw)
-	return err
-}
-
-// DecodeMCPServerJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerJSON(raw []byte) (MCPServer, error) {
-	return zod.Decode[MCPServer](zodSchemas, "zMcpServer", raw)
-}
-
-// ValidateMCPServerJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerJSON to obtain the normalized value.
-func ValidateMCPServerJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServer", raw)
-	return err
-}
-
-// DecodeMCPServerACPJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerACPJSON(raw []byte) (MCPServerACP, error) {
-	return zod.Decode[MCPServerACP](zodSchemas, "zMcpServerAcp", raw)
-}
-
-// ValidateMCPServerACPJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerACPJSON to obtain the normalized value.
-func ValidateMCPServerACPJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServerAcp", raw)
-	return err
-}
-
-// DecodeMCPServerACPIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerACPIDJSON(raw []byte) (MCPServerACPID, error) {
-	return zod.Decode[MCPServerACPID](zodSchemas, "zMcpServerAcpId", raw)
-}
-
-// ValidateMCPServerACPIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerACPIDJSON to obtain the normalized value.
-func ValidateMCPServerACPIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServerAcpId", raw)
-	return err
-}
-
-// DecodeMCPServerHTTPJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerHTTPJSON(raw []byte) (MCPServerHTTP, error) {
-	return zod.Decode[MCPServerHTTP](zodSchemas, "zMcpServerHttp", raw)
-}
-
-// ValidateMCPServerHTTPJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerHTTPJSON to obtain the normalized value.
-func ValidateMCPServerHTTPJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServerHttp", raw)
-	return err
-}
-
-// DecodeMCPServerSseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerSseJSON(raw []byte) (MCPServerSse, error) {
-	return zod.Decode[MCPServerSse](zodSchemas, "zMcpServerSse", raw)
-}
-
-// ValidateMCPServerSseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerSseJSON to obtain the normalized value.
-func ValidateMCPServerSseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServerSse", raw)
-	return err
-}
-
-// DecodeMCPServerStdioJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMCPServerStdioJSON(raw []byte) (MCPServerStdio, error) {
-	return zod.Decode[MCPServerStdio](zodSchemas, "zMcpServerStdio", raw)
-}
-
-// ValidateMCPServerStdioJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMCPServerStdioJSON to obtain the normalized value.
-func ValidateMCPServerStdioJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMcpServerStdio", raw)
-	return err
-}
-
-// DecodeMessageIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMessageIDJSON(raw []byte) (MessageID, error) {
-	return zod.Decode[MessageID](zodSchemas, "zMessageId", raw)
-}
-
-// ValidateMessageIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMessageIDJSON to obtain the normalized value.
-func ValidateMessageIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMessageId", raw)
-	return err
-}
-
-// DecodeMessageMCPNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMessageMCPNotificationJSON(raw []byte) (MessageMCPNotification, error) {
-	return zod.Decode[MessageMCPNotification](zodSchemas, "zMessageMcpNotification", raw)
-}
-
-// ValidateMessageMCPNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMessageMCPNotificationJSON to obtain the normalized value.
-func ValidateMessageMCPNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMessageMcpNotification", raw)
-	return err
-}
-
-// DecodeMessageMCPRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMessageMCPRequestJSON(raw []byte) (MessageMCPRequest, error) {
-	return zod.Decode[MessageMCPRequest](zodSchemas, "zMessageMcpRequest", raw)
-}
-
-// ValidateMessageMCPRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMessageMCPRequestJSON to obtain the normalized value.
-func ValidateMessageMCPRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMessageMcpRequest", raw)
-	return err
-}
-
-// DecodeMessageMCPResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMessageMCPResponseJSON(raw []byte) (MessageMCPResponse, error) {
-	return zod.Decode[MessageMCPResponse](zodSchemas, "zMessageMcpResponse", raw)
-}
-
-// ValidateMessageMCPResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMessageMCPResponseJSON to obtain the normalized value.
-func ValidateMessageMCPResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMessageMcpResponse", raw)
-	return err
-}
-
-// DecodeMultiSelectItemsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMultiSelectItemsJSON(raw []byte) (MultiSelectItems, error) {
-	return zod.Decode[MultiSelectItems](zodSchemas, "zMultiSelectItems", raw)
-}
-
-// ValidateMultiSelectItemsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMultiSelectItemsJSON to obtain the normalized value.
-func ValidateMultiSelectItemsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMultiSelectItems", raw)
-	return err
-}
-
-// DecodeMultiSelectPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeMultiSelectPropertySchemaJSON(raw []byte) (MultiSelectPropertySchema, error) {
-	return zod.Decode[MultiSelectPropertySchema](zodSchemas, "zMultiSelectPropertySchema", raw)
-}
-
-// ValidateMultiSelectPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeMultiSelectPropertySchemaJSON to obtain the normalized value.
-func ValidateMultiSelectPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zMultiSelectPropertySchema", raw)
-	return err
-}
-
-// DecodeNesCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesCapabilitiesJSON(raw []byte) (NesCapabilities, error) {
-	return zod.Decode[NesCapabilities](zodSchemas, "zNesCapabilities", raw)
-}
-
-// ValidateNesCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesCapabilitiesJSON to obtain the normalized value.
-func ValidateNesCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesCapabilities", raw)
-	return err
-}
-
-// DecodeNesContextCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesContextCapabilitiesJSON(raw []byte) (NesContextCapabilities, error) {
-	return zod.Decode[NesContextCapabilities](zodSchemas, "zNesContextCapabilities", raw)
-}
-
-// ValidateNesContextCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesContextCapabilitiesJSON to obtain the normalized value.
-func ValidateNesContextCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesContextCapabilities", raw)
-	return err
-}
-
-// DecodeNesDiagnosticJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDiagnosticJSON(raw []byte) (NesDiagnostic, error) {
-	return zod.Decode[NesDiagnostic](zodSchemas, "zNesDiagnostic", raw)
-}
-
-// ValidateNesDiagnosticJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDiagnosticJSON to obtain the normalized value.
-func ValidateNesDiagnosticJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDiagnostic", raw)
-	return err
-}
-
-// DecodeNesDiagnosticSeverityJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDiagnosticSeverityJSON(raw []byte) (NesDiagnosticSeverity, error) {
-	return zod.Decode[NesDiagnosticSeverity](zodSchemas, "zNesDiagnosticSeverity", raw)
-}
-
-// ValidateNesDiagnosticSeverityJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDiagnosticSeverityJSON to obtain the normalized value.
-func ValidateNesDiagnosticSeverityJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDiagnosticSeverity", raw)
-	return err
-}
-
-// DecodeNesDiagnosticsCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDiagnosticsCapabilitiesJSON(raw []byte) (NesDiagnosticsCapabilities, error) {
-	return zod.Decode[NesDiagnosticsCapabilities](zodSchemas, "zNesDiagnosticsCapabilities", raw)
-}
-
-// ValidateNesDiagnosticsCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDiagnosticsCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDiagnosticsCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDiagnosticsCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentDidChangeCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentDidChangeCapabilitiesJSON(raw []byte) (NesDocumentDidChangeCapabilities, error) {
-	return zod.Decode[NesDocumentDidChangeCapabilities](zodSchemas, "zNesDocumentDidChangeCapabilities", raw)
-}
-
-// ValidateNesDocumentDidChangeCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentDidChangeCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentDidChangeCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentDidChangeCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentDidCloseCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentDidCloseCapabilitiesJSON(raw []byte) (NesDocumentDidCloseCapabilities, error) {
-	return zod.Decode[NesDocumentDidCloseCapabilities](zodSchemas, "zNesDocumentDidCloseCapabilities", raw)
-}
-
-// ValidateNesDocumentDidCloseCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentDidCloseCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentDidCloseCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentDidCloseCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentDidFocusCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentDidFocusCapabilitiesJSON(raw []byte) (NesDocumentDidFocusCapabilities, error) {
-	return zod.Decode[NesDocumentDidFocusCapabilities](zodSchemas, "zNesDocumentDidFocusCapabilities", raw)
-}
-
-// ValidateNesDocumentDidFocusCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentDidFocusCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentDidFocusCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentDidFocusCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentDidOpenCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentDidOpenCapabilitiesJSON(raw []byte) (NesDocumentDidOpenCapabilities, error) {
-	return zod.Decode[NesDocumentDidOpenCapabilities](zodSchemas, "zNesDocumentDidOpenCapabilities", raw)
-}
-
-// ValidateNesDocumentDidOpenCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentDidOpenCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentDidOpenCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentDidOpenCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentDidSaveCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentDidSaveCapabilitiesJSON(raw []byte) (NesDocumentDidSaveCapabilities, error) {
-	return zod.Decode[NesDocumentDidSaveCapabilities](zodSchemas, "zNesDocumentDidSaveCapabilities", raw)
-}
-
-// ValidateNesDocumentDidSaveCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentDidSaveCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentDidSaveCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentDidSaveCapabilities", raw)
-	return err
-}
-
-// DecodeNesDocumentEventCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesDocumentEventCapabilitiesJSON(raw []byte) (NesDocumentEventCapabilities, error) {
-	return zod.Decode[NesDocumentEventCapabilities](zodSchemas, "zNesDocumentEventCapabilities", raw)
-}
-
-// ValidateNesDocumentEventCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesDocumentEventCapabilitiesJSON to obtain the normalized value.
-func ValidateNesDocumentEventCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesDocumentEventCapabilities", raw)
-	return err
-}
-
-// DecodeNesEditHistoryCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesEditHistoryCapabilitiesJSON(raw []byte) (NesEditHistoryCapabilities, error) {
-	return zod.Decode[NesEditHistoryCapabilities](zodSchemas, "zNesEditHistoryCapabilities", raw)
-}
-
-// ValidateNesEditHistoryCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesEditHistoryCapabilitiesJSON to obtain the normalized value.
-func ValidateNesEditHistoryCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesEditHistoryCapabilities", raw)
-	return err
-}
-
-// DecodeNesEditHistoryEntryJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesEditHistoryEntryJSON(raw []byte) (NesEditHistoryEntry, error) {
-	return zod.Decode[NesEditHistoryEntry](zodSchemas, "zNesEditHistoryEntry", raw)
-}
-
-// ValidateNesEditHistoryEntryJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesEditHistoryEntryJSON to obtain the normalized value.
-func ValidateNesEditHistoryEntryJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesEditHistoryEntry", raw)
-	return err
-}
-
-// DecodeNesEditSuggestionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesEditSuggestionJSON(raw []byte) (NesEditSuggestion, error) {
-	return zod.Decode[NesEditSuggestion](zodSchemas, "zNesEditSuggestion", raw)
-}
-
-// ValidateNesEditSuggestionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesEditSuggestionJSON to obtain the normalized value.
-func ValidateNesEditSuggestionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesEditSuggestion", raw)
-	return err
-}
-
-// DecodeNesEventCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesEventCapabilitiesJSON(raw []byte) (NesEventCapabilities, error) {
-	return zod.Decode[NesEventCapabilities](zodSchemas, "zNesEventCapabilities", raw)
-}
-
-// ValidateNesEventCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesEventCapabilitiesJSON to obtain the normalized value.
-func ValidateNesEventCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesEventCapabilities", raw)
-	return err
-}
-
-// DecodeNesExcerptJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesExcerptJSON(raw []byte) (NesExcerpt, error) {
-	return zod.Decode[NesExcerpt](zodSchemas, "zNesExcerpt", raw)
-}
-
-// ValidateNesExcerptJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesExcerptJSON to obtain the normalized value.
-func ValidateNesExcerptJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesExcerpt", raw)
-	return err
-}
-
-// DecodeNesJumpCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesJumpCapabilitiesJSON(raw []byte) (NesJumpCapabilities, error) {
-	return zod.Decode[NesJumpCapabilities](zodSchemas, "zNesJumpCapabilities", raw)
-}
-
-// ValidateNesJumpCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesJumpCapabilitiesJSON to obtain the normalized value.
-func ValidateNesJumpCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesJumpCapabilities", raw)
-	return err
-}
-
-// DecodeNesJumpSuggestionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesJumpSuggestionJSON(raw []byte) (NesJumpSuggestion, error) {
-	return zod.Decode[NesJumpSuggestion](zodSchemas, "zNesJumpSuggestion", raw)
-}
-
-// ValidateNesJumpSuggestionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesJumpSuggestionJSON to obtain the normalized value.
-func ValidateNesJumpSuggestionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesJumpSuggestion", raw)
-	return err
-}
-
-// DecodeNesOpenFileJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesOpenFileJSON(raw []byte) (NesOpenFile, error) {
-	return zod.Decode[NesOpenFile](zodSchemas, "zNesOpenFile", raw)
-}
-
-// ValidateNesOpenFileJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesOpenFileJSON to obtain the normalized value.
-func ValidateNesOpenFileJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesOpenFile", raw)
-	return err
-}
-
-// DecodeNesOpenFilesCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesOpenFilesCapabilitiesJSON(raw []byte) (NesOpenFilesCapabilities, error) {
-	return zod.Decode[NesOpenFilesCapabilities](zodSchemas, "zNesOpenFilesCapabilities", raw)
-}
-
-// ValidateNesOpenFilesCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesOpenFilesCapabilitiesJSON to obtain the normalized value.
-func ValidateNesOpenFilesCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesOpenFilesCapabilities", raw)
-	return err
-}
-
-// DecodeNesRecentFileJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRecentFileJSON(raw []byte) (NesRecentFile, error) {
-	return zod.Decode[NesRecentFile](zodSchemas, "zNesRecentFile", raw)
-}
-
-// ValidateNesRecentFileJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRecentFileJSON to obtain the normalized value.
-func ValidateNesRecentFileJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRecentFile", raw)
-	return err
-}
-
-// DecodeNesRecentFilesCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRecentFilesCapabilitiesJSON(raw []byte) (NesRecentFilesCapabilities, error) {
-	return zod.Decode[NesRecentFilesCapabilities](zodSchemas, "zNesRecentFilesCapabilities", raw)
-}
-
-// ValidateNesRecentFilesCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRecentFilesCapabilitiesJSON to obtain the normalized value.
-func ValidateNesRecentFilesCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRecentFilesCapabilities", raw)
-	return err
-}
-
-// DecodeNesRejectReasonJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRejectReasonJSON(raw []byte) (NesRejectReason, error) {
-	return zod.Decode[NesRejectReason](zodSchemas, "zNesRejectReason", raw)
-}
-
-// ValidateNesRejectReasonJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRejectReasonJSON to obtain the normalized value.
-func ValidateNesRejectReasonJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRejectReason", raw)
-	return err
-}
-
-// DecodeNesRelatedSnippetJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRelatedSnippetJSON(raw []byte) (NesRelatedSnippet, error) {
-	return zod.Decode[NesRelatedSnippet](zodSchemas, "zNesRelatedSnippet", raw)
-}
-
-// ValidateNesRelatedSnippetJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRelatedSnippetJSON to obtain the normalized value.
-func ValidateNesRelatedSnippetJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRelatedSnippet", raw)
-	return err
-}
-
-// DecodeNesRelatedSnippetsCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRelatedSnippetsCapabilitiesJSON(raw []byte) (NesRelatedSnippetsCapabilities, error) {
-	return zod.Decode[NesRelatedSnippetsCapabilities](zodSchemas, "zNesRelatedSnippetsCapabilities", raw)
-}
-
-// ValidateNesRelatedSnippetsCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRelatedSnippetsCapabilitiesJSON to obtain the normalized value.
-func ValidateNesRelatedSnippetsCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRelatedSnippetsCapabilities", raw)
-	return err
-}
-
-// DecodeNesRenameCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRenameCapabilitiesJSON(raw []byte) (NesRenameCapabilities, error) {
-	return zod.Decode[NesRenameCapabilities](zodSchemas, "zNesRenameCapabilities", raw)
-}
-
-// ValidateNesRenameCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRenameCapabilitiesJSON to obtain the normalized value.
-func ValidateNesRenameCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRenameCapabilities", raw)
-	return err
-}
-
-// DecodeNesRenameSuggestionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRenameSuggestionJSON(raw []byte) (NesRenameSuggestion, error) {
-	return zod.Decode[NesRenameSuggestion](zodSchemas, "zNesRenameSuggestion", raw)
-}
-
-// ValidateNesRenameSuggestionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRenameSuggestionJSON to obtain the normalized value.
-func ValidateNesRenameSuggestionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRenameSuggestion", raw)
-	return err
-}
-
-// DecodeNesRepositoryJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesRepositoryJSON(raw []byte) (NesRepository, error) {
-	return zod.Decode[NesRepository](zodSchemas, "zNesRepository", raw)
-}
-
-// ValidateNesRepositoryJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesRepositoryJSON to obtain the normalized value.
-func ValidateNesRepositoryJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesRepository", raw)
-	return err
-}
-
-// DecodeNesSearchAndReplaceCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesSearchAndReplaceCapabilitiesJSON(raw []byte) (NesSearchAndReplaceCapabilities, error) {
-	return zod.Decode[NesSearchAndReplaceCapabilities](zodSchemas, "zNesSearchAndReplaceCapabilities", raw)
-}
-
-// ValidateNesSearchAndReplaceCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesSearchAndReplaceCapabilitiesJSON to obtain the normalized value.
-func ValidateNesSearchAndReplaceCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesSearchAndReplaceCapabilities", raw)
-	return err
-}
-
-// DecodeNesSearchAndReplaceSuggestionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesSearchAndReplaceSuggestionJSON(raw []byte) (NesSearchAndReplaceSuggestion, error) {
-	return zod.Decode[NesSearchAndReplaceSuggestion](zodSchemas, "zNesSearchAndReplaceSuggestion", raw)
-}
-
-// ValidateNesSearchAndReplaceSuggestionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesSearchAndReplaceSuggestionJSON to obtain the normalized value.
-func ValidateNesSearchAndReplaceSuggestionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesSearchAndReplaceSuggestion", raw)
-	return err
-}
-
-// DecodeNesSuggestContextJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesSuggestContextJSON(raw []byte) (NesSuggestContext, error) {
-	return zod.Decode[NesSuggestContext](zodSchemas, "zNesSuggestContext", raw)
-}
-
-// ValidateNesSuggestContextJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesSuggestContextJSON to obtain the normalized value.
-func ValidateNesSuggestContextJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesSuggestContext", raw)
-	return err
-}
-
-// DecodeNesSuggestionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesSuggestionJSON(raw []byte) (NesSuggestion, error) {
-	return zod.Decode[NesSuggestion](zodSchemas, "zNesSuggestion", raw)
-}
-
-// ValidateNesSuggestionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesSuggestionJSON to obtain the normalized value.
-func ValidateNesSuggestionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesSuggestion", raw)
-	return err
-}
-
-// DecodeNesSuggestionIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesSuggestionIDJSON(raw []byte) (NesSuggestionID, error) {
-	return zod.Decode[NesSuggestionID](zodSchemas, "zNesSuggestionId", raw)
-}
-
-// ValidateNesSuggestionIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesSuggestionIDJSON to obtain the normalized value.
-func ValidateNesSuggestionIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesSuggestionId", raw)
-	return err
-}
-
-// DecodeNesTextEditJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesTextEditJSON(raw []byte) (NesTextEdit, error) {
-	return zod.Decode[NesTextEdit](zodSchemas, "zNesTextEdit", raw)
-}
-
-// ValidateNesTextEditJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesTextEditJSON to obtain the normalized value.
-func ValidateNesTextEditJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesTextEdit", raw)
-	return err
-}
-
-// DecodeNesTriggerKindJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesTriggerKindJSON(raw []byte) (NesTriggerKind, error) {
-	return zod.Decode[NesTriggerKind](zodSchemas, "zNesTriggerKind", raw)
-}
-
-// ValidateNesTriggerKindJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesTriggerKindJSON to obtain the normalized value.
-func ValidateNesTriggerKindJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesTriggerKind", raw)
-	return err
-}
-
-// DecodeNesUserActionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesUserActionJSON(raw []byte) (NesUserAction, error) {
-	return zod.Decode[NesUserAction](zodSchemas, "zNesUserAction", raw)
-}
-
-// ValidateNesUserActionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesUserActionJSON to obtain the normalized value.
-func ValidateNesUserActionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesUserAction", raw)
-	return err
-}
-
-// DecodeNesUserActionsCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNesUserActionsCapabilitiesJSON(raw []byte) (NesUserActionsCapabilities, error) {
-	return zod.Decode[NesUserActionsCapabilities](zodSchemas, "zNesUserActionsCapabilities", raw)
-}
-
-// ValidateNesUserActionsCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNesUserActionsCapabilitiesJSON to obtain the normalized value.
-func ValidateNesUserActionsCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNesUserActionsCapabilities", raw)
-	return err
-}
-
-// DecodeNewSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNewSessionRequestJSON(raw []byte) (NewSessionRequest, error) {
-	return zod.Decode[NewSessionRequest](zodSchemas, "zNewSessionRequest", raw)
-}
-
-// ValidateNewSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNewSessionRequestJSON to obtain the normalized value.
-func ValidateNewSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNewSessionRequest", raw)
-	return err
-}
-
-// DecodeNewSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNewSessionResponseJSON(raw []byte) (NewSessionResponse, error) {
-	return zod.Decode[NewSessionResponse](zodSchemas, "zNewSessionResponse", raw)
-}
-
-// ValidateNewSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNewSessionResponseJSON to obtain the normalized value.
-func ValidateNewSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNewSessionResponse", raw)
-	return err
-}
-
-// DecodeNoticeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNoticeJSON(raw []byte) (Notice, error) {
-	return zod.Decode[Notice](zodSchemas, "zNotice", raw)
-}
-
-// ValidateNoticeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNoticeJSON to obtain the normalized value.
-func ValidateNoticeJSON(raw []byte) error { _, err := zodSchemas.Normalize("zNotice", raw); return err }
-
-// DecodeNoticeCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNoticeCapabilitiesJSON(raw []byte) (NoticeCapabilities, error) {
-	return zod.Decode[NoticeCapabilities](zodSchemas, "zNoticeCapabilities", raw)
-}
-
-// ValidateNoticeCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNoticeCapabilitiesJSON to obtain the normalized value.
-func ValidateNoticeCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNoticeCapabilities", raw)
-	return err
-}
-
-// DecodeNoticeSeverityJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNoticeSeverityJSON(raw []byte) (NoticeSeverity, error) {
-	return zod.Decode[NoticeSeverity](zodSchemas, "zNoticeSeverity", raw)
-}
-
-// ValidateNoticeSeverityJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNoticeSeverityJSON to obtain the normalized value.
-func ValidateNoticeSeverityJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNoticeSeverity", raw)
-	return err
-}
-
-// DecodeNumberPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeNumberPropertySchemaJSON(raw []byte) (NumberPropertySchema, error) {
-	return zod.Decode[NumberPropertySchema](zodSchemas, "zNumberPropertySchema", raw)
-}
-
-// ValidateNumberPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeNumberPropertySchemaJSON to obtain the normalized value.
-func ValidateNumberPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zNumberPropertySchema", raw)
-	return err
-}
-
-// DecodePermissionOptionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePermissionOptionJSON(raw []byte) (PermissionOption, error) {
-	return zod.Decode[PermissionOption](zodSchemas, "zPermissionOption", raw)
-}
-
-// ValidatePermissionOptionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePermissionOptionJSON to obtain the normalized value.
-func ValidatePermissionOptionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPermissionOption", raw)
-	return err
-}
-
-// DecodePermissionOptionIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePermissionOptionIDJSON(raw []byte) (PermissionOptionID, error) {
-	return zod.Decode[PermissionOptionID](zodSchemas, "zPermissionOptionId", raw)
-}
-
-// ValidatePermissionOptionIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePermissionOptionIDJSON to obtain the normalized value.
-func ValidatePermissionOptionIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPermissionOptionId", raw)
-	return err
-}
-
-// DecodePermissionOptionKindJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePermissionOptionKindJSON(raw []byte) (PermissionOptionKind, error) {
-	return zod.Decode[PermissionOptionKind](zodSchemas, "zPermissionOptionKind", raw)
-}
-
-// ValidatePermissionOptionKindJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePermissionOptionKindJSON to obtain the normalized value.
-func ValidatePermissionOptionKindJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPermissionOptionKind", raw)
-	return err
-}
-
-// DecodePlanJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanJSON(raw []byte) (Plan, error) { return zod.Decode[Plan](zodSchemas, "zPlan", raw) }
-
-// ValidatePlanJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanJSON to obtain the normalized value.
-func ValidatePlanJSON(raw []byte) error { _, err := zodSchemas.Normalize("zPlan", raw); return err }
-
-// DecodePlanCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanCapabilitiesJSON(raw []byte) (PlanCapabilities, error) {
-	return zod.Decode[PlanCapabilities](zodSchemas, "zPlanCapabilities", raw)
-}
-
-// ValidatePlanCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanCapabilitiesJSON to obtain the normalized value.
-func ValidatePlanCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanCapabilities", raw)
-	return err
-}
-
-// DecodePlanEntryJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanEntryJSON(raw []byte) (PlanEntry, error) {
-	return zod.Decode[PlanEntry](zodSchemas, "zPlanEntry", raw)
-}
-
-// ValidatePlanEntryJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanEntryJSON to obtain the normalized value.
-func ValidatePlanEntryJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanEntry", raw)
-	return err
-}
-
-// DecodePlanEntryPriorityJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanEntryPriorityJSON(raw []byte) (PlanEntryPriority, error) {
-	return zod.Decode[PlanEntryPriority](zodSchemas, "zPlanEntryPriority", raw)
-}
-
-// ValidatePlanEntryPriorityJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanEntryPriorityJSON to obtain the normalized value.
-func ValidatePlanEntryPriorityJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanEntryPriority", raw)
-	return err
-}
-
-// DecodePlanEntryStatusJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanEntryStatusJSON(raw []byte) (PlanEntryStatus, error) {
-	return zod.Decode[PlanEntryStatus](zodSchemas, "zPlanEntryStatus", raw)
-}
-
-// ValidatePlanEntryStatusJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanEntryStatusJSON to obtain the normalized value.
-func ValidatePlanEntryStatusJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanEntryStatus", raw)
-	return err
-}
-
-// DecodePlanFileJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanFileJSON(raw []byte) (PlanFile, error) {
-	return zod.Decode[PlanFile](zodSchemas, "zPlanFile", raw)
-}
-
-// ValidatePlanFileJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanFileJSON to obtain the normalized value.
-func ValidatePlanFileJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanFile", raw)
-	return err
-}
-
-// DecodePlanIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanIDJSON(raw []byte) (PlanID, error) {
-	return zod.Decode[PlanID](zodSchemas, "zPlanId", raw)
-}
-
-// ValidatePlanIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanIDJSON to obtain the normalized value.
-func ValidatePlanIDJSON(raw []byte) error { _, err := zodSchemas.Normalize("zPlanId", raw); return err }
-
-// DecodePlanItemsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanItemsJSON(raw []byte) (PlanItems, error) {
-	return zod.Decode[PlanItems](zodSchemas, "zPlanItems", raw)
-}
-
-// ValidatePlanItemsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanItemsJSON to obtain the normalized value.
-func ValidatePlanItemsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanItems", raw)
-	return err
-}
-
-// DecodePlanMarkdownJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanMarkdownJSON(raw []byte) (PlanMarkdown, error) {
-	return zod.Decode[PlanMarkdown](zodSchemas, "zPlanMarkdown", raw)
-}
-
-// ValidatePlanMarkdownJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanMarkdownJSON to obtain the normalized value.
-func ValidatePlanMarkdownJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanMarkdown", raw)
-	return err
-}
-
-// DecodePlanRemovedJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanRemovedJSON(raw []byte) (PlanRemoved, error) {
-	return zod.Decode[PlanRemoved](zodSchemas, "zPlanRemoved", raw)
-}
-
-// ValidatePlanRemovedJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanRemovedJSON to obtain the normalized value.
-func ValidatePlanRemovedJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanRemoved", raw)
-	return err
-}
-
-// DecodePlanUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanUpdateJSON(raw []byte) (PlanUpdate, error) {
-	return zod.Decode[PlanUpdate](zodSchemas, "zPlanUpdate", raw)
-}
-
-// ValidatePlanUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanUpdateJSON to obtain the normalized value.
-func ValidatePlanUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanUpdate", raw)
-	return err
-}
-
-// DecodePlanUpdateContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePlanUpdateContentJSON(raw []byte) (PlanUpdateContent, error) {
-	return zod.Decode[PlanUpdateContent](zodSchemas, "zPlanUpdateContent", raw)
-}
-
-// ValidatePlanUpdateContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePlanUpdateContentJSON to obtain the normalized value.
-func ValidatePlanUpdateContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPlanUpdateContent", raw)
-	return err
-}
-
-// DecodePositionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePositionJSON(raw []byte) (Position, error) {
-	return zod.Decode[Position](zodSchemas, "zPosition", raw)
-}
-
-// ValidatePositionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePositionJSON to obtain the normalized value.
-func ValidatePositionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPosition", raw)
-	return err
-}
-
-// DecodePositionEncodingKindJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePositionEncodingKindJSON(raw []byte) (PositionEncodingKind, error) {
-	return zod.Decode[PositionEncodingKind](zodSchemas, "zPositionEncodingKind", raw)
-}
-
-// ValidatePositionEncodingKindJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePositionEncodingKindJSON to obtain the normalized value.
-func ValidatePositionEncodingKindJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPositionEncodingKind", raw)
-	return err
-}
-
-// DecodePromptCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePromptCapabilitiesJSON(raw []byte) (PromptCapabilities, error) {
-	return zod.Decode[PromptCapabilities](zodSchemas, "zPromptCapabilities", raw)
-}
-
-// ValidatePromptCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePromptCapabilitiesJSON to obtain the normalized value.
-func ValidatePromptCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPromptCapabilities", raw)
-	return err
-}
-
-// DecodePromptRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePromptRequestJSON(raw []byte) (PromptRequest, error) {
-	return zod.Decode[PromptRequest](zodSchemas, "zPromptRequest", raw)
-}
-
-// ValidatePromptRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePromptRequestJSON to obtain the normalized value.
-func ValidatePromptRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPromptRequest", raw)
-	return err
-}
-
-// DecodePromptResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodePromptResponseJSON(raw []byte) (PromptResponse, error) {
-	return zod.Decode[PromptResponse](zodSchemas, "zPromptResponse", raw)
-}
-
-// ValidatePromptResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodePromptResponseJSON to obtain the normalized value.
-func ValidatePromptResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zPromptResponse", raw)
-	return err
-}
-
-// DecodeProtocolVersionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeProtocolVersionJSON(raw []byte) (ProtocolVersion, error) {
-	return zod.Decode[ProtocolVersion](zodSchemas, "zProtocolVersion", raw)
-}
-
-// ValidateProtocolVersionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeProtocolVersionJSON to obtain the normalized value.
-func ValidateProtocolVersionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zProtocolVersion", raw)
-	return err
-}
-
-// DecodeProviderCurrentConfigJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeProviderCurrentConfigJSON(raw []byte) (ProviderCurrentConfig, error) {
-	return zod.Decode[ProviderCurrentConfig](zodSchemas, "zProviderCurrentConfig", raw)
-}
-
-// ValidateProviderCurrentConfigJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeProviderCurrentConfigJSON to obtain the normalized value.
-func ValidateProviderCurrentConfigJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zProviderCurrentConfig", raw)
-	return err
-}
-
-// DecodeProviderIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeProviderIDJSON(raw []byte) (ProviderID, error) {
-	return zod.Decode[ProviderID](zodSchemas, "zProviderId", raw)
-}
-
-// ValidateProviderIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeProviderIDJSON to obtain the normalized value.
-func ValidateProviderIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zProviderId", raw)
-	return err
-}
-
-// DecodeProviderInfoJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeProviderInfoJSON(raw []byte) (ProviderInfo, error) {
-	return zod.Decode[ProviderInfo](zodSchemas, "zProviderInfo", raw)
-}
-
-// ValidateProviderInfoJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeProviderInfoJSON to obtain the normalized value.
-func ValidateProviderInfoJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zProviderInfo", raw)
-	return err
-}
-
-// DecodeProvidersCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeProvidersCapabilitiesJSON(raw []byte) (ProvidersCapabilities, error) {
-	return zod.Decode[ProvidersCapabilities](zodSchemas, "zProvidersCapabilities", raw)
-}
-
-// ValidateProvidersCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeProvidersCapabilitiesJSON to obtain the normalized value.
-func ValidateProvidersCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zProvidersCapabilities", raw)
-	return err
-}
-
-// DecodeRangeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRangeJSON(raw []byte) (Range, error) { return zod.Decode[Range](zodSchemas, "zRange", raw) }
-
-// ValidateRangeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRangeJSON to obtain the normalized value.
-func ValidateRangeJSON(raw []byte) error { _, err := zodSchemas.Normalize("zRange", raw); return err }
-
-// DecodeReadTextFileRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeReadTextFileRequestJSON(raw []byte) (ReadTextFileRequest, error) {
-	return zod.Decode[ReadTextFileRequest](zodSchemas, "zReadTextFileRequest", raw)
-}
-
-// ValidateReadTextFileRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeReadTextFileRequestJSON to obtain the normalized value.
-func ValidateReadTextFileRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zReadTextFileRequest", raw)
-	return err
-}
-
-// DecodeReadTextFileResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeReadTextFileResponseJSON(raw []byte) (ReadTextFileResponse, error) {
-	return zod.Decode[ReadTextFileResponse](zodSchemas, "zReadTextFileResponse", raw)
-}
-
-// ValidateReadTextFileResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeReadTextFileResponseJSON to obtain the normalized value.
-func ValidateReadTextFileResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zReadTextFileResponse", raw)
-	return err
-}
-
-// DecodeRejectNesNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRejectNesNotificationJSON(raw []byte) (RejectNesNotification, error) {
-	return zod.Decode[RejectNesNotification](zodSchemas, "zRejectNesNotification", raw)
-}
-
-// ValidateRejectNesNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRejectNesNotificationJSON to obtain the normalized value.
-func ValidateRejectNesNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zRejectNesNotification", raw)
-	return err
-}
-
-// DecodeReleaseTerminalRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeReleaseTerminalRequestJSON(raw []byte) (ReleaseTerminalRequest, error) {
-	return zod.Decode[ReleaseTerminalRequest](zodSchemas, "zReleaseTerminalRequest", raw)
-}
-
-// ValidateReleaseTerminalRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeReleaseTerminalRequestJSON to obtain the normalized value.
-func ValidateReleaseTerminalRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zReleaseTerminalRequest", raw)
-	return err
-}
-
-// DecodeReleaseTerminalResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeReleaseTerminalResponseJSON(raw []byte) (ReleaseTerminalResponse, error) {
-	return zod.Decode[ReleaseTerminalResponse](zodSchemas, "zReleaseTerminalResponse", raw)
-}
-
-// ValidateReleaseTerminalResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeReleaseTerminalResponseJSON to obtain the normalized value.
-func ValidateReleaseTerminalResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zReleaseTerminalResponse", raw)
-	return err
-}
-
-// DecodeRequestIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRequestIDJSON(raw []byte) (RequestID, error) {
-	return zod.Decode[RequestID](zodSchemas, "zRequestId", raw)
-}
-
-// ValidateRequestIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRequestIDJSON to obtain the normalized value.
-func ValidateRequestIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zRequestId", raw)
-	return err
-}
-
-// DecodeRequestPermissionOutcomeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRequestPermissionOutcomeJSON(raw []byte) (RequestPermissionOutcome, error) {
-	return zod.Decode[RequestPermissionOutcome](zodSchemas, "zRequestPermissionOutcome", raw)
-}
-
-// ValidateRequestPermissionOutcomeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRequestPermissionOutcomeJSON to obtain the normalized value.
-func ValidateRequestPermissionOutcomeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zRequestPermissionOutcome", raw)
-	return err
-}
-
-// DecodeRequestPermissionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRequestPermissionRequestJSON(raw []byte) (RequestPermissionRequest, error) {
-	return zod.Decode[RequestPermissionRequest](zodSchemas, "zRequestPermissionRequest", raw)
-}
-
-// ValidateRequestPermissionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRequestPermissionRequestJSON to obtain the normalized value.
-func ValidateRequestPermissionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zRequestPermissionRequest", raw)
-	return err
-}
-
-// DecodeRequestPermissionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRequestPermissionResponseJSON(raw []byte) (RequestPermissionResponse, error) {
-	return zod.Decode[RequestPermissionResponse](zodSchemas, "zRequestPermissionResponse", raw)
-}
-
-// ValidateRequestPermissionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRequestPermissionResponseJSON to obtain the normalized value.
-func ValidateRequestPermissionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zRequestPermissionResponse", raw)
-	return err
-}
-
-// DecodeResourceLinkJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeResourceLinkJSON(raw []byte) (ResourceLink, error) {
-	return zod.Decode[ResourceLink](zodSchemas, "zResourceLink", raw)
-}
-
-// ValidateResourceLinkJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeResourceLinkJSON to obtain the normalized value.
-func ValidateResourceLinkJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zResourceLink", raw)
-	return err
-}
-
-// DecodeResumeSessionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeResumeSessionRequestJSON(raw []byte) (ResumeSessionRequest, error) {
-	return zod.Decode[ResumeSessionRequest](zodSchemas, "zResumeSessionRequest", raw)
-}
-
-// ValidateResumeSessionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeResumeSessionRequestJSON to obtain the normalized value.
-func ValidateResumeSessionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zResumeSessionRequest", raw)
-	return err
-}
-
-// DecodeResumeSessionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeResumeSessionResponseJSON(raw []byte) (ResumeSessionResponse, error) {
-	return zod.Decode[ResumeSessionResponse](zodSchemas, "zResumeSessionResponse", raw)
-}
-
-// ValidateResumeSessionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeResumeSessionResponseJSON to obtain the normalized value.
-func ValidateResumeSessionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zResumeSessionResponse", raw)
-	return err
-}
-
-// DecodeRoleJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeRoleJSON(raw []byte) (Role, error) { return zod.Decode[Role](zodSchemas, "zRole", raw) }
-
-// ValidateRoleJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeRoleJSON to obtain the normalized value.
-func ValidateRoleJSON(raw []byte) error { _, err := zodSchemas.Normalize("zRole", raw); return err }
-
-// DecodeSelectedPermissionOutcomeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSelectedPermissionOutcomeJSON(raw []byte) (SelectedPermissionOutcome, error) {
-	return zod.Decode[SelectedPermissionOutcome](zodSchemas, "zSelectedPermissionOutcome", raw)
-}
-
-// ValidateSelectedPermissionOutcomeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSelectedPermissionOutcomeJSON to obtain the normalized value.
-func ValidateSelectedPermissionOutcomeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSelectedPermissionOutcome", raw)
-	return err
-}
-
-// DecodeSessionAdditionalDirectoriesCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionAdditionalDirectoriesCapabilitiesJSON(raw []byte) (SessionAdditionalDirectoriesCapabilities, error) {
-	return zod.Decode[SessionAdditionalDirectoriesCapabilities](zodSchemas, "zSessionAdditionalDirectoriesCapabilities", raw)
-}
-
-// ValidateSessionAdditionalDirectoriesCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionAdditionalDirectoriesCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionAdditionalDirectoriesCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionAdditionalDirectoriesCapabilities", raw)
-	return err
-}
-
-// DecodeSessionCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionCapabilitiesJSON(raw []byte) (SessionCapabilities, error) {
-	return zod.Decode[SessionCapabilities](zodSchemas, "zSessionCapabilities", raw)
-}
-
-// ValidateSessionCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionCapabilities", raw)
-	return err
-}
-
-// DecodeSessionCloseCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionCloseCapabilitiesJSON(raw []byte) (SessionCloseCapabilities, error) {
-	return zod.Decode[SessionCloseCapabilities](zodSchemas, "zSessionCloseCapabilities", raw)
-}
-
-// ValidateSessionCloseCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionCloseCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionCloseCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionCloseCapabilities", raw)
-	return err
-}
-
-// DecodeSessionConfigBooleanJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigBooleanJSON(raw []byte) (SessionConfigBoolean, error) {
-	return zod.Decode[SessionConfigBoolean](zodSchemas, "zSessionConfigBoolean", raw)
-}
-
-// ValidateSessionConfigBooleanJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigBooleanJSON to obtain the normalized value.
-func ValidateSessionConfigBooleanJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigBoolean", raw)
-	return err
-}
-
-// DecodeSessionConfigGroupIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigGroupIDJSON(raw []byte) (SessionConfigGroupID, error) {
-	return zod.Decode[SessionConfigGroupID](zodSchemas, "zSessionConfigGroupId", raw)
-}
-
-// ValidateSessionConfigGroupIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigGroupIDJSON to obtain the normalized value.
-func ValidateSessionConfigGroupIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigGroupId", raw)
-	return err
-}
-
-// DecodeSessionConfigIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigIDJSON(raw []byte) (SessionConfigID, error) {
-	return zod.Decode[SessionConfigID](zodSchemas, "zSessionConfigId", raw)
-}
-
-// ValidateSessionConfigIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigIDJSON to obtain the normalized value.
-func ValidateSessionConfigIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigId", raw)
-	return err
-}
-
-// DecodeSessionConfigOptionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigOptionJSON(raw []byte) (SessionConfigOption, error) {
-	return zod.Decode[SessionConfigOption](zodSchemas, "zSessionConfigOption", raw)
-}
-
-// ValidateSessionConfigOptionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigOptionJSON to obtain the normalized value.
-func ValidateSessionConfigOptionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigOption", raw)
-	return err
-}
-
-// DecodeSessionConfigOptionCategoryJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigOptionCategoryJSON(raw []byte) (SessionConfigOptionCategory, error) {
-	return zod.Decode[SessionConfigOptionCategory](zodSchemas, "zSessionConfigOptionCategory", raw)
-}
-
-// ValidateSessionConfigOptionCategoryJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigOptionCategoryJSON to obtain the normalized value.
-func ValidateSessionConfigOptionCategoryJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigOptionCategory", raw)
-	return err
-}
-
-// DecodeSessionConfigOptionsCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigOptionsCapabilitiesJSON(raw []byte) (SessionConfigOptionsCapabilities, error) {
-	return zod.Decode[SessionConfigOptionsCapabilities](zodSchemas, "zSessionConfigOptionsCapabilities", raw)
-}
-
-// ValidateSessionConfigOptionsCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigOptionsCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionConfigOptionsCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigOptionsCapabilities", raw)
-	return err
-}
-
-// DecodeSessionConfigSelectJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigSelectJSON(raw []byte) (SessionConfigSelect, error) {
-	return zod.Decode[SessionConfigSelect](zodSchemas, "zSessionConfigSelect", raw)
-}
-
-// ValidateSessionConfigSelectJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigSelectJSON to obtain the normalized value.
-func ValidateSessionConfigSelectJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigSelect", raw)
-	return err
-}
-
-// DecodeSessionConfigSelectGroupJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigSelectGroupJSON(raw []byte) (SessionConfigSelectGroup, error) {
-	return zod.Decode[SessionConfigSelectGroup](zodSchemas, "zSessionConfigSelectGroup", raw)
-}
-
-// ValidateSessionConfigSelectGroupJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigSelectGroupJSON to obtain the normalized value.
-func ValidateSessionConfigSelectGroupJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigSelectGroup", raw)
-	return err
-}
-
-// DecodeSessionConfigSelectOptionJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigSelectOptionJSON(raw []byte) (SessionConfigSelectOption, error) {
-	return zod.Decode[SessionConfigSelectOption](zodSchemas, "zSessionConfigSelectOption", raw)
-}
-
-// ValidateSessionConfigSelectOptionJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigSelectOptionJSON to obtain the normalized value.
-func ValidateSessionConfigSelectOptionJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigSelectOption", raw)
-	return err
-}
-
-// DecodeSessionConfigSelectOptionsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigSelectOptionsJSON(raw []byte) (SessionConfigSelectOptions, error) {
-	return zod.Decode[SessionConfigSelectOptions](zodSchemas, "zSessionConfigSelectOptions", raw)
-}
-
-// ValidateSessionConfigSelectOptionsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigSelectOptionsJSON to obtain the normalized value.
-func ValidateSessionConfigSelectOptionsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigSelectOptions", raw)
-	return err
-}
-
-// DecodeSessionConfigValueIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionConfigValueIDJSON(raw []byte) (SessionConfigValueID, error) {
-	return zod.Decode[SessionConfigValueID](zodSchemas, "zSessionConfigValueId", raw)
-}
-
-// ValidateSessionConfigValueIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionConfigValueIDJSON to obtain the normalized value.
-func ValidateSessionConfigValueIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionConfigValueId", raw)
-	return err
-}
-
-// DecodeSessionDeleteCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionDeleteCapabilitiesJSON(raw []byte) (SessionDeleteCapabilities, error) {
-	return zod.Decode[SessionDeleteCapabilities](zodSchemas, "zSessionDeleteCapabilities", raw)
-}
-
-// ValidateSessionDeleteCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionDeleteCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionDeleteCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionDeleteCapabilities", raw)
-	return err
-}
-
-// DecodeSessionForkCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionForkCapabilitiesJSON(raw []byte) (SessionForkCapabilities, error) {
-	return zod.Decode[SessionForkCapabilities](zodSchemas, "zSessionForkCapabilities", raw)
-}
-
-// ValidateSessionForkCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionForkCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionForkCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionForkCapabilities", raw)
-	return err
-}
-
-// DecodeSessionIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionIDJSON(raw []byte) (SessionID, error) {
-	return zod.Decode[SessionID](zodSchemas, "zSessionId", raw)
-}
-
-// ValidateSessionIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionIDJSON to obtain the normalized value.
-func ValidateSessionIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionId", raw)
-	return err
-}
-
-// DecodeSessionInfoJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionInfoJSON(raw []byte) (SessionInfo, error) {
-	return zod.Decode[SessionInfo](zodSchemas, "zSessionInfo", raw)
-}
-
-// ValidateSessionInfoJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionInfoJSON to obtain the normalized value.
-func ValidateSessionInfoJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionInfo", raw)
-	return err
-}
-
-// DecodeSessionInfoUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionInfoUpdateJSON(raw []byte) (SessionInfoUpdate, error) {
-	return zod.Decode[SessionInfoUpdate](zodSchemas, "zSessionInfoUpdate", raw)
-}
-
-// ValidateSessionInfoUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionInfoUpdateJSON to obtain the normalized value.
-func ValidateSessionInfoUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionInfoUpdate", raw)
-	return err
-}
-
-// DecodeSessionListCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionListCapabilitiesJSON(raw []byte) (SessionListCapabilities, error) {
-	return zod.Decode[SessionListCapabilities](zodSchemas, "zSessionListCapabilities", raw)
-}
-
-// ValidateSessionListCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionListCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionListCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionListCapabilities", raw)
-	return err
-}
-
-// DecodeSessionModeJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionModeJSON(raw []byte) (SessionMode, error) {
-	return zod.Decode[SessionMode](zodSchemas, "zSessionMode", raw)
-}
-
-// ValidateSessionModeJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionModeJSON to obtain the normalized value.
-func ValidateSessionModeJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionMode", raw)
-	return err
-}
-
-// DecodeSessionModeIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionModeIDJSON(raw []byte) (SessionModeID, error) {
-	return zod.Decode[SessionModeID](zodSchemas, "zSessionModeId", raw)
-}
-
-// ValidateSessionModeIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionModeIDJSON to obtain the normalized value.
-func ValidateSessionModeIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionModeId", raw)
-	return err
-}
-
-// DecodeSessionModeStateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionModeStateJSON(raw []byte) (SessionModeState, error) {
-	return zod.Decode[SessionModeState](zodSchemas, "zSessionModeState", raw)
-}
-
-// ValidateSessionModeStateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionModeStateJSON to obtain the normalized value.
-func ValidateSessionModeStateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionModeState", raw)
-	return err
-}
-
-// DecodeSessionNotificationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionNotificationJSON(raw []byte) (SessionNotification, error) {
-	return zod.Decode[SessionNotification](zodSchemas, "zSessionNotification", raw)
-}
-
-// ValidateSessionNotificationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionNotificationJSON to obtain the normalized value.
-func ValidateSessionNotificationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionNotification", raw)
-	return err
-}
-
-// DecodeSessionResumeCapabilitiesJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionResumeCapabilitiesJSON(raw []byte) (SessionResumeCapabilities, error) {
-	return zod.Decode[SessionResumeCapabilities](zodSchemas, "zSessionResumeCapabilities", raw)
-}
-
-// ValidateSessionResumeCapabilitiesJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionResumeCapabilitiesJSON to obtain the normalized value.
-func ValidateSessionResumeCapabilitiesJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionResumeCapabilities", raw)
-	return err
-}
-
-// DecodeSessionUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSessionUpdateJSON(raw []byte) (SessionUpdate, error) {
-	return zod.Decode[SessionUpdate](zodSchemas, "zSessionUpdate", raw)
-}
-
-// ValidateSessionUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSessionUpdateJSON to obtain the normalized value.
-func ValidateSessionUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSessionUpdate", raw)
-	return err
-}
-
-// DecodeSetProviderRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetProviderRequestJSON(raw []byte) (SetProviderRequest, error) {
-	return zod.Decode[SetProviderRequest](zodSchemas, "zSetProviderRequest", raw)
-}
-
-// ValidateSetProviderRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetProviderRequestJSON to obtain the normalized value.
-func ValidateSetProviderRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetProviderRequest", raw)
-	return err
-}
-
-// DecodeSetProviderResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetProviderResponseJSON(raw []byte) (SetProviderResponse, error) {
-	return zod.Decode[SetProviderResponse](zodSchemas, "zSetProviderResponse", raw)
-}
-
-// ValidateSetProviderResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetProviderResponseJSON to obtain the normalized value.
-func ValidateSetProviderResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetProviderResponse", raw)
-	return err
-}
-
-// DecodeSetSessionConfigOptionRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetSessionConfigOptionRequestJSON(raw []byte) (SetSessionConfigOptionRequest, error) {
-	return zod.Decode[SetSessionConfigOptionRequest](zodSchemas, "zSetSessionConfigOptionRequest", raw)
-}
-
-// ValidateSetSessionConfigOptionRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetSessionConfigOptionRequestJSON to obtain the normalized value.
-func ValidateSetSessionConfigOptionRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetSessionConfigOptionRequest", raw)
-	return err
-}
-
-// DecodeSetSessionConfigOptionResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetSessionConfigOptionResponseJSON(raw []byte) (SetSessionConfigOptionResponse, error) {
-	return zod.Decode[SetSessionConfigOptionResponse](zodSchemas, "zSetSessionConfigOptionResponse", raw)
-}
-
-// ValidateSetSessionConfigOptionResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetSessionConfigOptionResponseJSON to obtain the normalized value.
-func ValidateSetSessionConfigOptionResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetSessionConfigOptionResponse", raw)
-	return err
-}
-
-// DecodeSetSessionModeRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetSessionModeRequestJSON(raw []byte) (SetSessionModeRequest, error) {
-	return zod.Decode[SetSessionModeRequest](zodSchemas, "zSetSessionModeRequest", raw)
-}
-
-// ValidateSetSessionModeRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetSessionModeRequestJSON to obtain the normalized value.
-func ValidateSetSessionModeRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetSessionModeRequest", raw)
-	return err
-}
-
-// DecodeSetSessionModeResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSetSessionModeResponseJSON(raw []byte) (SetSessionModeResponse, error) {
-	return zod.Decode[SetSessionModeResponse](zodSchemas, "zSetSessionModeResponse", raw)
-}
-
-// ValidateSetSessionModeResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSetSessionModeResponseJSON to obtain the normalized value.
-func ValidateSetSessionModeResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSetSessionModeResponse", raw)
-	return err
-}
-
-// DecodeStartNesRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStartNesRequestJSON(raw []byte) (StartNesRequest, error) {
-	return zod.Decode[StartNesRequest](zodSchemas, "zStartNesRequest", raw)
-}
-
-// ValidateStartNesRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStartNesRequestJSON to obtain the normalized value.
-func ValidateStartNesRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStartNesRequest", raw)
-	return err
-}
-
-// DecodeStartNesResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStartNesResponseJSON(raw []byte) (StartNesResponse, error) {
-	return zod.Decode[StartNesResponse](zodSchemas, "zStartNesResponse", raw)
-}
-
-// ValidateStartNesResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStartNesResponseJSON to obtain the normalized value.
-func ValidateStartNesResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStartNesResponse", raw)
-	return err
-}
-
-// DecodeStopReasonJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStopReasonJSON(raw []byte) (StopReason, error) {
-	return zod.Decode[StopReason](zodSchemas, "zStopReason", raw)
-}
-
-// ValidateStopReasonJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStopReasonJSON to obtain the normalized value.
-func ValidateStopReasonJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStopReason", raw)
-	return err
-}
-
-// DecodeStringFormatJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStringFormatJSON(raw []byte) (StringFormat, error) {
-	return zod.Decode[StringFormat](zodSchemas, "zStringFormat", raw)
-}
-
-// ValidateStringFormatJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStringFormatJSON to obtain the normalized value.
-func ValidateStringFormatJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStringFormat", raw)
-	return err
-}
-
-// DecodeStringMultiSelectItemsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStringMultiSelectItemsJSON(raw []byte) (StringMultiSelectItems, error) {
-	return zod.Decode[StringMultiSelectItems](zodSchemas, "zStringMultiSelectItems", raw)
-}
-
-// ValidateStringMultiSelectItemsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStringMultiSelectItemsJSON to obtain the normalized value.
-func ValidateStringMultiSelectItemsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStringMultiSelectItems", raw)
-	return err
-}
-
-// DecodeStringPropertySchemaJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeStringPropertySchemaJSON(raw []byte) (StringPropertySchema, error) {
-	return zod.Decode[StringPropertySchema](zodSchemas, "zStringPropertySchema", raw)
-}
-
-// ValidateStringPropertySchemaJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeStringPropertySchemaJSON to obtain the normalized value.
-func ValidateStringPropertySchemaJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zStringPropertySchema", raw)
-	return err
-}
-
-// DecodeSuggestNesRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSuggestNesRequestJSON(raw []byte) (SuggestNesRequest, error) {
-	return zod.Decode[SuggestNesRequest](zodSchemas, "zSuggestNesRequest", raw)
-}
-
-// ValidateSuggestNesRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSuggestNesRequestJSON to obtain the normalized value.
-func ValidateSuggestNesRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSuggestNesRequest", raw)
-	return err
-}
-
-// DecodeSuggestNesResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeSuggestNesResponseJSON(raw []byte) (SuggestNesResponse, error) {
-	return zod.Decode[SuggestNesResponse](zodSchemas, "zSuggestNesResponse", raw)
-}
-
-// ValidateSuggestNesResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeSuggestNesResponseJSON to obtain the normalized value.
-func ValidateSuggestNesResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zSuggestNesResponse", raw)
-	return err
-}
-
-// DecodeTerminalJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTerminalJSON(raw []byte) (Terminal, error) {
-	return zod.Decode[Terminal](zodSchemas, "zTerminal", raw)
-}
-
-// ValidateTerminalJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTerminalJSON to obtain the normalized value.
-func ValidateTerminalJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTerminal", raw)
-	return err
-}
-
-// DecodeTerminalExitStatusJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTerminalExitStatusJSON(raw []byte) (TerminalExitStatus, error) {
-	return zod.Decode[TerminalExitStatus](zodSchemas, "zTerminalExitStatus", raw)
-}
-
-// ValidateTerminalExitStatusJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTerminalExitStatusJSON to obtain the normalized value.
-func ValidateTerminalExitStatusJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTerminalExitStatus", raw)
-	return err
-}
-
-// DecodeTerminalIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTerminalIDJSON(raw []byte) (TerminalID, error) {
-	return zod.Decode[TerminalID](zodSchemas, "zTerminalId", raw)
-}
-
-// ValidateTerminalIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTerminalIDJSON to obtain the normalized value.
-func ValidateTerminalIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTerminalId", raw)
-	return err
-}
-
-// DecodeTerminalOutputRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTerminalOutputRequestJSON(raw []byte) (TerminalOutputRequest, error) {
-	return zod.Decode[TerminalOutputRequest](zodSchemas, "zTerminalOutputRequest", raw)
-}
-
-// ValidateTerminalOutputRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTerminalOutputRequestJSON to obtain the normalized value.
-func ValidateTerminalOutputRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTerminalOutputRequest", raw)
-	return err
-}
-
-// DecodeTerminalOutputResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTerminalOutputResponseJSON(raw []byte) (TerminalOutputResponse, error) {
-	return zod.Decode[TerminalOutputResponse](zodSchemas, "zTerminalOutputResponse", raw)
-}
-
-// ValidateTerminalOutputResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTerminalOutputResponseJSON to obtain the normalized value.
-func ValidateTerminalOutputResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTerminalOutputResponse", raw)
-	return err
-}
-
-// DecodeTextContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTextContentJSON(raw []byte) (TextContent, error) {
-	return zod.Decode[TextContent](zodSchemas, "zTextContent", raw)
-}
-
-// ValidateTextContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTextContentJSON to obtain the normalized value.
-func ValidateTextContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTextContent", raw)
-	return err
-}
-
-// DecodeTextDocumentContentChangeEventJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTextDocumentContentChangeEventJSON(raw []byte) (TextDocumentContentChangeEvent, error) {
-	return zod.Decode[TextDocumentContentChangeEvent](zodSchemas, "zTextDocumentContentChangeEvent", raw)
-}
-
-// ValidateTextDocumentContentChangeEventJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTextDocumentContentChangeEventJSON to obtain the normalized value.
-func ValidateTextDocumentContentChangeEventJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTextDocumentContentChangeEvent", raw)
-	return err
-}
-
-// DecodeTextDocumentSyncKindJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTextDocumentSyncKindJSON(raw []byte) (TextDocumentSyncKind, error) {
-	return zod.Decode[TextDocumentSyncKind](zodSchemas, "zTextDocumentSyncKind", raw)
-}
-
-// ValidateTextDocumentSyncKindJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTextDocumentSyncKindJSON to obtain the normalized value.
-func ValidateTextDocumentSyncKindJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTextDocumentSyncKind", raw)
-	return err
-}
-
-// DecodeTextResourceContentsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTextResourceContentsJSON(raw []byte) (TextResourceContents, error) {
-	return zod.Decode[TextResourceContents](zodSchemas, "zTextResourceContents", raw)
-}
-
-// ValidateTextResourceContentsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTextResourceContentsJSON to obtain the normalized value.
-func ValidateTextResourceContentsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTextResourceContents", raw)
-	return err
-}
-
-// DecodeTitledMultiSelectItemsJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeTitledMultiSelectItemsJSON(raw []byte) (TitledMultiSelectItems, error) {
-	return zod.Decode[TitledMultiSelectItems](zodSchemas, "zTitledMultiSelectItems", raw)
-}
-
-// ValidateTitledMultiSelectItemsJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeTitledMultiSelectItemsJSON to obtain the normalized value.
-func ValidateTitledMultiSelectItemsJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zTitledMultiSelectItems", raw)
-	return err
-}
-
-// DecodeToolCallJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallJSON(raw []byte) (ToolCall, error) {
-	return zod.Decode[ToolCall](zodSchemas, "zToolCall", raw)
-}
-
-// ValidateToolCallJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallJSON to obtain the normalized value.
-func ValidateToolCallJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCall", raw)
-	return err
-}
-
-// DecodeToolCallContentJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallContentJSON(raw []byte) (ToolCallContent, error) {
-	return zod.Decode[ToolCallContent](zodSchemas, "zToolCallContent", raw)
-}
-
-// ValidateToolCallContentJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallContentJSON to obtain the normalized value.
-func ValidateToolCallContentJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCallContent", raw)
-	return err
-}
-
-// DecodeToolCallIDJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallIDJSON(raw []byte) (ToolCallID, error) {
-	return zod.Decode[ToolCallID](zodSchemas, "zToolCallId", raw)
-}
-
-// ValidateToolCallIDJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallIDJSON to obtain the normalized value.
-func ValidateToolCallIDJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCallId", raw)
-	return err
-}
-
-// DecodeToolCallLocationJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallLocationJSON(raw []byte) (ToolCallLocation, error) {
-	return zod.Decode[ToolCallLocation](zodSchemas, "zToolCallLocation", raw)
-}
-
-// ValidateToolCallLocationJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallLocationJSON to obtain the normalized value.
-func ValidateToolCallLocationJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCallLocation", raw)
-	return err
-}
-
-// DecodeToolCallStatusJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallStatusJSON(raw []byte) (ToolCallStatus, error) {
-	return zod.Decode[ToolCallStatus](zodSchemas, "zToolCallStatus", raw)
-}
-
-// ValidateToolCallStatusJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallStatusJSON to obtain the normalized value.
-func ValidateToolCallStatusJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCallStatus", raw)
-	return err
-}
-
-// DecodeToolCallUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolCallUpdateJSON(raw []byte) (ToolCallUpdate, error) {
-	return zod.Decode[ToolCallUpdate](zodSchemas, "zToolCallUpdate", raw)
-}
-
-// ValidateToolCallUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolCallUpdateJSON to obtain the normalized value.
-func ValidateToolCallUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolCallUpdate", raw)
-	return err
-}
-
-// DecodeToolKindJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeToolKindJSON(raw []byte) (ToolKind, error) {
-	return zod.Decode[ToolKind](zodSchemas, "zToolKind", raw)
-}
-
-// ValidateToolKindJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeToolKindJSON to obtain the normalized value.
-func ValidateToolKindJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zToolKind", raw)
-	return err
-}
-
-// DecodeUnstructuredCommandInputJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeUnstructuredCommandInputJSON(raw []byte) (UnstructuredCommandInput, error) {
-	return zod.Decode[UnstructuredCommandInput](zodSchemas, "zUnstructuredCommandInput", raw)
-}
-
-// ValidateUnstructuredCommandInputJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeUnstructuredCommandInputJSON to obtain the normalized value.
-func ValidateUnstructuredCommandInputJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zUnstructuredCommandInput", raw)
-	return err
-}
-
-// DecodeUsageJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeUsageJSON(raw []byte) (Usage, error) { return zod.Decode[Usage](zodSchemas, "zUsage", raw) }
-
-// ValidateUsageJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeUsageJSON to obtain the normalized value.
-func ValidateUsageJSON(raw []byte) error { _, err := zodSchemas.Normalize("zUsage", raw); return err }
-
-// DecodeUsageUpdateJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeUsageUpdateJSON(raw []byte) (UsageUpdate, error) {
-	return zod.Decode[UsageUpdate](zodSchemas, "zUsageUpdate", raw)
-}
-
-// ValidateUsageUpdateJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeUsageUpdateJSON to obtain the normalized value.
-func ValidateUsageUpdateJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zUsageUpdate", raw)
-	return err
-}
-
-// DecodeWaitForTerminalExitRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeWaitForTerminalExitRequestJSON(raw []byte) (WaitForTerminalExitRequest, error) {
-	return zod.Decode[WaitForTerminalExitRequest](zodSchemas, "zWaitForTerminalExitRequest", raw)
-}
-
-// ValidateWaitForTerminalExitRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeWaitForTerminalExitRequestJSON to obtain the normalized value.
-func ValidateWaitForTerminalExitRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zWaitForTerminalExitRequest", raw)
-	return err
-}
-
-// DecodeWaitForTerminalExitResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeWaitForTerminalExitResponseJSON(raw []byte) (WaitForTerminalExitResponse, error) {
-	return zod.Decode[WaitForTerminalExitResponse](zodSchemas, "zWaitForTerminalExitResponse", raw)
-}
-
-// ValidateWaitForTerminalExitResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeWaitForTerminalExitResponseJSON to obtain the normalized value.
-func ValidateWaitForTerminalExitResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zWaitForTerminalExitResponse", raw)
-	return err
-}
-
-// DecodeWorkspaceFolderJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeWorkspaceFolderJSON(raw []byte) (WorkspaceFolder, error) {
-	return zod.Decode[WorkspaceFolder](zodSchemas, "zWorkspaceFolder", raw)
-}
-
-// ValidateWorkspaceFolderJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeWorkspaceFolderJSON to obtain the normalized value.
-func ValidateWorkspaceFolderJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zWorkspaceFolder", raw)
-	return err
-}
-
-// DecodeWriteTextFileRequestJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeWriteTextFileRequestJSON(raw []byte) (WriteTextFileRequest, error) {
-	return zod.Decode[WriteTextFileRequest](zodSchemas, "zWriteTextFileRequest", raw)
-}
-
-// ValidateWriteTextFileRequestJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeWriteTextFileRequestJSON to obtain the normalized value.
-func ValidateWriteTextFileRequestJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zWriteTextFileRequest", raw)
-	return err
-}
-
-// DecodeWriteTextFileResponseJSON applies the supported SDK Zod validation, defaults and recovery rules.
-func DecodeWriteTextFileResponseJSON(raw []byte) (WriteTextFileResponse, error) {
-	return zod.Decode[WriteTextFileResponse](zodSchemas, "zWriteTextFileResponse", raw)
-}
-
-// ValidateWriteTextFileResponseJSON checks whether the supported SDK Zod parser accepts raw.
-// Recovery and defaults are applied; use DecodeWriteTextFileResponseJSON to obtain the normalized value.
-func ValidateWriteTextFileResponseJSON(raw []byte) error {
-	_, err := zodSchemas.Normalize("zWriteTextFileResponse", raw)
+// zodTypes maps generated Go types to their Zod rule. Type aliases are not
+// listed; they share a reflect.Type with their underlying type.
+var zodTypes = map[reflect.Type]string{
+	reflect.TypeFor[AcceptNesNotification]():                    "zAcceptNesNotification",
+	reflect.TypeFor[AgentAuthCapabilities]():                    "zAgentAuthCapabilities",
+	reflect.TypeFor[AgentCapabilities]():                        "zAgentCapabilities",
+	reflect.TypeFor[AgentNotification]():                        "zAgentNotification",
+	reflect.TypeFor[AgentRequest]():                             "zAgentRequest",
+	reflect.TypeFor[AgentResponse]():                            "zAgentResponse",
+	reflect.TypeFor[Annotations]():                              "zAnnotations",
+	reflect.TypeFor[AudioContent]():                             "zAudioContent",
+	reflect.TypeFor[AuthCapabilities]():                         "zAuthCapabilities",
+	reflect.TypeFor[AuthMethod]():                               "zAuthMethod",
+	reflect.TypeFor[AuthMethodAgent]():                          "zAuthMethodAgent",
+	reflect.TypeFor[AuthMethodID]():                             "zAuthMethodId",
+	reflect.TypeFor[AuthMethodTerminal]():                       "zAuthMethodTerminal",
+	reflect.TypeFor[AuthenticateRequest]():                      "zAuthenticateRequest",
+	reflect.TypeFor[AuthenticateResponse]():                     "zAuthenticateResponse",
+	reflect.TypeFor[AvailableCommand]():                         "zAvailableCommand",
+	reflect.TypeFor[AvailableCommandsUpdate]():                  "zAvailableCommandsUpdate",
+	reflect.TypeFor[BlobResourceContents]():                     "zBlobResourceContents",
+	reflect.TypeFor[BooleanConfigOptionCapabilities]():          "zBooleanConfigOptionCapabilities",
+	reflect.TypeFor[BooleanPropertySchema]():                    "zBooleanPropertySchema",
+	reflect.TypeFor[CancelNotification]():                       "zCancelNotification",
+	reflect.TypeFor[CancelRequestNotification]():                "zCancelRequestNotification",
+	reflect.TypeFor[ClientCapabilities]():                       "zClientCapabilities",
+	reflect.TypeFor[ClientNesCapabilities]():                    "zClientNesCapabilities",
+	reflect.TypeFor[ClientNotification]():                       "zClientNotification",
+	reflect.TypeFor[ClientRequest]():                            "zClientRequest",
+	reflect.TypeFor[ClientResponse]():                           "zClientResponse",
+	reflect.TypeFor[ClientSessionCapabilities]():                "zClientSessionCapabilities",
+	reflect.TypeFor[CloseNesRequest]():                          "zCloseNesRequest",
+	reflect.TypeFor[CloseNesResponse]():                         "zCloseNesResponse",
+	reflect.TypeFor[CloseSessionRequest]():                      "zCloseSessionRequest",
+	reflect.TypeFor[CloseSessionResponse]():                     "zCloseSessionResponse",
+	reflect.TypeFor[CompactionID]():                             "zCompactionId",
+	reflect.TypeFor[CompactionStatus]():                         "zCompactionStatus",
+	reflect.TypeFor[CompactionSummaryChunk]():                   "zCompactionSummaryChunk",
+	reflect.TypeFor[CompactionUpdate]():                         "zCompactionUpdate",
+	reflect.TypeFor[CompleteElicitationNotification]():          "zCompleteElicitationNotification",
+	reflect.TypeFor[ConfigOptionUpdate]():                       "zConfigOptionUpdate",
+	reflect.TypeFor[ConnectMCPRequest]():                        "zConnectMcpRequest",
+	reflect.TypeFor[ConnectMCPResponse]():                       "zConnectMcpResponse",
+	reflect.TypeFor[Content]():                                  "zContent",
+	reflect.TypeFor[ContentBlock]():                             "zContentBlock",
+	reflect.TypeFor[ContentChunk]():                             "zContentChunk",
+	reflect.TypeFor[Cost]():                                     "zCost",
+	reflect.TypeFor[CreateElicitationRequest]():                 "zCreateElicitationRequest",
+	reflect.TypeFor[CreateElicitationResponse]():                "zCreateElicitationResponse",
+	reflect.TypeFor[CreateTerminalRequest]():                    "zCreateTerminalRequest",
+	reflect.TypeFor[CreateTerminalResponse]():                   "zCreateTerminalResponse",
+	reflect.TypeFor[CurrentModeUpdate]():                        "zCurrentModeUpdate",
+	reflect.TypeFor[DeleteSessionRequest]():                     "zDeleteSessionRequest",
+	reflect.TypeFor[DeleteSessionResponse]():                    "zDeleteSessionResponse",
+	reflect.TypeFor[DidChangeDocumentNotification]():            "zDidChangeDocumentNotification",
+	reflect.TypeFor[DidCloseDocumentNotification]():             "zDidCloseDocumentNotification",
+	reflect.TypeFor[DidFocusDocumentNotification]():             "zDidFocusDocumentNotification",
+	reflect.TypeFor[DidOpenDocumentNotification]():              "zDidOpenDocumentNotification",
+	reflect.TypeFor[DidSaveDocumentNotification]():              "zDidSaveDocumentNotification",
+	reflect.TypeFor[Diff]():                                     "zDiff",
+	reflect.TypeFor[DisableProviderRequest]():                   "zDisableProviderRequest",
+	reflect.TypeFor[DisableProviderResponse]():                  "zDisableProviderResponse",
+	reflect.TypeFor[DisconnectMCPRequest]():                     "zDisconnectMcpRequest",
+	reflect.TypeFor[DisconnectMCPResponse]():                    "zDisconnectMcpResponse",
+	reflect.TypeFor[ElicitationAcceptAction]():                  "zElicitationAcceptAction",
+	reflect.TypeFor[ElicitationCapabilities]():                  "zElicitationCapabilities",
+	reflect.TypeFor[ElicitationContentValue]():                  "zElicitationContentValue",
+	reflect.TypeFor[ElicitationFormCapabilities]():              "zElicitationFormCapabilities",
+	reflect.TypeFor[ElicitationFormMode]():                      "zElicitationFormMode",
+	reflect.TypeFor[ElicitationID]():                            "zElicitationId",
+	reflect.TypeFor[ElicitationPropertySchema]():                "zElicitationPropertySchema",
+	reflect.TypeFor[ElicitationRequestScope]():                  "zElicitationRequestScope",
+	reflect.TypeFor[ElicitationSchema]():                        "zElicitationSchema",
+	reflect.TypeFor[ElicitationSchemaType]():                    "zElicitationSchemaType",
+	reflect.TypeFor[ElicitationSessionScope]():                  "zElicitationSessionScope",
+	reflect.TypeFor[ElicitationURLCapabilities]():               "zElicitationUrlCapabilities",
+	reflect.TypeFor[ElicitationURLMode]():                       "zElicitationUrlMode",
+	reflect.TypeFor[EmbeddedResource]():                         "zEmbeddedResource",
+	reflect.TypeFor[EmbeddedResourceResource]():                 "zEmbeddedResourceResource",
+	reflect.TypeFor[EnumOption]():                               "zEnumOption",
+	reflect.TypeFor[EnvVariable]():                              "zEnvVariable",
+	reflect.TypeFor[Error]():                                    "zError",
+	reflect.TypeFor[ErrorCode]():                                "zErrorCode",
+	reflect.TypeFor[FileSystemCapabilities]():                   "zFileSystemCapabilities",
+	reflect.TypeFor[ForkSessionRequest]():                       "zForkSessionRequest",
+	reflect.TypeFor[ForkSessionResponse]():                      "zForkSessionResponse",
+	reflect.TypeFor[HTTPHeader]():                               "zHttpHeader",
+	reflect.TypeFor[ImageContent]():                             "zImageContent",
+	reflect.TypeFor[Implementation]():                           "zImplementation",
+	reflect.TypeFor[InitializeRequest]():                        "zInitializeRequest",
+	reflect.TypeFor[InitializeResponse]():                       "zInitializeResponse",
+	reflect.TypeFor[IntegerPropertySchema]():                    "zIntegerPropertySchema",
+	reflect.TypeFor[KillTerminalRequest]():                      "zKillTerminalRequest",
+	reflect.TypeFor[KillTerminalResponse]():                     "zKillTerminalResponse",
+	reflect.TypeFor[ListProvidersRequest]():                     "zListProvidersRequest",
+	reflect.TypeFor[ListProvidersResponse]():                    "zListProvidersResponse",
+	reflect.TypeFor[ListSessionsRequest]():                      "zListSessionsRequest",
+	reflect.TypeFor[ListSessionsResponse]():                     "zListSessionsResponse",
+	reflect.TypeFor[LlmProtocol]():                              "zLlmProtocol",
+	reflect.TypeFor[LoadSessionRequest]():                       "zLoadSessionRequest",
+	reflect.TypeFor[LoadSessionResponse]():                      "zLoadSessionResponse",
+	reflect.TypeFor[LogoutCapabilities]():                       "zLogoutCapabilities",
+	reflect.TypeFor[LogoutRequest]():                            "zLogoutRequest",
+	reflect.TypeFor[LogoutResponse]():                           "zLogoutResponse",
+	reflect.TypeFor[MCPCapabilities]():                          "zMcpCapabilities",
+	reflect.TypeFor[MCPConnectionID]():                          "zMcpConnectionId",
+	reflect.TypeFor[MCPServer]():                                "zMcpServer",
+	reflect.TypeFor[MCPServerACP]():                             "zMcpServerAcp",
+	reflect.TypeFor[MCPServerACPID]():                           "zMcpServerAcpId",
+	reflect.TypeFor[MCPServerHTTP]():                            "zMcpServerHttp",
+	reflect.TypeFor[MCPServerSse]():                             "zMcpServerSse",
+	reflect.TypeFor[MCPServerStdio]():                           "zMcpServerStdio",
+	reflect.TypeFor[MessageID]():                                "zMessageId",
+	reflect.TypeFor[MessageMCPNotification]():                   "zMessageMcpNotification",
+	reflect.TypeFor[MessageMCPRequest]():                        "zMessageMcpRequest",
+	reflect.TypeFor[MultiSelectItems]():                         "zMultiSelectItems",
+	reflect.TypeFor[MultiSelectPropertySchema]():                "zMultiSelectPropertySchema",
+	reflect.TypeFor[NesCapabilities]():                          "zNesCapabilities",
+	reflect.TypeFor[NesContextCapabilities]():                   "zNesContextCapabilities",
+	reflect.TypeFor[NesDiagnostic]():                            "zNesDiagnostic",
+	reflect.TypeFor[NesDiagnosticSeverity]():                    "zNesDiagnosticSeverity",
+	reflect.TypeFor[NesDiagnosticsCapabilities]():               "zNesDiagnosticsCapabilities",
+	reflect.TypeFor[NesDocumentDidChangeCapabilities]():         "zNesDocumentDidChangeCapabilities",
+	reflect.TypeFor[NesDocumentDidCloseCapabilities]():          "zNesDocumentDidCloseCapabilities",
+	reflect.TypeFor[NesDocumentDidFocusCapabilities]():          "zNesDocumentDidFocusCapabilities",
+	reflect.TypeFor[NesDocumentDidOpenCapabilities]():           "zNesDocumentDidOpenCapabilities",
+	reflect.TypeFor[NesDocumentDidSaveCapabilities]():           "zNesDocumentDidSaveCapabilities",
+	reflect.TypeFor[NesDocumentEventCapabilities]():             "zNesDocumentEventCapabilities",
+	reflect.TypeFor[NesEditHistoryCapabilities]():               "zNesEditHistoryCapabilities",
+	reflect.TypeFor[NesEditHistoryEntry]():                      "zNesEditHistoryEntry",
+	reflect.TypeFor[NesEditSuggestion]():                        "zNesEditSuggestion",
+	reflect.TypeFor[NesEventCapabilities]():                     "zNesEventCapabilities",
+	reflect.TypeFor[NesExcerpt]():                               "zNesExcerpt",
+	reflect.TypeFor[NesJumpCapabilities]():                      "zNesJumpCapabilities",
+	reflect.TypeFor[NesJumpSuggestion]():                        "zNesJumpSuggestion",
+	reflect.TypeFor[NesOpenFile]():                              "zNesOpenFile",
+	reflect.TypeFor[NesOpenFilesCapabilities]():                 "zNesOpenFilesCapabilities",
+	reflect.TypeFor[NesRecentFile]():                            "zNesRecentFile",
+	reflect.TypeFor[NesRecentFilesCapabilities]():               "zNesRecentFilesCapabilities",
+	reflect.TypeFor[NesRejectReason]():                          "zNesRejectReason",
+	reflect.TypeFor[NesRelatedSnippet]():                        "zNesRelatedSnippet",
+	reflect.TypeFor[NesRelatedSnippetsCapabilities]():           "zNesRelatedSnippetsCapabilities",
+	reflect.TypeFor[NesRenameCapabilities]():                    "zNesRenameCapabilities",
+	reflect.TypeFor[NesRenameSuggestion]():                      "zNesRenameSuggestion",
+	reflect.TypeFor[NesRepository]():                            "zNesRepository",
+	reflect.TypeFor[NesSearchAndReplaceCapabilities]():          "zNesSearchAndReplaceCapabilities",
+	reflect.TypeFor[NesSearchAndReplaceSuggestion]():            "zNesSearchAndReplaceSuggestion",
+	reflect.TypeFor[NesSuggestContext]():                        "zNesSuggestContext",
+	reflect.TypeFor[NesSuggestion]():                            "zNesSuggestion",
+	reflect.TypeFor[NesSuggestionID]():                          "zNesSuggestionId",
+	reflect.TypeFor[NesTextEdit]():                              "zNesTextEdit",
+	reflect.TypeFor[NesTriggerKind]():                           "zNesTriggerKind",
+	reflect.TypeFor[NesUserAction]():                            "zNesUserAction",
+	reflect.TypeFor[NesUserActionsCapabilities]():               "zNesUserActionsCapabilities",
+	reflect.TypeFor[NewSessionRequest]():                        "zNewSessionRequest",
+	reflect.TypeFor[NewSessionResponse]():                       "zNewSessionResponse",
+	reflect.TypeFor[Notice]():                                   "zNotice",
+	reflect.TypeFor[NoticeSeverity]():                           "zNoticeSeverity",
+	reflect.TypeFor[NumberPropertySchema]():                     "zNumberPropertySchema",
+	reflect.TypeFor[PermissionOption]():                         "zPermissionOption",
+	reflect.TypeFor[PermissionOptionID]():                       "zPermissionOptionId",
+	reflect.TypeFor[PermissionOptionKind]():                     "zPermissionOptionKind",
+	reflect.TypeFor[Plan]():                                     "zPlan",
+	reflect.TypeFor[PlanCapabilities]():                         "zPlanCapabilities",
+	reflect.TypeFor[PlanEntry]():                                "zPlanEntry",
+	reflect.TypeFor[PlanEntryPriority]():                        "zPlanEntryPriority",
+	reflect.TypeFor[PlanEntryStatus]():                          "zPlanEntryStatus",
+	reflect.TypeFor[PlanFile]():                                 "zPlanFile",
+	reflect.TypeFor[PlanID]():                                   "zPlanId",
+	reflect.TypeFor[PlanItems]():                                "zPlanItems",
+	reflect.TypeFor[PlanMarkdown]():                             "zPlanMarkdown",
+	reflect.TypeFor[PlanRemoved]():                              "zPlanRemoved",
+	reflect.TypeFor[PlanUpdate]():                               "zPlanUpdate",
+	reflect.TypeFor[PlanUpdateContent]():                        "zPlanUpdateContent",
+	reflect.TypeFor[Position]():                                 "zPosition",
+	reflect.TypeFor[PositionEncodingKind]():                     "zPositionEncodingKind",
+	reflect.TypeFor[PromptCapabilities]():                       "zPromptCapabilities",
+	reflect.TypeFor[PromptRequest]():                            "zPromptRequest",
+	reflect.TypeFor[PromptResponse]():                           "zPromptResponse",
+	reflect.TypeFor[ProtocolVersion]():                          "zProtocolVersion",
+	reflect.TypeFor[ProviderCurrentConfig]():                    "zProviderCurrentConfig",
+	reflect.TypeFor[ProviderID]():                               "zProviderId",
+	reflect.TypeFor[ProviderInfo]():                             "zProviderInfo",
+	reflect.TypeFor[ProvidersCapabilities]():                    "zProvidersCapabilities",
+	reflect.TypeFor[Range]():                                    "zRange",
+	reflect.TypeFor[ReadTextFileRequest]():                      "zReadTextFileRequest",
+	reflect.TypeFor[ReadTextFileResponse]():                     "zReadTextFileResponse",
+	reflect.TypeFor[RejectNesNotification]():                    "zRejectNesNotification",
+	reflect.TypeFor[ReleaseTerminalRequest]():                   "zReleaseTerminalRequest",
+	reflect.TypeFor[ReleaseTerminalResponse]():                  "zReleaseTerminalResponse",
+	reflect.TypeFor[RequestID]():                                "zRequestId",
+	reflect.TypeFor[RequestPermissionOutcome]():                 "zRequestPermissionOutcome",
+	reflect.TypeFor[RequestPermissionRequest]():                 "zRequestPermissionRequest",
+	reflect.TypeFor[RequestPermissionResponse]():                "zRequestPermissionResponse",
+	reflect.TypeFor[ResourceLink]():                             "zResourceLink",
+	reflect.TypeFor[ResumeSessionRequest]():                     "zResumeSessionRequest",
+	reflect.TypeFor[ResumeSessionResponse]():                    "zResumeSessionResponse",
+	reflect.TypeFor[Role]():                                     "zRole",
+	reflect.TypeFor[SelectedPermissionOutcome]():                "zSelectedPermissionOutcome",
+	reflect.TypeFor[SessionAdditionalDirectoriesCapabilities](): "zSessionAdditionalDirectoriesCapabilities",
+	reflect.TypeFor[SessionCapabilities]():                      "zSessionCapabilities",
+	reflect.TypeFor[SessionCloseCapabilities]():                 "zSessionCloseCapabilities",
+	reflect.TypeFor[SessionConfigBoolean]():                     "zSessionConfigBoolean",
+	reflect.TypeFor[SessionConfigGroupID]():                     "zSessionConfigGroupId",
+	reflect.TypeFor[SessionConfigID]():                          "zSessionConfigId",
+	reflect.TypeFor[SessionConfigOption]():                      "zSessionConfigOption",
+	reflect.TypeFor[SessionConfigOptionCategory]():              "zSessionConfigOptionCategory",
+	reflect.TypeFor[SessionConfigOptionsCapabilities]():         "zSessionConfigOptionsCapabilities",
+	reflect.TypeFor[SessionConfigSelect]():                      "zSessionConfigSelect",
+	reflect.TypeFor[SessionConfigSelectGroup]():                 "zSessionConfigSelectGroup",
+	reflect.TypeFor[SessionConfigSelectOption]():                "zSessionConfigSelectOption",
+	reflect.TypeFor[SessionConfigSelectOptions]():               "zSessionConfigSelectOptions",
+	reflect.TypeFor[SessionConfigValueID]():                     "zSessionConfigValueId",
+	reflect.TypeFor[SessionDeleteCapabilities]():                "zSessionDeleteCapabilities",
+	reflect.TypeFor[SessionForkCapabilities]():                  "zSessionForkCapabilities",
+	reflect.TypeFor[SessionID]():                                "zSessionId",
+	reflect.TypeFor[SessionInfo]():                              "zSessionInfo",
+	reflect.TypeFor[SessionInfoUpdate]():                        "zSessionInfoUpdate",
+	reflect.TypeFor[SessionListCapabilities]():                  "zSessionListCapabilities",
+	reflect.TypeFor[SessionMode]():                              "zSessionMode",
+	reflect.TypeFor[SessionModeID]():                            "zSessionModeId",
+	reflect.TypeFor[SessionModeState]():                         "zSessionModeState",
+	reflect.TypeFor[SessionNotification]():                      "zSessionNotification",
+	reflect.TypeFor[SessionResumeCapabilities]():                "zSessionResumeCapabilities",
+	reflect.TypeFor[SessionUpdate]():                            "zSessionUpdate",
+	reflect.TypeFor[SetProviderRequest]():                       "zSetProviderRequest",
+	reflect.TypeFor[SetProviderResponse]():                      "zSetProviderResponse",
+	reflect.TypeFor[SetSessionConfigOptionRequest]():            "zSetSessionConfigOptionRequest",
+	reflect.TypeFor[SetSessionConfigOptionResponse]():           "zSetSessionConfigOptionResponse",
+	reflect.TypeFor[SetSessionModeRequest]():                    "zSetSessionModeRequest",
+	reflect.TypeFor[SetSessionModeResponse]():                   "zSetSessionModeResponse",
+	reflect.TypeFor[StartNesRequest]():                          "zStartNesRequest",
+	reflect.TypeFor[StartNesResponse]():                         "zStartNesResponse",
+	reflect.TypeFor[StopReason]():                               "zStopReason",
+	reflect.TypeFor[StringFormat]():                             "zStringFormat",
+	reflect.TypeFor[StringMultiSelectItems]():                   "zStringMultiSelectItems",
+	reflect.TypeFor[StringPropertySchema]():                     "zStringPropertySchema",
+	reflect.TypeFor[SuggestNesRequest]():                        "zSuggestNesRequest",
+	reflect.TypeFor[SuggestNesResponse]():                       "zSuggestNesResponse",
+	reflect.TypeFor[Terminal]():                                 "zTerminal",
+	reflect.TypeFor[TerminalExitStatus]():                       "zTerminalExitStatus",
+	reflect.TypeFor[TerminalID]():                               "zTerminalId",
+	reflect.TypeFor[TerminalOutputRequest]():                    "zTerminalOutputRequest",
+	reflect.TypeFor[TerminalOutputResponse]():                   "zTerminalOutputResponse",
+	reflect.TypeFor[TextContent]():                              "zTextContent",
+	reflect.TypeFor[TextDocumentContentChangeEvent]():           "zTextDocumentContentChangeEvent",
+	reflect.TypeFor[TextDocumentSyncKind]():                     "zTextDocumentSyncKind",
+	reflect.TypeFor[TextResourceContents]():                     "zTextResourceContents",
+	reflect.TypeFor[TitledMultiSelectItems]():                   "zTitledMultiSelectItems",
+	reflect.TypeFor[ToolCall]():                                 "zToolCall",
+	reflect.TypeFor[ToolCallContent]():                          "zToolCallContent",
+	reflect.TypeFor[ToolCallID]():                               "zToolCallId",
+	reflect.TypeFor[ToolCallLocation]():                         "zToolCallLocation",
+	reflect.TypeFor[ToolCallStatus]():                           "zToolCallStatus",
+	reflect.TypeFor[ToolCallUpdate]():                           "zToolCallUpdate",
+	reflect.TypeFor[ToolKind]():                                 "zToolKind",
+	reflect.TypeFor[UnstructuredCommandInput]():                 "zUnstructuredCommandInput",
+	reflect.TypeFor[Usage]():                                    "zUsage",
+	reflect.TypeFor[UsageUpdate]():                              "zUsageUpdate",
+	reflect.TypeFor[WaitForTerminalExitRequest]():               "zWaitForTerminalExitRequest",
+	reflect.TypeFor[WaitForTerminalExitResponse]():              "zWaitForTerminalExitResponse",
+	reflect.TypeFor[WorkspaceFolder]():                          "zWorkspaceFolder",
+	reflect.TypeFor[WriteTextFileRequest]():                     "zWriteTextFileRequest",
+	reflect.TypeFor[WriteTextFileResponse]():                    "zWriteTextFileResponse",
+}
+
+// Validated is a json.Options value that applies the SDK Zod validation, default and
+// recovery rules to every generated type encountered while unmarshaling:
+//
+//	json.Unmarshal(data, &v, schema.Validated)
+//
+// Type aliases are decoded as their underlying type.
+var Validated = json.WithUnmarshalers(json.JoinUnmarshalers(
+	zod.Unmarshaler[AcceptNesNotification](zodSchemas, "zAcceptNesNotification"),
+	zod.Unmarshaler[AgentAuthCapabilities](zodSchemas, "zAgentAuthCapabilities"),
+	zod.Unmarshaler[AgentCapabilities](zodSchemas, "zAgentCapabilities"),
+	zod.Unmarshaler[AgentNotification](zodSchemas, "zAgentNotification"),
+	zod.Unmarshaler[AgentRequest](zodSchemas, "zAgentRequest"),
+	zod.Unmarshaler[AgentResponse](zodSchemas, "zAgentResponse"),
+	zod.Unmarshaler[Annotations](zodSchemas, "zAnnotations"),
+	zod.Unmarshaler[AudioContent](zodSchemas, "zAudioContent"),
+	zod.Unmarshaler[AuthCapabilities](zodSchemas, "zAuthCapabilities"),
+	zod.Unmarshaler[AuthMethod](zodSchemas, "zAuthMethod"),
+	zod.Unmarshaler[AuthMethodAgent](zodSchemas, "zAuthMethodAgent"),
+	zod.Unmarshaler[AuthMethodID](zodSchemas, "zAuthMethodId"),
+	zod.Unmarshaler[AuthMethodTerminal](zodSchemas, "zAuthMethodTerminal"),
+	zod.Unmarshaler[AuthenticateRequest](zodSchemas, "zAuthenticateRequest"),
+	zod.Unmarshaler[AuthenticateResponse](zodSchemas, "zAuthenticateResponse"),
+	zod.Unmarshaler[AvailableCommand](zodSchemas, "zAvailableCommand"),
+	zod.Unmarshaler[AvailableCommandsUpdate](zodSchemas, "zAvailableCommandsUpdate"),
+	zod.Unmarshaler[BlobResourceContents](zodSchemas, "zBlobResourceContents"),
+	zod.Unmarshaler[BooleanConfigOptionCapabilities](zodSchemas, "zBooleanConfigOptionCapabilities"),
+	zod.Unmarshaler[BooleanPropertySchema](zodSchemas, "zBooleanPropertySchema"),
+	zod.Unmarshaler[CancelNotification](zodSchemas, "zCancelNotification"),
+	zod.Unmarshaler[CancelRequestNotification](zodSchemas, "zCancelRequestNotification"),
+	zod.Unmarshaler[ClientCapabilities](zodSchemas, "zClientCapabilities"),
+	zod.Unmarshaler[ClientNesCapabilities](zodSchemas, "zClientNesCapabilities"),
+	zod.Unmarshaler[ClientNotification](zodSchemas, "zClientNotification"),
+	zod.Unmarshaler[ClientRequest](zodSchemas, "zClientRequest"),
+	zod.Unmarshaler[ClientResponse](zodSchemas, "zClientResponse"),
+	zod.Unmarshaler[ClientSessionCapabilities](zodSchemas, "zClientSessionCapabilities"),
+	zod.Unmarshaler[CloseNesRequest](zodSchemas, "zCloseNesRequest"),
+	zod.Unmarshaler[CloseNesResponse](zodSchemas, "zCloseNesResponse"),
+	zod.Unmarshaler[CloseSessionRequest](zodSchemas, "zCloseSessionRequest"),
+	zod.Unmarshaler[CloseSessionResponse](zodSchemas, "zCloseSessionResponse"),
+	zod.Unmarshaler[CompactionID](zodSchemas, "zCompactionId"),
+	zod.Unmarshaler[CompactionStatus](zodSchemas, "zCompactionStatus"),
+	zod.Unmarshaler[CompactionSummaryChunk](zodSchemas, "zCompactionSummaryChunk"),
+	zod.Unmarshaler[CompactionUpdate](zodSchemas, "zCompactionUpdate"),
+	zod.Unmarshaler[CompleteElicitationNotification](zodSchemas, "zCompleteElicitationNotification"),
+	zod.Unmarshaler[ConfigOptionUpdate](zodSchemas, "zConfigOptionUpdate"),
+	zod.Unmarshaler[ConnectMCPRequest](zodSchemas, "zConnectMcpRequest"),
+	zod.Unmarshaler[ConnectMCPResponse](zodSchemas, "zConnectMcpResponse"),
+	zod.Unmarshaler[Content](zodSchemas, "zContent"),
+	zod.Unmarshaler[ContentBlock](zodSchemas, "zContentBlock"),
+	zod.Unmarshaler[ContentChunk](zodSchemas, "zContentChunk"),
+	zod.Unmarshaler[Cost](zodSchemas, "zCost"),
+	zod.Unmarshaler[CreateElicitationRequest](zodSchemas, "zCreateElicitationRequest"),
+	zod.Unmarshaler[CreateElicitationResponse](zodSchemas, "zCreateElicitationResponse"),
+	zod.Unmarshaler[CreateTerminalRequest](zodSchemas, "zCreateTerminalRequest"),
+	zod.Unmarshaler[CreateTerminalResponse](zodSchemas, "zCreateTerminalResponse"),
+	zod.Unmarshaler[CurrentModeUpdate](zodSchemas, "zCurrentModeUpdate"),
+	zod.Unmarshaler[DeleteSessionRequest](zodSchemas, "zDeleteSessionRequest"),
+	zod.Unmarshaler[DeleteSessionResponse](zodSchemas, "zDeleteSessionResponse"),
+	zod.Unmarshaler[DidChangeDocumentNotification](zodSchemas, "zDidChangeDocumentNotification"),
+	zod.Unmarshaler[DidCloseDocumentNotification](zodSchemas, "zDidCloseDocumentNotification"),
+	zod.Unmarshaler[DidFocusDocumentNotification](zodSchemas, "zDidFocusDocumentNotification"),
+	zod.Unmarshaler[DidOpenDocumentNotification](zodSchemas, "zDidOpenDocumentNotification"),
+	zod.Unmarshaler[DidSaveDocumentNotification](zodSchemas, "zDidSaveDocumentNotification"),
+	zod.Unmarshaler[Diff](zodSchemas, "zDiff"),
+	zod.Unmarshaler[DisableProviderRequest](zodSchemas, "zDisableProviderRequest"),
+	zod.Unmarshaler[DisableProviderResponse](zodSchemas, "zDisableProviderResponse"),
+	zod.Unmarshaler[DisconnectMCPRequest](zodSchemas, "zDisconnectMcpRequest"),
+	zod.Unmarshaler[DisconnectMCPResponse](zodSchemas, "zDisconnectMcpResponse"),
+	zod.Unmarshaler[ElicitationAcceptAction](zodSchemas, "zElicitationAcceptAction"),
+	zod.Unmarshaler[ElicitationCapabilities](zodSchemas, "zElicitationCapabilities"),
+	zod.Unmarshaler[ElicitationContentValue](zodSchemas, "zElicitationContentValue"),
+	zod.Unmarshaler[ElicitationFormCapabilities](zodSchemas, "zElicitationFormCapabilities"),
+	zod.Unmarshaler[ElicitationFormMode](zodSchemas, "zElicitationFormMode"),
+	zod.Unmarshaler[ElicitationID](zodSchemas, "zElicitationId"),
+	zod.Unmarshaler[ElicitationPropertySchema](zodSchemas, "zElicitationPropertySchema"),
+	zod.Unmarshaler[ElicitationRequestScope](zodSchemas, "zElicitationRequestScope"),
+	zod.Unmarshaler[ElicitationSchema](zodSchemas, "zElicitationSchema"),
+	zod.Unmarshaler[ElicitationSchemaType](zodSchemas, "zElicitationSchemaType"),
+	zod.Unmarshaler[ElicitationSessionScope](zodSchemas, "zElicitationSessionScope"),
+	zod.Unmarshaler[ElicitationURLCapabilities](zodSchemas, "zElicitationUrlCapabilities"),
+	zod.Unmarshaler[ElicitationURLMode](zodSchemas, "zElicitationUrlMode"),
+	zod.Unmarshaler[EmbeddedResource](zodSchemas, "zEmbeddedResource"),
+	zod.Unmarshaler[EmbeddedResourceResource](zodSchemas, "zEmbeddedResourceResource"),
+	zod.Unmarshaler[EnumOption](zodSchemas, "zEnumOption"),
+	zod.Unmarshaler[EnvVariable](zodSchemas, "zEnvVariable"),
+	zod.Unmarshaler[Error](zodSchemas, "zError"),
+	zod.Unmarshaler[ErrorCode](zodSchemas, "zErrorCode"),
+	zod.Unmarshaler[FileSystemCapabilities](zodSchemas, "zFileSystemCapabilities"),
+	zod.Unmarshaler[ForkSessionRequest](zodSchemas, "zForkSessionRequest"),
+	zod.Unmarshaler[ForkSessionResponse](zodSchemas, "zForkSessionResponse"),
+	zod.Unmarshaler[HTTPHeader](zodSchemas, "zHttpHeader"),
+	zod.Unmarshaler[ImageContent](zodSchemas, "zImageContent"),
+	zod.Unmarshaler[Implementation](zodSchemas, "zImplementation"),
+	zod.Unmarshaler[InitializeRequest](zodSchemas, "zInitializeRequest"),
+	zod.Unmarshaler[InitializeResponse](zodSchemas, "zInitializeResponse"),
+	zod.Unmarshaler[IntegerPropertySchema](zodSchemas, "zIntegerPropertySchema"),
+	zod.Unmarshaler[KillTerminalRequest](zodSchemas, "zKillTerminalRequest"),
+	zod.Unmarshaler[KillTerminalResponse](zodSchemas, "zKillTerminalResponse"),
+	zod.Unmarshaler[ListProvidersRequest](zodSchemas, "zListProvidersRequest"),
+	zod.Unmarshaler[ListProvidersResponse](zodSchemas, "zListProvidersResponse"),
+	zod.Unmarshaler[ListSessionsRequest](zodSchemas, "zListSessionsRequest"),
+	zod.Unmarshaler[ListSessionsResponse](zodSchemas, "zListSessionsResponse"),
+	zod.Unmarshaler[LlmProtocol](zodSchemas, "zLlmProtocol"),
+	zod.Unmarshaler[LoadSessionRequest](zodSchemas, "zLoadSessionRequest"),
+	zod.Unmarshaler[LoadSessionResponse](zodSchemas, "zLoadSessionResponse"),
+	zod.Unmarshaler[LogoutCapabilities](zodSchemas, "zLogoutCapabilities"),
+	zod.Unmarshaler[LogoutRequest](zodSchemas, "zLogoutRequest"),
+	zod.Unmarshaler[LogoutResponse](zodSchemas, "zLogoutResponse"),
+	zod.Unmarshaler[MCPCapabilities](zodSchemas, "zMcpCapabilities"),
+	zod.Unmarshaler[MCPConnectionID](zodSchemas, "zMcpConnectionId"),
+	zod.Unmarshaler[MCPServer](zodSchemas, "zMcpServer"),
+	zod.Unmarshaler[MCPServerACP](zodSchemas, "zMcpServerAcp"),
+	zod.Unmarshaler[MCPServerACPID](zodSchemas, "zMcpServerAcpId"),
+	zod.Unmarshaler[MCPServerHTTP](zodSchemas, "zMcpServerHttp"),
+	zod.Unmarshaler[MCPServerSse](zodSchemas, "zMcpServerSse"),
+	zod.Unmarshaler[MCPServerStdio](zodSchemas, "zMcpServerStdio"),
+	zod.Unmarshaler[MessageID](zodSchemas, "zMessageId"),
+	zod.Unmarshaler[MessageMCPNotification](zodSchemas, "zMessageMcpNotification"),
+	zod.Unmarshaler[MessageMCPRequest](zodSchemas, "zMessageMcpRequest"),
+	zod.Unmarshaler[MultiSelectItems](zodSchemas, "zMultiSelectItems"),
+	zod.Unmarshaler[MultiSelectPropertySchema](zodSchemas, "zMultiSelectPropertySchema"),
+	zod.Unmarshaler[NesCapabilities](zodSchemas, "zNesCapabilities"),
+	zod.Unmarshaler[NesContextCapabilities](zodSchemas, "zNesContextCapabilities"),
+	zod.Unmarshaler[NesDiagnostic](zodSchemas, "zNesDiagnostic"),
+	zod.Unmarshaler[NesDiagnosticSeverity](zodSchemas, "zNesDiagnosticSeverity"),
+	zod.Unmarshaler[NesDiagnosticsCapabilities](zodSchemas, "zNesDiagnosticsCapabilities"),
+	zod.Unmarshaler[NesDocumentDidChangeCapabilities](zodSchemas, "zNesDocumentDidChangeCapabilities"),
+	zod.Unmarshaler[NesDocumentDidCloseCapabilities](zodSchemas, "zNesDocumentDidCloseCapabilities"),
+	zod.Unmarshaler[NesDocumentDidFocusCapabilities](zodSchemas, "zNesDocumentDidFocusCapabilities"),
+	zod.Unmarshaler[NesDocumentDidOpenCapabilities](zodSchemas, "zNesDocumentDidOpenCapabilities"),
+	zod.Unmarshaler[NesDocumentDidSaveCapabilities](zodSchemas, "zNesDocumentDidSaveCapabilities"),
+	zod.Unmarshaler[NesDocumentEventCapabilities](zodSchemas, "zNesDocumentEventCapabilities"),
+	zod.Unmarshaler[NesEditHistoryCapabilities](zodSchemas, "zNesEditHistoryCapabilities"),
+	zod.Unmarshaler[NesEditHistoryEntry](zodSchemas, "zNesEditHistoryEntry"),
+	zod.Unmarshaler[NesEditSuggestion](zodSchemas, "zNesEditSuggestion"),
+	zod.Unmarshaler[NesEventCapabilities](zodSchemas, "zNesEventCapabilities"),
+	zod.Unmarshaler[NesExcerpt](zodSchemas, "zNesExcerpt"),
+	zod.Unmarshaler[NesJumpCapabilities](zodSchemas, "zNesJumpCapabilities"),
+	zod.Unmarshaler[NesJumpSuggestion](zodSchemas, "zNesJumpSuggestion"),
+	zod.Unmarshaler[NesOpenFile](zodSchemas, "zNesOpenFile"),
+	zod.Unmarshaler[NesOpenFilesCapabilities](zodSchemas, "zNesOpenFilesCapabilities"),
+	zod.Unmarshaler[NesRecentFile](zodSchemas, "zNesRecentFile"),
+	zod.Unmarshaler[NesRecentFilesCapabilities](zodSchemas, "zNesRecentFilesCapabilities"),
+	zod.Unmarshaler[NesRejectReason](zodSchemas, "zNesRejectReason"),
+	zod.Unmarshaler[NesRelatedSnippet](zodSchemas, "zNesRelatedSnippet"),
+	zod.Unmarshaler[NesRelatedSnippetsCapabilities](zodSchemas, "zNesRelatedSnippetsCapabilities"),
+	zod.Unmarshaler[NesRenameCapabilities](zodSchemas, "zNesRenameCapabilities"),
+	zod.Unmarshaler[NesRenameSuggestion](zodSchemas, "zNesRenameSuggestion"),
+	zod.Unmarshaler[NesRepository](zodSchemas, "zNesRepository"),
+	zod.Unmarshaler[NesSearchAndReplaceCapabilities](zodSchemas, "zNesSearchAndReplaceCapabilities"),
+	zod.Unmarshaler[NesSearchAndReplaceSuggestion](zodSchemas, "zNesSearchAndReplaceSuggestion"),
+	zod.Unmarshaler[NesSuggestContext](zodSchemas, "zNesSuggestContext"),
+	zod.Unmarshaler[NesSuggestion](zodSchemas, "zNesSuggestion"),
+	zod.Unmarshaler[NesSuggestionID](zodSchemas, "zNesSuggestionId"),
+	zod.Unmarshaler[NesTextEdit](zodSchemas, "zNesTextEdit"),
+	zod.Unmarshaler[NesTriggerKind](zodSchemas, "zNesTriggerKind"),
+	zod.Unmarshaler[NesUserAction](zodSchemas, "zNesUserAction"),
+	zod.Unmarshaler[NesUserActionsCapabilities](zodSchemas, "zNesUserActionsCapabilities"),
+	zod.Unmarshaler[NewSessionRequest](zodSchemas, "zNewSessionRequest"),
+	zod.Unmarshaler[NewSessionResponse](zodSchemas, "zNewSessionResponse"),
+	zod.Unmarshaler[Notice](zodSchemas, "zNotice"),
+	zod.Unmarshaler[NoticeSeverity](zodSchemas, "zNoticeSeverity"),
+	zod.Unmarshaler[NumberPropertySchema](zodSchemas, "zNumberPropertySchema"),
+	zod.Unmarshaler[PermissionOption](zodSchemas, "zPermissionOption"),
+	zod.Unmarshaler[PermissionOptionID](zodSchemas, "zPermissionOptionId"),
+	zod.Unmarshaler[PermissionOptionKind](zodSchemas, "zPermissionOptionKind"),
+	zod.Unmarshaler[Plan](zodSchemas, "zPlan"),
+	zod.Unmarshaler[PlanCapabilities](zodSchemas, "zPlanCapabilities"),
+	zod.Unmarshaler[PlanEntry](zodSchemas, "zPlanEntry"),
+	zod.Unmarshaler[PlanEntryPriority](zodSchemas, "zPlanEntryPriority"),
+	zod.Unmarshaler[PlanEntryStatus](zodSchemas, "zPlanEntryStatus"),
+	zod.Unmarshaler[PlanFile](zodSchemas, "zPlanFile"),
+	zod.Unmarshaler[PlanID](zodSchemas, "zPlanId"),
+	zod.Unmarshaler[PlanItems](zodSchemas, "zPlanItems"),
+	zod.Unmarshaler[PlanMarkdown](zodSchemas, "zPlanMarkdown"),
+	zod.Unmarshaler[PlanRemoved](zodSchemas, "zPlanRemoved"),
+	zod.Unmarshaler[PlanUpdate](zodSchemas, "zPlanUpdate"),
+	zod.Unmarshaler[PlanUpdateContent](zodSchemas, "zPlanUpdateContent"),
+	zod.Unmarshaler[Position](zodSchemas, "zPosition"),
+	zod.Unmarshaler[PositionEncodingKind](zodSchemas, "zPositionEncodingKind"),
+	zod.Unmarshaler[PromptCapabilities](zodSchemas, "zPromptCapabilities"),
+	zod.Unmarshaler[PromptRequest](zodSchemas, "zPromptRequest"),
+	zod.Unmarshaler[PromptResponse](zodSchemas, "zPromptResponse"),
+	zod.Unmarshaler[ProtocolVersion](zodSchemas, "zProtocolVersion"),
+	zod.Unmarshaler[ProviderCurrentConfig](zodSchemas, "zProviderCurrentConfig"),
+	zod.Unmarshaler[ProviderID](zodSchemas, "zProviderId"),
+	zod.Unmarshaler[ProviderInfo](zodSchemas, "zProviderInfo"),
+	zod.Unmarshaler[ProvidersCapabilities](zodSchemas, "zProvidersCapabilities"),
+	zod.Unmarshaler[Range](zodSchemas, "zRange"),
+	zod.Unmarshaler[ReadTextFileRequest](zodSchemas, "zReadTextFileRequest"),
+	zod.Unmarshaler[ReadTextFileResponse](zodSchemas, "zReadTextFileResponse"),
+	zod.Unmarshaler[RejectNesNotification](zodSchemas, "zRejectNesNotification"),
+	zod.Unmarshaler[ReleaseTerminalRequest](zodSchemas, "zReleaseTerminalRequest"),
+	zod.Unmarshaler[ReleaseTerminalResponse](zodSchemas, "zReleaseTerminalResponse"),
+	zod.Unmarshaler[RequestID](zodSchemas, "zRequestId"),
+	zod.Unmarshaler[RequestPermissionOutcome](zodSchemas, "zRequestPermissionOutcome"),
+	zod.Unmarshaler[RequestPermissionRequest](zodSchemas, "zRequestPermissionRequest"),
+	zod.Unmarshaler[RequestPermissionResponse](zodSchemas, "zRequestPermissionResponse"),
+	zod.Unmarshaler[ResourceLink](zodSchemas, "zResourceLink"),
+	zod.Unmarshaler[ResumeSessionRequest](zodSchemas, "zResumeSessionRequest"),
+	zod.Unmarshaler[ResumeSessionResponse](zodSchemas, "zResumeSessionResponse"),
+	zod.Unmarshaler[Role](zodSchemas, "zRole"),
+	zod.Unmarshaler[SelectedPermissionOutcome](zodSchemas, "zSelectedPermissionOutcome"),
+	zod.Unmarshaler[SessionAdditionalDirectoriesCapabilities](zodSchemas, "zSessionAdditionalDirectoriesCapabilities"),
+	zod.Unmarshaler[SessionCapabilities](zodSchemas, "zSessionCapabilities"),
+	zod.Unmarshaler[SessionCloseCapabilities](zodSchemas, "zSessionCloseCapabilities"),
+	zod.Unmarshaler[SessionConfigBoolean](zodSchemas, "zSessionConfigBoolean"),
+	zod.Unmarshaler[SessionConfigGroupID](zodSchemas, "zSessionConfigGroupId"),
+	zod.Unmarshaler[SessionConfigID](zodSchemas, "zSessionConfigId"),
+	zod.Unmarshaler[SessionConfigOption](zodSchemas, "zSessionConfigOption"),
+	zod.Unmarshaler[SessionConfigOptionCategory](zodSchemas, "zSessionConfigOptionCategory"),
+	zod.Unmarshaler[SessionConfigOptionsCapabilities](zodSchemas, "zSessionConfigOptionsCapabilities"),
+	zod.Unmarshaler[SessionConfigSelect](zodSchemas, "zSessionConfigSelect"),
+	zod.Unmarshaler[SessionConfigSelectGroup](zodSchemas, "zSessionConfigSelectGroup"),
+	zod.Unmarshaler[SessionConfigSelectOption](zodSchemas, "zSessionConfigSelectOption"),
+	zod.Unmarshaler[SessionConfigSelectOptions](zodSchemas, "zSessionConfigSelectOptions"),
+	zod.Unmarshaler[SessionConfigValueID](zodSchemas, "zSessionConfigValueId"),
+	zod.Unmarshaler[SessionDeleteCapabilities](zodSchemas, "zSessionDeleteCapabilities"),
+	zod.Unmarshaler[SessionForkCapabilities](zodSchemas, "zSessionForkCapabilities"),
+	zod.Unmarshaler[SessionID](zodSchemas, "zSessionId"),
+	zod.Unmarshaler[SessionInfo](zodSchemas, "zSessionInfo"),
+	zod.Unmarshaler[SessionInfoUpdate](zodSchemas, "zSessionInfoUpdate"),
+	zod.Unmarshaler[SessionListCapabilities](zodSchemas, "zSessionListCapabilities"),
+	zod.Unmarshaler[SessionMode](zodSchemas, "zSessionMode"),
+	zod.Unmarshaler[SessionModeID](zodSchemas, "zSessionModeId"),
+	zod.Unmarshaler[SessionModeState](zodSchemas, "zSessionModeState"),
+	zod.Unmarshaler[SessionNotification](zodSchemas, "zSessionNotification"),
+	zod.Unmarshaler[SessionResumeCapabilities](zodSchemas, "zSessionResumeCapabilities"),
+	zod.Unmarshaler[SessionUpdate](zodSchemas, "zSessionUpdate"),
+	zod.Unmarshaler[SetProviderRequest](zodSchemas, "zSetProviderRequest"),
+	zod.Unmarshaler[SetProviderResponse](zodSchemas, "zSetProviderResponse"),
+	zod.Unmarshaler[SetSessionConfigOptionRequest](zodSchemas, "zSetSessionConfigOptionRequest"),
+	zod.Unmarshaler[SetSessionConfigOptionResponse](zodSchemas, "zSetSessionConfigOptionResponse"),
+	zod.Unmarshaler[SetSessionModeRequest](zodSchemas, "zSetSessionModeRequest"),
+	zod.Unmarshaler[SetSessionModeResponse](zodSchemas, "zSetSessionModeResponse"),
+	zod.Unmarshaler[StartNesRequest](zodSchemas, "zStartNesRequest"),
+	zod.Unmarshaler[StartNesResponse](zodSchemas, "zStartNesResponse"),
+	zod.Unmarshaler[StopReason](zodSchemas, "zStopReason"),
+	zod.Unmarshaler[StringFormat](zodSchemas, "zStringFormat"),
+	zod.Unmarshaler[StringMultiSelectItems](zodSchemas, "zStringMultiSelectItems"),
+	zod.Unmarshaler[StringPropertySchema](zodSchemas, "zStringPropertySchema"),
+	zod.Unmarshaler[SuggestNesRequest](zodSchemas, "zSuggestNesRequest"),
+	zod.Unmarshaler[SuggestNesResponse](zodSchemas, "zSuggestNesResponse"),
+	zod.Unmarshaler[Terminal](zodSchemas, "zTerminal"),
+	zod.Unmarshaler[TerminalExitStatus](zodSchemas, "zTerminalExitStatus"),
+	zod.Unmarshaler[TerminalID](zodSchemas, "zTerminalId"),
+	zod.Unmarshaler[TerminalOutputRequest](zodSchemas, "zTerminalOutputRequest"),
+	zod.Unmarshaler[TerminalOutputResponse](zodSchemas, "zTerminalOutputResponse"),
+	zod.Unmarshaler[TextContent](zodSchemas, "zTextContent"),
+	zod.Unmarshaler[TextDocumentContentChangeEvent](zodSchemas, "zTextDocumentContentChangeEvent"),
+	zod.Unmarshaler[TextDocumentSyncKind](zodSchemas, "zTextDocumentSyncKind"),
+	zod.Unmarshaler[TextResourceContents](zodSchemas, "zTextResourceContents"),
+	zod.Unmarshaler[TitledMultiSelectItems](zodSchemas, "zTitledMultiSelectItems"),
+	zod.Unmarshaler[ToolCall](zodSchemas, "zToolCall"),
+	zod.Unmarshaler[ToolCallContent](zodSchemas, "zToolCallContent"),
+	zod.Unmarshaler[ToolCallID](zodSchemas, "zToolCallId"),
+	zod.Unmarshaler[ToolCallLocation](zodSchemas, "zToolCallLocation"),
+	zod.Unmarshaler[ToolCallStatus](zodSchemas, "zToolCallStatus"),
+	zod.Unmarshaler[ToolCallUpdate](zodSchemas, "zToolCallUpdate"),
+	zod.Unmarshaler[ToolKind](zodSchemas, "zToolKind"),
+	zod.Unmarshaler[UnstructuredCommandInput](zodSchemas, "zUnstructuredCommandInput"),
+	zod.Unmarshaler[Usage](zodSchemas, "zUsage"),
+	zod.Unmarshaler[UsageUpdate](zodSchemas, "zUsageUpdate"),
+	zod.Unmarshaler[WaitForTerminalExitRequest](zodSchemas, "zWaitForTerminalExitRequest"),
+	zod.Unmarshaler[WaitForTerminalExitResponse](zodSchemas, "zWaitForTerminalExitResponse"),
+	zod.Unmarshaler[WorkspaceFolder](zodSchemas, "zWorkspaceFolder"),
+	zod.Unmarshaler[WriteTextFileRequest](zodSchemas, "zWriteTextFileRequest"),
+	zod.Unmarshaler[WriteTextFileResponse](zodSchemas, "zWriteTextFileResponse"),
+))
+
+// Decode applies the supported SDK Zod validation, defaults and recovery rules
+// for T, then decodes the normalized value. T must be a generated non-alias type.
+func Decode[T any](raw []byte) (T, error) {
+	name, ok := zodTypes[reflect.TypeFor[T]()]
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("no Zod rule for %T", zero)
+	}
+	return zod.Decode[T](zodSchemas, name, raw)
+}
+
+// Validate reports whether the supported SDK Zod parser accepts raw as a T.
+// Recovery and defaults are applied; use Decode to obtain the normalized value.
+func Validate[T any](raw []byte) error {
+	name, ok := zodTypes[reflect.TypeFor[T]()]
+	if !ok {
+		var zero T
+		return fmt.Errorf("no Zod rule for %T", zero)
+	}
+	_, err := zodSchemas.Normalize(name, raw)
 	return err
 }

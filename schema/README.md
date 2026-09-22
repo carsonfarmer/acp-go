@@ -7,8 +7,8 @@ Generation uses checked-in sources and requires no Node.js or network access.
 Go 1.27 or newer is required by both modules. CGO and a C compiler are required for the
 generator, but not for generated packages. Generated code uses `encoding/json/v2`,
 `encoding/json/jsontext` and a generic decoder helper; no `GOEXPERIMENT` setting is needed.
-Each version produces `schema.gen.go` (wire types) and `zod.gen.go` (Zod rule tables and
-`Decode…JSON`/`Validate…JSON` functions). The rule evaluator lives once in `schema/zod` and is
+Each version produces `schema.gen.go` (wire types) and `zod.gen.go` (Zod rule tables, the
+`Validated` option and generic `Decode`/`Validate`). The rule evaluator lives once in `schema/zod` and is
 shared by both versions; it is a runtime dependency of the generated packages, not a public API.
 
 ```sh
@@ -88,8 +88,11 @@ A catch-all `{ tag: string; [key: string]: unknown }` member becomes `<Type>Cust
 tags round-trip unchanged including large numbers. Members of the form `Inner & { tag: "x" }`
 where `Inner` is itself a union (for example `StateUpdate` inside `SessionUpdate`) become
 `struct { Value Inner }`; the outer tag is spliced into the inner object on encode and removed
-on decode. Missing required members are not rejected by plain decoding; use `Decode…JSON` for
-SDK-level validation. The zero wrapper encodes as `null` and `null` decodes to the zero wrapper.
+on decode. Missing required members are not rejected by plain decoding; use `Validated` for
+SDK-level validation. The zero wrapper encodes as `null`, `null` decodes to the zero wrapper, and
+wrappers implement `IsZero`, so optional union fields are plain values omitted when unset.
+Callers that prefer interface-typed fields can declare `<Type>Variant` fields directly and decode
+with `json.WithUnmarshalers(acpv2.Unmarshalers)`; encoding needs no options.
 
 Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
 method `params` unions, ...) preserve their JSON payload and expose generated constructors,
@@ -118,18 +121,28 @@ generation rather than producing Go code that cannot compile.
 
 ## Zod-aware decoding
 
-Every SDK type has explicit `Decode<Type>JSON` and `Validate<Type>JSON` functions:
+`Validated` is a `json.Options` value that applies the SDK's Zod rules to every generated
+type met while unmarshaling, at any nesting depth. The generic `Decode` and `Validate`
+functions do the same for one top-level value:
 
 ```go
-request, err := acpv1.DecodeReadTextFileRequestJSON(data)
-err = acpv2.ValidateRequestPermissionRequestJSON(data)
+var req acpv2.PromptRequest
+err := json.Unmarshal(data, &req, acpv2.Validated)
+req, err = acpv2.Decode[acpv2.PromptRequest](data)
+err = acpv2.Validate[acpv2.RequestPermissionRequest](data)
 ```
 
-`Decode…JSON` validates and normalizes according to the supported Zod rules, then decodes
-into the generated Go type. Rules are emitted as typed Go composite literals (`zod.Rule`) so
-mistakes fail at compile time; regular expressions are compiled once at package init. `Validate…JSON` reports whether that same Zod parser accepts the
+`Decode` validates and normalizes according to the supported Zod rules, then decodes
+into the generated Go type. `Validate` reports whether that same Zod parser accepts the
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
-Neither changes the behavior of ordinary `json.Unmarshal`, union `Parse…`, or `As…` methods.
+Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time;
+regular expressions are compiled once at package init. Plain `json.Unmarshal` without
+`Validated`, union `Parse…` and `As…` methods stay lenient.
+
+Identifier and other scalar SDK types are distinct Go types (`type SessionID string`), so they
+carry their own rule and cannot be mixed up. Types that are Go aliases (`ExtRequest` and the other `jsontext.Value`
+payloads, plus nullable scalars) share a `reflect.Type` with their
+underlying type: `Validated` decodes them as that type and `Decode`/`Validate` reject them.
 
 Missing input and JSON null remain distinct while applying rules. Defaults apply to missing
 values; recovery may omit an invalid optional field or replace it with a literal fallback.
