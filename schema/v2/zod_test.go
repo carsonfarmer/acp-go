@@ -5,6 +5,8 @@ import (
 	"encoding/json/v2"
 	"os"
 	"testing"
+
+	"github.com/ironpark/go-acp/schema/zod"
 )
 
 // Captured from the pinned TypeScript SDK using Zod 4.5.4. Normal Go tests
@@ -25,11 +27,11 @@ func TestZodSDKReference(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.Schema, func(t *testing.T) {
-			output, err := normalizeZod(c.Schema, c.Input)
+			output, err := zodSchemas.Normalize(c.Schema, c.Input)
 			if (err == nil) != c.Success {
 				t.Fatalf("input=%s: expected success=%v, got %v", c.Input, c.Success, err)
 			}
-			if c.Success && !equalZod(output, c.Output) {
+			if c.Success && !zod.Equal(output, c.Output) {
 				t.Fatalf("input=%s: got %s, want %s", c.Input, output, c.Output)
 			}
 		})

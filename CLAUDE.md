@@ -20,7 +20,8 @@ ACP(Agent Client Protocol) for golang
 - Upstream revision: `schema/typescript/REVISION`
 - Generator: `internal/cmd/schema` (separate Go module)
 - Details: `schema/README.md`
-- Outputs: `schema/v1/schema.gen.go`, `schema/v2/schema.gen.go`
+- Outputs: `schema/{v1,v2}/schema.gen.go` (wire types), `schema/{v1,v2}/zod.gen.go` (Zod rule tables)
+- Shared Zod evaluator: `schema/zod`
 
 ### SDK
 

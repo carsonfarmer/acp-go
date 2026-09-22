@@ -29,16 +29,18 @@ func TestPinnedSDKGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, version := range []string{"v1", "v2"} {
-		generated, err := os.ReadFile(filepath.Join(output, version, "schema.gen.go"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		checkedIn, err := os.ReadFile(filepath.Join("../../../schema", version, "schema.gen.go"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(generated, checkedIn) {
-			t.Fatalf("%s: checked-in output is stale; run go generate ./...", version)
+		for _, name := range []string{"schema.gen.go", "zod.gen.go"} {
+			generated, err := os.ReadFile(filepath.Join(output, version, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkedIn, err := os.ReadFile(filepath.Join("../../../schema", version, name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(generated, checkedIn) {
+				t.Fatalf("%s/%s: checked-in output is stale; run go generate ./...", version, name)
+			}
 		}
 	}
 	stale := filepath.Join(output, "v1", "schema.gen.go")

@@ -7,6 +7,9 @@ Generation uses checked-in sources and requires no Node.js or network access.
 Go 1.27 or newer is required by both modules. CGO and a C compiler are required for the
 generator, but not for generated packages. Generated code uses `encoding/json/v2`,
 `encoding/json/jsontext` and a generic decoder helper; no `GOEXPERIMENT` setting is needed.
+Each version produces `schema.gen.go` (wire types) and `zod.gen.go` (Zod rule tables and
+`Decode…JSON`/`Validate…JSON` functions). The rule evaluator lives once in `schema/zod` and is
+shared by both versions; it is a runtime dependency of the generated packages, not a public API.
 
 ```sh
 # From the repository root:
@@ -94,7 +97,8 @@ err = acpv2.ValidateRequestPermissionRequestJSON(data)
 ```
 
 `Decode…JSON` validates and normalizes according to the supported Zod rules, then decodes
-into the generated Go type. `Validate…JSON` reports whether that same Zod parser accepts the
+into the generated Go type. Rules are emitted as typed Go composite literals (`zod.Rule`) so
+mistakes fail at compile time; regular expressions are compiled once at package init. `Validate…JSON` reports whether that same Zod parser accepts the
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
 Neither changes the behavior of ordinary `json.Unmarshal`, union `Parse…`, or `As…` methods.
 

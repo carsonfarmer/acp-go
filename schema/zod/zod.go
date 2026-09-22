@@ -1,38 +1,99 @@
-// zodRule represents the supported, statically parsed SDK Zod operations.
-type zodRule struct {
-	Kind    string         `json:"kind"`
-	Ref     string         `json:"ref"`
-	Inner   *zodRule       `json:"inner"`
-	Members []*zodRule     `json:"members"`
-	Fields  []zodField     `json:"fields"`
-	Key     *zodRule       `json:"key"`
-	Value   jsontext.Value `json:"value"`
-	Tag     string         `json:"tag"`
-	Tags    []string       `json:"tags"`
-	Pattern string         `json:"pattern"`
-	Offset  bool           `json:"offset"`
+// Package zod evaluates the statically extracted Zod rules used by the
+// generated ACP schema packages. It is a runtime dependency of those packages
+// rather than a general Zod implementation; its API may change with them.
+package zod
+
+import (
+	"bytes"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"errors"
+	"fmt"
+	"math"
+	"net/url"
+	"regexp"
+	"slices"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+// Kind identifies a supported Zod builder or ACP helper.
+type Kind uint8
+
+const (
+	KindInvalid Kind = iota
+	KindRef
+	KindOptional
+	KindNullish
+	KindNullable
+	KindDefault
+	KindCatch
+	KindRequiredCatch
+	KindUnknown
+	KindAny
+	KindNever
+	KindUnion
+	KindIntersection
+	KindExcludeTags
+	KindPreserve
+	KindMin
+	KindMax
+	KindGte
+	KindLte
+	KindRegex
+	KindInt
+	KindNull
+	KindString
+	KindBoolean
+	KindNumber
+	KindLiteral
+	KindURL
+	KindDateTime
+	KindArray
+	KindSkipArray
+	KindObject
+	KindRecord
+)
+
+// Rule is one node of a statically parsed Zod schema. Value is JSON for
+// literals, defaults, catch fallbacks and bounds; Ref names another registry entry.
+type Rule struct {
+	Kind    Kind
+	Ref     string
+	Inner   *Rule
+	Members []*Rule
+	Fields  []Field
+	Key     *Rule
+	Value   jsontext.Value
+	Tag     string
+	Tags    []string
+	Regexp  *regexp.Regexp
+	Offset  bool
 }
-type zodField struct {
-	Name   string   `json:"name"`
-	Schema *zodRule `json:"schema"`
+
+// Field is a named object property.
+type Field struct {
+	Name   string
+	Schema *Rule
 }
-type zodResult struct {
+
+// Registry maps schema names to their top-level rules.
+type Registry map[string]*Rule
+
+type outcome struct {
 	raw       jsontext.Value
 	evaluated map[string]bool
 }
 
-func loadZodSchemas(source string) map[string]*zodRule {
-	var schemas map[string]*zodRule
-	if err := json.Unmarshal([]byte(source), &schemas); err != nil {
-		panic(fmt.Errorf("invalid generated Zod metadata: %w", err))
-	}
-	return schemas
-}
+// SDK datetimes use RFC 3339 with seconds and optional arbitrary fractions.
+var datetimePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$`)
 
 // decodeZod validates and normalizes input before decoding its Go wire type.
-func decodeZod[T any](name string, raw []byte) (T, error) {
+// Decode validates and normalizes raw with the named rule before decoding it into T.
+func Decode[T any](r Registry, name string, raw []byte) (T, error) {
 	var value T
-	normalized, err := normalizeZod(name, raw)
+	normalized, err := r.Normalize(name, raw)
 	if err != nil {
 		return value, err
 	}
@@ -41,15 +102,17 @@ func decodeZod[T any](name string, raw []byte) (T, error) {
 	}
 	return value, nil
 }
-func normalizeZod(name string, raw []byte) (jsontext.Value, error) {
+
+// Normalize applies the named rule and returns the normalized JSON.
+func (r Registry) Normalize(name string, raw []byte) (jsontext.Value, error) {
 	if !jsontext.Value(raw).IsValid() {
 		return nil, fmt.Errorf("%s: invalid JSON", name)
 	}
-	schema := zodSchemas[name]
+	schema := r[name]
 	if schema == nil {
 		return nil, fmt.Errorf("unknown Zod schema %s", name)
 	}
-	result, err := applyZod(schema, jsontext.Value(raw), "$", 0)
+	result, err := r.apply(schema, jsontext.Value(raw), "$", 0)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
@@ -58,22 +121,22 @@ func normalizeZod(name string, raw []byte) (jsontext.Value, error) {
 	}
 	return result.raw, nil
 }
-func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult, error) {
+func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (outcome, error) {
 	if depth > 512 {
-		return zodResult{}, fmt.Errorf("%s: schema nesting limit exceeded", path)
+		return outcome{}, fmt.Errorf("%s: schema nesting limit exceeded", path)
 	}
-	pass := func() (zodResult, error) { return zodResult{raw: raw}, nil }
-	fail := func(message string) (zodResult, error) { return zodResult{}, fmt.Errorf("%s: %s", path, message) }
-	inner := func() (zodResult, error) { return applyZod(s.Inner, raw, path, depth+1) }
+	pass := func() (outcome, error) { return outcome{raw: raw}, nil }
+	fail := func(message string) (outcome, error) { return outcome{}, fmt.Errorf("%s: %s", path, message) }
+	inner := func() (outcome, error) { return r.apply(s.Inner, raw, path, depth+1) }
 	switch s.Kind {
-	case "ref":
-		target := zodSchemas[s.Ref]
+	case KindRef:
+		target := r[s.Ref]
 		if target == nil {
 			return fail(fmt.Sprintf("unresolved schema %s", s.Ref))
 		}
-		return applyZod(target, raw, path, depth+1)
-	case "optional", "nullish":
-		if s.Kind == "nullish" && raw.Kind() == 'n' {
+		return r.apply(target, raw, path, depth+1)
+	case KindOptional, KindNullish:
+		if s.Kind == KindNullish && raw.Kind() == 'n' {
 			return pass()
 		}
 		if raw == nil {
@@ -84,43 +147,43 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			return pass()
 		}
 		return inner()
-	case "nullable":
+	case KindNullable:
 		if raw.Kind() == 'n' {
 			return pass()
 		}
 		return inner()
-	case "default":
+	case KindDefault:
 		if raw == nil {
-			return zodResult{raw: s.Value.Clone()}, nil
+			return outcome{raw: s.Value.Clone()}, nil
 		}
 		return inner()
-	case "catch", "requiredCatch":
-		if s.Kind == "requiredCatch" && raw == nil {
+	case KindCatch, KindRequiredCatch:
+		if s.Kind == KindRequiredCatch && raw == nil {
 			return fail("required value is missing")
 		}
 		value, err := inner()
 		if err != nil {
-			return zodResult{raw: s.Value.Clone()}, nil
+			return outcome{raw: s.Value.Clone()}, nil
 		}
 		return value, nil
-	case "unknown", "any":
+	case KindUnknown, KindAny:
 		return pass()
-	case "never":
+	case KindNever:
 		return fail("value is not permitted")
-	case "union":
+	case KindUnion:
 		var problems []error
 		for _, m := range s.Members {
-			result, err := applyZod(m, raw, path, depth+1)
+			result, err := r.apply(m, raw, path, depth+1)
 			if err == nil {
 				return result, nil
 			}
 			problems = append(problems, err)
 		}
-		return zodResult{}, fmt.Errorf("%s: no union alternative matched: %w", path, errors.Join(problems...))
-	case "intersection":
-		result := zodResult{}
+		return outcome{}, fmt.Errorf("%s: no union alternative matched: %w", path, errors.Join(problems...))
+	case KindIntersection:
+		result := outcome{}
 		for i, m := range s.Members {
-			next, err := applyZod(m, raw, path, depth+1)
+			next, err := r.apply(m, raw, path, depth+1)
 			if err != nil {
 				return result, err
 			}
@@ -128,9 +191,9 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 				result = next
 				continue
 			}
-			merged, err := mergeZod(result.raw, next.raw, path)
+			merged, err := merge(result.raw, next.raw, path)
 			if err != nil {
-				return zodResult{}, err
+				return outcome{}, err
 			}
 			result.raw = merged
 			if result.evaluated == nil {
@@ -141,21 +204,21 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			}
 		}
 		return result, nil
-	case "excludeTags", "preserve":
+	case KindExcludeTags, KindPreserve:
 		result, err := inner()
 		if err != nil {
 			return result, err
 		}
 		var fields map[string]jsontext.Value
 		tagRaw := raw
-		if s.Kind == "excludeTags" {
+		if s.Kind == KindExcludeTags {
 			tagRaw = result.raw
 		}
 		if tagRaw.Kind() != '{' {
 			return result, nil
 		}
 		if err = json.Unmarshal(tagRaw, &fields); err != nil {
-			return zodResult{}, err
+			return outcome{}, err
 		}
 		tagValue := fields[s.Tag]
 		if tagValue.Kind() != '"' {
@@ -163,10 +226,10 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 		}
 		var tag string
 		if err = json.Unmarshal(tagValue, &tag); err != nil {
-			return zodResult{}, err
+			return outcome{}, err
 		}
 		known := slices.Contains(s.Tags, tag)
-		if s.Kind == "excludeTags" {
+		if s.Kind == KindExcludeTags {
 			if known {
 				return fail(fmt.Sprintf("%s %q is reserved by a known variant", s.Tag, tag))
 			}
@@ -175,7 +238,7 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 		if !known {
 			var output map[string]jsontext.Value
 			if err = json.Unmarshal(result.raw, &output); err != nil {
-				return zodResult{}, err
+				return outcome{}, err
 			}
 			if output == nil {
 				return fail("custom payload must be an object")
@@ -190,25 +253,21 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			}
 			result.raw, err = json.Marshal(output, json.Deterministic(true))
 			if err != nil {
-				return zodResult{}, err
+				return outcome{}, err
 			}
 		}
 		return result, nil
-	case "min", "max", "gte", "lte", "regex":
+	case KindMin, KindMax, KindGte, KindLte, KindRegex:
 		result, err := inner()
 		if err != nil {
 			return result, err
 		}
-		if s.Kind == "regex" {
+		if s.Kind == KindRegex {
 			var value string
 			if result.raw.Kind() != '"' || json.Unmarshal(result.raw, &value) != nil {
 				return fail("expected string for pattern")
 			}
-			ok, err := regexp.MatchString(s.Pattern, value)
-			if err != nil {
-				return fail("invalid pattern")
-			}
-			if !ok {
+			if !s.Regexp.MatchString(value) {
 				return fail("string does not match pattern")
 			}
 			return result, nil
@@ -238,15 +297,15 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 		if err = json.Unmarshal(s.Value, &bound); err != nil {
 			return fail("invalid generated bound")
 		}
-		if (s.Kind == "min" || s.Kind == "gte") && value < bound {
+		if (s.Kind == KindMin || s.Kind == KindGte) && value < bound {
 			return fail(fmt.Sprintf("value or length must be >= %g", bound))
 		}
-		if (s.Kind == "max" || s.Kind == "lte") && value > bound {
+		if (s.Kind == KindMax || s.Kind == KindLte) && value > bound {
 			return fail(fmt.Sprintf("value or length must be <= %g", bound))
 		}
 		return result, nil
-	case "int":
-		value := zodResult{raw: raw}
+	case KindInt:
+		value := outcome{raw: raw}
 		var err error
 		if s.Inner != nil {
 			value, err = inner()
@@ -270,33 +329,33 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 		return fail("required value is missing")
 	}
 	switch s.Kind {
-	case "null":
+	case KindNull:
 		if raw.Kind() != 'n' {
 			return fail("expected null")
 		}
-	case "string":
+	case KindString:
 		if raw.Kind() != '"' {
 			return fail("expected string")
 		}
-	case "boolean":
+	case KindBoolean:
 		if raw.Kind() != 't' && raw.Kind() != 'f' {
 			return fail("expected boolean")
 		}
-	case "number":
+	case KindNumber:
 		var n float64
 		if raw.Kind() != '0' || json.Unmarshal(raw, &n) != nil || math.IsInf(n, 0) || math.IsNaN(n) {
 			return fail("expected finite number")
 		}
-	case "literal":
-		if !equalZod(raw, s.Value) {
+	case KindLiteral:
+		if !Equal(raw, s.Value) {
 			return fail(fmt.Sprintf("expected literal %s", s.Value))
 		}
-	case "url", "datetime":
+	case KindURL, KindDateTime:
 		var text string
 		if raw.Kind() != '"' || json.Unmarshal(raw, &text) != nil {
 			return fail("expected string")
 		}
-		if s.Kind == "url" {
+		if s.Kind == KindURL {
 			parsed, err := url.Parse(strings.TrimSpace(text))
 			if err != nil || parsed.Scheme == "" {
 				return fail("expected absolute URL")
@@ -309,8 +368,7 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			}
 		} else {
 			// SDK datetimes use RFC 3339 with seconds and optional arbitrary fractions.
-			matched, _ := regexp.MatchString(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$`, text)
-			if !matched {
+			if !datetimePattern.MatchString(text) {
 				return fail("expected ISO datetime")
 			}
 			if _, err := time.Parse(time.RFC3339Nano, text); err != nil {
@@ -320,22 +378,22 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 				return fail("datetime offset is not allowed")
 			}
 		}
-	case "array", "skipArray":
+	case KindArray, KindSkipArray:
 		if raw.Kind() != '[' {
 			return fail("expected array")
 		}
 		var input []jsontext.Value
 		if err := json.Unmarshal(raw, &input); err != nil {
-			return zodResult{}, err
+			return outcome{}, err
 		}
 		output := make([]jsontext.Value, 0, len(input))
 		for i, item := range input {
-			result, err := applyZod(s.Inner, item, fmt.Sprintf("%s[%d]", path, i), depth+1)
+			result, err := r.apply(s.Inner, item, fmt.Sprintf("%s[%d]", path, i), depth+1)
 			if err != nil {
-				if s.Kind == "skipArray" {
+				if s.Kind == KindSkipArray {
 					continue
 				}
-				return zodResult{}, err
+				return outcome{}, err
 			}
 			if result.raw == nil {
 				result.raw = jsontext.Value("null")
@@ -343,22 +401,22 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			output = append(output, result.raw)
 		}
 		encoded, err := json.Marshal(output)
-		return zodResult{raw: encoded}, err
-	case "object", "record":
+		return outcome{raw: encoded}, err
+	case KindObject, KindRecord:
 		if raw.Kind() != '{' {
 			return fail("expected object")
 		}
 		var input map[string]jsontext.Value
 		if err := json.Unmarshal(raw, &input); err != nil {
-			return zodResult{}, err
+			return outcome{}, err
 		}
 		output := map[string]jsontext.Value{}
 		evaluated := map[string]bool{}
-		if s.Kind == "object" {
+		if s.Kind == KindObject {
 			for _, field := range s.Fields {
-				value, err := applyZod(field.Schema, input[field.Name], fmt.Sprintf("%s[%q]", path, field.Name), depth+1)
+				value, err := r.apply(field.Schema, input[field.Name], fmt.Sprintf("%s[%q]", path, field.Name), depth+1)
 				if err != nil {
-					return zodResult{}, err
+					return outcome{}, err
 				}
 				if value.raw != nil {
 					output[field.Name] = value.raw
@@ -376,12 +434,12 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			slices.Sort(keys)
 			for _, key := range keys {
 				encoded, _ := json.Marshal(key)
-				if _, err := applyZod(s.Key, encoded, fmt.Sprintf("%s[%q]", path, key), depth+1); err != nil {
-					return zodResult{}, err
+				if _, err := r.apply(s.Key, encoded, fmt.Sprintf("%s[%q]", path, key), depth+1); err != nil {
+					return outcome{}, err
 				}
-				value, err := applyZod(s.Inner, input[key], fmt.Sprintf("%s[%q]", path, key), depth+1)
+				value, err := r.apply(s.Inner, input[key], fmt.Sprintf("%s[%q]", path, key), depth+1)
 				if err != nil {
-					return zodResult{}, err
+					return outcome{}, err
 				}
 				if value.raw != nil {
 					output[key] = value.raw
@@ -390,13 +448,15 @@ func applyZod(s *zodRule, raw jsontext.Value, path string, depth int) (zodResult
 			}
 		}
 		encoded, err := json.Marshal(output, json.Deterministic(true))
-		return zodResult{raw: encoded, evaluated: evaluated}, err
+		return outcome{raw: encoded, evaluated: evaluated}, err
 	default:
-		return fail(fmt.Sprintf("unsupported generated Zod rule %s", s.Kind))
+		return fail(fmt.Sprintf("unsupported generated Zod rule %d", s.Kind))
 	}
 	return pass()
 }
-func equalZod(a, b jsontext.Value) bool {
+
+// Equal reports whether two JSON values are canonically equal.
+func Equal(a, b jsontext.Value) bool {
 	left, right := a.Clone(), b.Clone()
 	if left == nil || right == nil {
 		return left == nil && right == nil
@@ -406,8 +466,8 @@ func equalZod(a, b jsontext.Value) bool {
 	}
 	return bytes.Equal(left, right)
 }
-func mergeZod(a, b jsontext.Value, path string) (jsontext.Value, error) {
-	if equalZod(a, b) {
+func merge(a, b jsontext.Value, path string) (jsontext.Value, error) {
+	if Equal(a, b) {
 		return a, nil
 	}
 	if a.Kind() == '{' && b.Kind() == '{' {
@@ -420,7 +480,7 @@ func mergeZod(a, b jsontext.Value, path string) (jsontext.Value, error) {
 		}
 		for key, value := range right {
 			if old, ok := left[key]; ok {
-				merged, err := mergeZod(old, value, fmt.Sprintf("%s[%q]", path, key))
+				merged, err := merge(old, value, fmt.Sprintf("%s[%q]", path, key))
 				if err != nil {
 					return nil, err
 				}
@@ -441,7 +501,7 @@ func mergeZod(a, b jsontext.Value, path string) (jsontext.Value, error) {
 		}
 		if len(left) == len(right) {
 			for i := range left {
-				merged, err := mergeZod(left[i], right[i], fmt.Sprintf("%s[%d]", path, i))
+				merged, err := merge(left[i], right[i], fmt.Sprintf("%s[%d]", path, i))
 				if err != nil {
 					return nil, err
 				}

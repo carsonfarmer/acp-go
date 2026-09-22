@@ -3,7 +3,6 @@ package tsgen
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
@@ -50,12 +49,11 @@ func TestGeneratedZod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
-	for name, body := range map[string][]byte{"go.mod": []byte("module fixture\n\ngo 1.27.0\n"), "schema.go": data, "schema_test.go": tests} {
-		if err := os.WriteFile(filepath.Join(dir, name), body, 0644); err != nil {
-			t.Fatal(err)
-		}
+	if len(data) != 2 {
+		t.Fatalf("expected schema.gen.go and zod.gen.go, got %d files", len(data))
 	}
+	dir := t.TempDir()
+	writeFixture(t, dir, data, tests)
 	cmd := exec.Command("go", "test", "./...")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")

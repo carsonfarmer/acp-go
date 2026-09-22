@@ -35,7 +35,7 @@ func TestGeneratedWireTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(a, b) {
+	if !bytes.Equal(a["schema.gen.go"], b["schema.gen.go"]) || len(a) != 1 {
 		t.Fatal("non-deterministic generation")
 	}
 	dir := t.TempDir()
@@ -43,12 +43,7 @@ func TestGeneratedWireTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	files := map[string][]byte{"go.mod": []byte("module fixture\n\ngo 1.27.0\n"), "schema.go": a, "schema_test.go": wireTests}
-	for name, data := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
+	writeFixture(t, dir, a, wireTests)
 	cmd := exec.Command("go", "test", "./...")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
@@ -79,6 +74,26 @@ func TestName(t *testing.T) {
 	} {
 		if got := Name(input); got != want {
 			t.Errorf("Name(%q) = %q; want %q", input, got, want)
+		}
+	}
+}
+
+// writeFixture writes generated files plus a go.mod that resolves the shared
+// Zod runtime through this repository.
+func writeFixture(t *testing.T, dir string, files Files, tests []byte) {
+	t.Helper()
+	repo, err := filepath.Abs("../../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomod := "module fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/go-acp v0.0.0\n\nreplace github.com/ironpark/go-acp => " + repo + "\n"
+	all := map[string][]byte{"go.mod": []byte(gomod), "schema_test.go": tests}
+	for name, data := range files {
+		all[name] = data
+	}
+	for name, data := range all {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
