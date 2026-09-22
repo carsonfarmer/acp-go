@@ -16,6 +16,7 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type Message = (Text & { kind: "text" }) | { kind: "custom"; [key: string]: unknown; };
  export type Options = { enabled?: boolean; count: number | null; tags?: Array<string>; label?: string; };
  export type Status = "pending" | "done";
+ export type Kind = "read" | "write" | string;
  export type Payload = string | unknown;
  export type LiteralChoice = "yes" | number;
  export type NullableChoice = string | null | number;

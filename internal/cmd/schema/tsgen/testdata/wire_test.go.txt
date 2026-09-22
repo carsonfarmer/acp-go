@@ -214,3 +214,18 @@ func TestNativeExtensionFields(t *testing.T) {
 		t.Fatalf("options did not propagate to extensions: %s", b)
 	}
 }
+
+func TestOpenEnum(t *testing.T) {
+	if !KindRead.Known() || Kind("future").Known() {
+		t.Fatal("Known misclassified enum values")
+	}
+	var v struct {
+		Kind Kind `json:"kind"`
+	}
+	if err := json.Unmarshal([]byte(`{"kind":"future"}`), &v); err != nil || v.Kind != "future" {
+		t.Fatalf("open enum rejected unknown value: %v", err)
+	}
+	if len(KindValues) != 2 || KindValues[1] != KindWrite {
+		t.Fatal("wrong enum value list")
+	}
+}

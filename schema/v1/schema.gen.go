@@ -19,6 +19,7 @@ import (
 
 var _ = json.Marshal
 var _ = fmt.Errorf
+var _ = slices.Contains[[]string]
 
 func decodeJSON[T any](raw jsontext.Value) (T, bool) {
 	var value T
@@ -284,16 +285,18 @@ type ToolCallID = string
 // See protocol docs: [Creating](https://agentclientprotocol.com/protocol/tool-calls#creating)
 type ToolKind string
 
-const ToolKindRead ToolKind = "read"
-const ToolKindEdit ToolKind = "edit"
-const ToolKindDelete ToolKind = "delete"
-const ToolKindMove ToolKind = "move"
-const ToolKindSearch ToolKind = "search"
-const ToolKindExecute ToolKind = "execute"
-const ToolKindThink ToolKind = "think"
-const ToolKindFetch ToolKind = "fetch"
-const ToolKindSwitchMode ToolKind = "switch_mode"
-const ToolKindOther ToolKind = "other"
+const (
+	ToolKindRead       ToolKind = "read"
+	ToolKindEdit       ToolKind = "edit"
+	ToolKindDelete     ToolKind = "delete"
+	ToolKindMove       ToolKind = "move"
+	ToolKindSearch     ToolKind = "search"
+	ToolKindExecute    ToolKind = "execute"
+	ToolKindThink      ToolKind = "think"
+	ToolKindFetch      ToolKind = "fetch"
+	ToolKindSwitchMode ToolKind = "switch_mode"
+	ToolKindOther      ToolKind = "other"
+)
 
 // Execution status of a tool call.
 //
@@ -302,10 +305,12 @@ const ToolKindOther ToolKind = "other"
 // See protocol docs: [Status](https://agentclientprotocol.com/protocol/tool-calls#status)
 type ToolCallStatus string
 
-const ToolCallStatusPending ToolCallStatus = "pending"
-const ToolCallStatusInProgress ToolCallStatus = "in_progress"
-const ToolCallStatusCompleted ToolCallStatus = "completed"
-const ToolCallStatusFailed ToolCallStatus = "failed"
+const (
+	ToolCallStatusPending    ToolCallStatus = "pending"
+	ToolCallStatusInProgress ToolCallStatus = "in_progress"
+	ToolCallStatusCompleted  ToolCallStatus = "completed"
+	ToolCallStatusFailed     ToolCallStatus = "failed"
+)
 
 // Content produced by a tool call.
 //
@@ -716,8 +721,10 @@ type Annotations struct {
 // The sender or recipient of messages and data in a conversation.
 type Role string
 
-const RoleAssistant Role = "assistant"
-const RoleUser Role = "user"
+const (
+	RoleAssistant Role = "assistant"
+	RoleUser      Role = "user"
+)
 
 // Text provided to or from an LLM.
 type TextContent struct {
@@ -1027,10 +1034,12 @@ type PermissionOptionID = string
 // Helps clients choose appropriate icons and UI treatment.
 type PermissionOptionKind string
 
-const PermissionOptionKindAllowOnce PermissionOptionKind = "allow_once"
-const PermissionOptionKindAllowAlways PermissionOptionKind = "allow_always"
-const PermissionOptionKindRejectOnce PermissionOptionKind = "reject_once"
-const PermissionOptionKindRejectAlways PermissionOptionKind = "reject_always"
+const (
+	PermissionOptionKindAllowOnce    PermissionOptionKind = "allow_once"
+	PermissionOptionKindAllowAlways  PermissionOptionKind = "allow_always"
+	PermissionOptionKindRejectOnce   PermissionOptionKind = "reject_once"
+	PermissionOptionKindRejectAlways PermissionOptionKind = "reject_always"
+)
 
 // Request to create a new terminal and execute a command.
 type CreateTerminalRequest struct {
@@ -1486,7 +1495,9 @@ type ElicitationSchema struct {
 // Object schema type.
 type ElicitationSchemaType string
 
-const ElicitationSchemaTypeObject ElicitationSchemaType = "object"
+const (
+	ElicitationSchemaTypeObject ElicitationSchemaType = "object"
+)
 
 // Property schema for elicitation form fields.
 //
@@ -1702,10 +1713,12 @@ func (v ElicitationPropertySchema) AsVariant6() (value ElicitationPropertySchema
 // String format types for string properties in elicitation schemas.
 type StringFormat string
 
-const StringFormatEmail StringFormat = "email"
-const StringFormatURI StringFormat = "uri"
-const StringFormatDate StringFormat = "date"
-const StringFormatDateTime StringFormat = "date-time"
+const (
+	StringFormatEmail    StringFormat = "email"
+	StringFormatURI      StringFormat = "uri"
+	StringFormatDate     StringFormat = "date"
+	StringFormatDateTime StringFormat = "date-time"
+)
 
 // A titled enum option with a const value, human-readable title, and optional description.
 type EnumOption struct {
@@ -2819,8 +2832,10 @@ type NesDocumentDidChangeCapabilities struct {
 // How the agent wants document changes delivered.
 type TextDocumentSyncKind string
 
-const TextDocumentSyncKindFull TextDocumentSyncKind = "full"
-const TextDocumentSyncKindIncremental TextDocumentSyncKind = "incremental"
+const (
+	TextDocumentSyncKindFull        TextDocumentSyncKind = "full"
+	TextDocumentSyncKindIncremental TextDocumentSyncKind = "incremental"
+)
 
 // Marker for `document/didClose` capability support.
 type NesDocumentDidCloseCapabilities struct {
@@ -2945,9 +2960,11 @@ type NesDiagnosticsCapabilities struct {
 // Follows the same conventions as LSP 3.17. The default is UTF-16.
 type PositionEncodingKind string
 
-const PositionEncodingKindUtf16 PositionEncodingKind = "utf-16"
-const PositionEncodingKindUtf32 PositionEncodingKind = "utf-32"
-const PositionEncodingKindUtf8 PositionEncodingKind = "utf-8"
+const (
+	PositionEncodingKindUtf16 PositionEncodingKind = "utf-16"
+	PositionEncodingKindUtf32 PositionEncodingKind = "utf-32"
+	PositionEncodingKindUtf8  PositionEncodingKind = "utf-8"
+)
 
 // Describes an available authentication method.
 //
@@ -3211,155 +3228,22 @@ type ProviderID = string
 // Protocol names that do not begin with `_` are reserved for the ACP spec.
 //
 // @experimental
-// LlmProtocol preserves the complete JSON payload, including future variants.
-type LlmProtocol struct{ raw jsontext.Value }
+// LlmProtocol also accepts values outside the listed constants; use Known to check.
+type LlmProtocol string
 
-func (v LlmProtocol) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *LlmProtocol) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid LlmProtocol JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v LlmProtocol) RawJSON() jsontext.Value { return v.raw.Clone() }
-func (v LlmProtocol) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
-	}
-	return enc.WriteValue(v.raw)
-}
-func (v *LlmProtocol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	v.raw = raw.Clone()
-	return nil
-}
-func ParseLlmProtocol(b []byte) (LlmProtocol, error) {
-	var v LlmProtocol
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
-func NewLlmProtocolVariant1(value string) (LlmProtocol, error) {
-	if value != "anthropic" {
-		return LlmProtocol{}, fmt.Errorf("invalid literal for LlmProtocol.Variant1")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant1() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "anthropic" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewLlmProtocolVariant2(value string) (LlmProtocol, error) {
-	if value != "openai" {
-		return LlmProtocol{}, fmt.Errorf("invalid literal for LlmProtocol.Variant2")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant2() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "openai" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewLlmProtocolVariant3(value string) (LlmProtocol, error) {
-	if value != "azure" {
-		return LlmProtocol{}, fmt.Errorf("invalid literal for LlmProtocol.Variant3")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant3() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "azure" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewLlmProtocolVariant4(value string) (LlmProtocol, error) {
-	if value != "vertex" {
-		return LlmProtocol{}, fmt.Errorf("invalid literal for LlmProtocol.Variant4")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant4() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "vertex" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewLlmProtocolVariant5(value string) (LlmProtocol, error) {
-	if value != "bedrock" {
-		return LlmProtocol{}, fmt.Errorf("invalid literal for LlmProtocol.Variant5")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant5() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "bedrock" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewLlmProtocolVariant6(value string) (LlmProtocol, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return LlmProtocol{}, err
-	}
-	return LlmProtocol{raw: b}, nil
-}
-func (v LlmProtocol) AsVariant6() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
-}
+const (
+	LlmProtocolAnthropic LlmProtocol = "anthropic"
+	LlmProtocolOpenai    LlmProtocol = "openai"
+	LlmProtocolAzure     LlmProtocol = "azure"
+	LlmProtocolVertex    LlmProtocol = "vertex"
+	LlmProtocolBedrock   LlmProtocol = "bedrock"
+)
+
+// LlmProtocolValues lists the constants defined by the protocol.
+var LlmProtocolValues = []LlmProtocol{LlmProtocolAnthropic, LlmProtocolOpenai, LlmProtocolAzure, LlmProtocolVertex, LlmProtocolBedrock}
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v LlmProtocol) Known() bool { return slices.Contains(LlmProtocolValues, v) }
 
 // **UNSTABLE**
 //
@@ -3628,134 +3512,22 @@ type SessionConfigID = string
 //
 // Category names beginning with `_` are free for custom use, like other ACP extension methods.
 // Category names that do not begin with `_` are reserved for the ACP spec.
-// SessionConfigOptionCategory preserves the complete JSON payload, including future variants.
-type SessionConfigOptionCategory struct{ raw jsontext.Value }
+// SessionConfigOptionCategory also accepts values outside the listed constants; use Known to check.
+type SessionConfigOptionCategory string
 
-func (v SessionConfigOptionCategory) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *SessionConfigOptionCategory) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid SessionConfigOptionCategory JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v SessionConfigOptionCategory) RawJSON() jsontext.Value { return v.raw.Clone() }
-func (v SessionConfigOptionCategory) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
-	}
-	return enc.WriteValue(v.raw)
-}
-func (v *SessionConfigOptionCategory) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	v.raw = raw.Clone()
-	return nil
-}
-func ParseSessionConfigOptionCategory(b []byte) (SessionConfigOptionCategory, error) {
-	var v SessionConfigOptionCategory
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
-func NewSessionConfigOptionCategoryVariant1(value string) (SessionConfigOptionCategory, error) {
-	if value != "mode" {
-		return SessionConfigOptionCategory{}, fmt.Errorf("invalid literal for SessionConfigOptionCategory.Variant1")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigOptionCategory{}, err
-	}
-	return SessionConfigOptionCategory{raw: b}, nil
-}
-func (v SessionConfigOptionCategory) AsVariant1() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "mode" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewSessionConfigOptionCategoryVariant2(value string) (SessionConfigOptionCategory, error) {
-	if value != "model" {
-		return SessionConfigOptionCategory{}, fmt.Errorf("invalid literal for SessionConfigOptionCategory.Variant2")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigOptionCategory{}, err
-	}
-	return SessionConfigOptionCategory{raw: b}, nil
-}
-func (v SessionConfigOptionCategory) AsVariant2() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "model" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewSessionConfigOptionCategoryVariant3(value string) (SessionConfigOptionCategory, error) {
-	if value != "model_config" {
-		return SessionConfigOptionCategory{}, fmt.Errorf("invalid literal for SessionConfigOptionCategory.Variant3")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigOptionCategory{}, err
-	}
-	return SessionConfigOptionCategory{raw: b}, nil
-}
-func (v SessionConfigOptionCategory) AsVariant3() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "model_config" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewSessionConfigOptionCategoryVariant4(value string) (SessionConfigOptionCategory, error) {
-	if value != "thought_level" {
-		return SessionConfigOptionCategory{}, fmt.Errorf("invalid literal for SessionConfigOptionCategory.Variant4")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigOptionCategory{}, err
-	}
-	return SessionConfigOptionCategory{raw: b}, nil
-}
-func (v SessionConfigOptionCategory) AsVariant4() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "thought_level" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewSessionConfigOptionCategoryVariant5(value string) (SessionConfigOptionCategory, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return SessionConfigOptionCategory{}, err
-	}
-	return SessionConfigOptionCategory{raw: b}, nil
-}
-func (v SessionConfigOptionCategory) AsVariant5() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
+const (
+	SessionConfigOptionCategoryMode         SessionConfigOptionCategory = "mode"
+	SessionConfigOptionCategoryModel        SessionConfigOptionCategory = "model"
+	SessionConfigOptionCategoryModelConfig  SessionConfigOptionCategory = "model_config"
+	SessionConfigOptionCategoryThoughtLevel SessionConfigOptionCategory = "thought_level"
+)
+
+// SessionConfigOptionCategoryValues lists the constants defined by the protocol.
+var SessionConfigOptionCategoryValues = []SessionConfigOptionCategory{SessionConfigOptionCategoryMode, SessionConfigOptionCategoryModel, SessionConfigOptionCategoryModelConfig, SessionConfigOptionCategoryThoughtLevel}
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v SessionConfigOptionCategory) Known() bool {
+	return slices.Contains(SessionConfigOptionCategoryValues, v)
 }
 
 // Unique identifier for a session configuration option value.
@@ -4038,11 +3810,13 @@ type PromptResponse struct {
 // See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/prompt-turn#stop-reasons)
 type StopReason string
 
-const StopReasonEndTurn StopReason = "end_turn"
-const StopReasonMaxTokens StopReason = "max_tokens"
-const StopReasonMaxTurnRequests StopReason = "max_turn_requests"
-const StopReasonRefusal StopReason = "refusal"
-const StopReasonCancelled StopReason = "cancelled"
+const (
+	StopReasonEndTurn         StopReason = "end_turn"
+	StopReasonMaxTokens       StopReason = "max_tokens"
+	StopReasonMaxTurnRequests StopReason = "max_turn_requests"
+	StopReasonRefusal         StopReason = "refusal"
+	StopReasonCancelled       StopReason = "cancelled"
+)
 
 // **UNSTABLE**
 //
@@ -4499,215 +4273,25 @@ type Error struct {
 //
 // These codes follow the JSON-RPC 2.0 specification for standard errors
 // and use the reserved range (-32000 to -32099) for protocol-specific errors.
-// ErrorCode preserves the complete JSON payload, including future variants.
-type ErrorCode struct{ raw jsontext.Value }
+// ErrorCode also accepts values outside the listed constants; use Known to check.
+type ErrorCode int64
 
-func (v ErrorCode) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ErrorCode) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ErrorCode JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v ErrorCode) RawJSON() jsontext.Value { return v.raw.Clone() }
-func (v ErrorCode) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
-	}
-	return enc.WriteValue(v.raw)
-}
-func (v *ErrorCode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	v.raw = raw.Clone()
-	return nil
-}
-func ParseErrorCode(b []byte) (ErrorCode, error) {
-	var v ErrorCode
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
-func NewErrorCodeVariant1(value float64) (ErrorCode, error) {
-	if value != -32700 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant1")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant1() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32700 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant2(value float64) (ErrorCode, error) {
-	if value != -32600 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant2")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant2() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32600 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant3(value float64) (ErrorCode, error) {
-	if value != -32601 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant3")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant3() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32601 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant4(value float64) (ErrorCode, error) {
-	if value != -32602 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant4")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant4() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32602 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant5(value float64) (ErrorCode, error) {
-	if value != -32603 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant5")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant5() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32603 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant6(value float64) (ErrorCode, error) {
-	if value != -32800 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant6")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant6() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32800 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant7(value float64) (ErrorCode, error) {
-	if value != -32000 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant7")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant7() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32000 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant8(value float64) (ErrorCode, error) {
-	if value != -32002 {
-		return ErrorCode{}, fmt.Errorf("invalid literal for ErrorCode.Variant8")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant8() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[float64](v.raw)
-	if !ok || decoded != -32002 {
-		return value, false
-	}
-	return decoded, true
-}
-func NewErrorCodeVariant9(value float64) (ErrorCode, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return ErrorCode{}, err
-	}
-	return ErrorCode{raw: b}, nil
-}
-func (v ErrorCode) AsVariant9() (value float64, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[float64](v.raw)
-}
+const (
+	ErrorCodeParseError             ErrorCode = -32700
+	ErrorCodeInvalidRequest         ErrorCode = -32600
+	ErrorCodeMethodNotFound         ErrorCode = -32601
+	ErrorCodeInvalidParams          ErrorCode = -32602
+	ErrorCodeInternalError          ErrorCode = -32603
+	ErrorCodeRequestCancelled       ErrorCode = -32800
+	ErrorCodeAuthenticationRequired ErrorCode = -32000
+	ErrorCodeResourceNotFound       ErrorCode = -32002
+)
+
+// ErrorCodeValues lists the constants defined by the protocol.
+var ErrorCodeValues = []ErrorCode{ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound}
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v ErrorCode) Known() bool { return slices.Contains(ErrorCodeValues, v) }
 
 // A JSON-RPC notification object.
 type AgentNotification struct {
@@ -5443,9 +5027,11 @@ type PlanEntry struct {
 // See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
 type PlanEntryPriority string
 
-const PlanEntryPriorityHigh PlanEntryPriority = "high"
-const PlanEntryPriorityMedium PlanEntryPriority = "medium"
-const PlanEntryPriorityLow PlanEntryPriority = "low"
+const (
+	PlanEntryPriorityHigh   PlanEntryPriority = "high"
+	PlanEntryPriorityMedium PlanEntryPriority = "medium"
+	PlanEntryPriorityLow    PlanEntryPriority = "low"
+)
 
 // Status of a plan entry in the execution flow.
 //
@@ -5453,9 +5039,11 @@ const PlanEntryPriorityLow PlanEntryPriority = "low"
 // See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
 type PlanEntryStatus string
 
-const PlanEntryStatusPending PlanEntryStatus = "pending"
-const PlanEntryStatusInProgress PlanEntryStatus = "in_progress"
-const PlanEntryStatusCompleted PlanEntryStatus = "completed"
+const (
+	PlanEntryStatusPending    PlanEntryStatus = "pending"
+	PlanEntryStatusInProgress PlanEntryStatus = "in_progress"
+	PlanEntryStatusCompleted  PlanEntryStatus = "completed"
+)
 
 // An execution plan for accomplishing complex tasks.
 //
@@ -5875,115 +5463,20 @@ type UsageUpdate struct {
 // Severity hint for a session notice.
 //
 // @experimental
-// NoticeSeverity preserves the complete JSON payload, including future variants.
-type NoticeSeverity struct{ raw jsontext.Value }
+// NoticeSeverity also accepts values outside the listed constants; use Known to check.
+type NoticeSeverity string
 
-func (v NoticeSeverity) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *NoticeSeverity) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid NoticeSeverity JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v NoticeSeverity) RawJSON() jsontext.Value { return v.raw.Clone() }
-func (v NoticeSeverity) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
-	}
-	return enc.WriteValue(v.raw)
-}
-func (v *NoticeSeverity) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	v.raw = raw.Clone()
-	return nil
-}
-func ParseNoticeSeverity(b []byte) (NoticeSeverity, error) {
-	var v NoticeSeverity
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
-func NewNoticeSeverityVariant1(value string) (NoticeSeverity, error) {
-	if value != "info" {
-		return NoticeSeverity{}, fmt.Errorf("invalid literal for NoticeSeverity.Variant1")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return NoticeSeverity{}, err
-	}
-	return NoticeSeverity{raw: b}, nil
-}
-func (v NoticeSeverity) AsVariant1() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "info" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewNoticeSeverityVariant2(value string) (NoticeSeverity, error) {
-	if value != "warning" {
-		return NoticeSeverity{}, fmt.Errorf("invalid literal for NoticeSeverity.Variant2")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return NoticeSeverity{}, err
-	}
-	return NoticeSeverity{raw: b}, nil
-}
-func (v NoticeSeverity) AsVariant2() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "warning" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewNoticeSeverityVariant3(value string) (NoticeSeverity, error) {
-	if value != "error" {
-		return NoticeSeverity{}, fmt.Errorf("invalid literal for NoticeSeverity.Variant3")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return NoticeSeverity{}, err
-	}
-	return NoticeSeverity{raw: b}, nil
-}
-func (v NoticeSeverity) AsVariant3() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "error" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewNoticeSeverityVariant4(value string) (NoticeSeverity, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return NoticeSeverity{}, err
-	}
-	return NoticeSeverity{raw: b}, nil
-}
-func (v NoticeSeverity) AsVariant4() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
-}
+const (
+	NoticeSeverityInfo    NoticeSeverity = "info"
+	NoticeSeverityWarning NoticeSeverity = "warning"
+	NoticeSeverityError   NoticeSeverity = "error"
+)
+
+// NoticeSeverityValues lists the constants defined by the protocol.
+var NoticeSeverityValues = []NoticeSeverity{NoticeSeverityInfo, NoticeSeverityWarning, NoticeSeverityError}
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v NoticeSeverity) Known() bool { return slices.Contains(NoticeSeverityValues, v) }
 
 // **UNSTABLE**
 //
@@ -6031,135 +5524,21 @@ type CompactionID = string
 // Lifecycle state of a context compaction.
 //
 // @experimental
-// CompactionStatus preserves the complete JSON payload, including future variants.
-type CompactionStatus struct{ raw jsontext.Value }
+// CompactionStatus also accepts values outside the listed constants; use Known to check.
+type CompactionStatus string
 
-func (v CompactionStatus) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *CompactionStatus) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid CompactionStatus JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v CompactionStatus) RawJSON() jsontext.Value { return v.raw.Clone() }
-func (v CompactionStatus) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
-	}
-	return enc.WriteValue(v.raw)
-}
-func (v *CompactionStatus) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	v.raw = raw.Clone()
-	return nil
-}
-func ParseCompactionStatus(b []byte) (CompactionStatus, error) {
-	var v CompactionStatus
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
-func NewCompactionStatusVariant1(value string) (CompactionStatus, error) {
-	if value != "in_progress" {
-		return CompactionStatus{}, fmt.Errorf("invalid literal for CompactionStatus.Variant1")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CompactionStatus{}, err
-	}
-	return CompactionStatus{raw: b}, nil
-}
-func (v CompactionStatus) AsVariant1() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "in_progress" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewCompactionStatusVariant2(value string) (CompactionStatus, error) {
-	if value != "completed" {
-		return CompactionStatus{}, fmt.Errorf("invalid literal for CompactionStatus.Variant2")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CompactionStatus{}, err
-	}
-	return CompactionStatus{raw: b}, nil
-}
-func (v CompactionStatus) AsVariant2() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "completed" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewCompactionStatusVariant3(value string) (CompactionStatus, error) {
-	if value != "failed" {
-		return CompactionStatus{}, fmt.Errorf("invalid literal for CompactionStatus.Variant3")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CompactionStatus{}, err
-	}
-	return CompactionStatus{raw: b}, nil
-}
-func (v CompactionStatus) AsVariant3() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "failed" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewCompactionStatusVariant4(value string) (CompactionStatus, error) {
-	if value != "cancelled" {
-		return CompactionStatus{}, fmt.Errorf("invalid literal for CompactionStatus.Variant4")
-	}
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CompactionStatus{}, err
-	}
-	return CompactionStatus{raw: b}, nil
-}
-func (v CompactionStatus) AsVariant4() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	decoded, ok := decodeJSON[string](v.raw)
-	if !ok || decoded != "cancelled" {
-		return value, false
-	}
-	return decoded, true
-}
-func NewCompactionStatusVariant5(value string) (CompactionStatus, error) {
-	b, err := json.Marshal(value)
-	if err != nil {
-		return CompactionStatus{}, err
-	}
-	return CompactionStatus{raw: b}, nil
-}
-func (v CompactionStatus) AsVariant5() (value string, ok bool) {
-	if v.raw.Kind() == 'n' || len(v.raw) == 0 {
-		return value, false
-	}
-	return decodeJSON[string](v.raw)
-}
+const (
+	CompactionStatusInProgress CompactionStatus = "in_progress"
+	CompactionStatusCompleted  CompactionStatus = "completed"
+	CompactionStatusFailed     CompactionStatus = "failed"
+	CompactionStatusCancelled  CompactionStatus = "cancelled"
+)
+
+// CompactionStatusValues lists the constants defined by the protocol.
+var CompactionStatusValues = []CompactionStatus{CompactionStatusInProgress, CompactionStatusCompleted, CompactionStatusFailed, CompactionStatusCancelled}
+
+// Known reports whether v is one of the protocol-defined constants.
+func (v CompactionStatus) Known() bool { return slices.Contains(CompactionStatusValues, v) }
 
 // **UNSTABLE**
 //
@@ -7371,9 +6750,11 @@ type SuggestNesRequest struct {
 // What triggered the suggestion request.
 type NesTriggerKind string
 
-const NesTriggerKindAutomatic NesTriggerKind = "automatic"
-const NesTriggerKindDiagnostic NesTriggerKind = "diagnostic"
-const NesTriggerKindManual NesTriggerKind = "manual"
+const (
+	NesTriggerKindAutomatic  NesTriggerKind = "automatic"
+	NesTriggerKindDiagnostic NesTriggerKind = "diagnostic"
+	NesTriggerKindManual     NesTriggerKind = "manual"
+)
 
 // Context attached to a suggestion request.
 type NesSuggestContext struct {
@@ -7514,10 +6895,12 @@ type NesDiagnostic struct {
 // Severity of a diagnostic.
 type NesDiagnosticSeverity string
 
-const NesDiagnosticSeverityError NesDiagnosticSeverity = "error"
-const NesDiagnosticSeverityWarning NesDiagnosticSeverity = "warning"
-const NesDiagnosticSeverityInformation NesDiagnosticSeverity = "information"
-const NesDiagnosticSeverityHint NesDiagnosticSeverity = "hint"
+const (
+	NesDiagnosticSeverityError       NesDiagnosticSeverity = "error"
+	NesDiagnosticSeverityWarning     NesDiagnosticSeverity = "warning"
+	NesDiagnosticSeverityInformation NesDiagnosticSeverity = "information"
+	NesDiagnosticSeverityHint        NesDiagnosticSeverity = "hint"
+)
 
 // Request to close an NES session.
 //
@@ -8289,10 +7672,12 @@ type RejectNesNotification struct {
 // The reason a suggestion was rejected.
 type NesRejectReason string
 
-const NesRejectReasonRejected NesRejectReason = "rejected"
-const NesRejectReasonIgnored NesRejectReason = "ignored"
-const NesRejectReasonReplaced NesRejectReason = "replaced"
-const NesRejectReasonCancelled NesRejectReason = "cancelled"
+const (
+	NesRejectReasonRejected  NesRejectReason = "rejected"
+	NesRejectReasonIgnored   NesRejectReason = "ignored"
+	NesRejectReasonReplaced  NesRejectReason = "replaced"
+	NesRejectReasonCancelled NesRejectReason = "cancelled"
+)
 
 // Notification to cancel an ongoing request.
 //
