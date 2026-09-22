@@ -16,7 +16,7 @@ shared by both versions; it is a runtime dependency of the generated packages, n
 go generate ./...
 go test ./...
 (cd internal/cmd/schema && go test ./...)
-(cd internal/cmd/schema && go run . -source ../../../schema/typescript -out ../../../schema -check)
+(cd internal/cmd/schema && go run . -source ../../../schema/typescript -out ../../../schema -facade ../../.. -check)
 
 # Refresh intentionally, using a full upstream commit SHA:
 ./schema/update.sh <40-character-commit-sha>
@@ -34,6 +34,17 @@ Both Go packages are named `schema`; use aliases such as `acpv1` and `acpv2` whe
 The root `acp` package implements ACP v1 on top of `schema/v1`, `acpv2` implements the draft v2 on
 top of `schema/v2`, and `router` serves both on one endpoint. The previous JSON Schema generator,
 inputs and configuration have been removed.
+
+## Façade generation
+
+`-facade <module root>` also writes `types.gen.go` and `methods.gen.go` into the root `acp` package
+and into `acpv2`. Their input is the method table in `internal/cmd/schema/facade/{v1,v2}.go`: how
+wire methods group into Go interfaces, which are required, and what their docs say. The generator
+checks the table against the schema constants and type names, so an upstream method that is
+neither in the table nor listed as `Unhandled` fails generation instead of silently going unrouted.
+The generated files hold the interfaces, the outgoing calls on both connection types, the dispatch
+switches and the type aliases; the hand-written files keep the connection structs, constructors,
+lifecycle methods and the extension hooks.
 
 ## Supported subset
 

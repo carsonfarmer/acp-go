@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/ironpark/go-acp/internal/cmd/schema/facade"
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsgen"
 )
@@ -22,6 +23,7 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("acp-schema", flag.ContinueOnError)
 	source := flags.String("source", "schema/typescript", "Directory containing v1 and v2 TypeScript schema snapshots")
 	output := flags.String("out", "schema", "Output directory for v1/*.gen.go and v2/*.gen.go")
+	facadeRoot := flags.String("facade", "", "Module root to write the v1 (./) and v2 (./acpv2) façade files into; skipped when empty")
 	check := flags.Bool("check", false, "Check generated files without writing")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -35,6 +37,7 @@ func run(args []string) error {
 		data []byte
 	}
 	var results []result
+	specs := map[string]*facade.Spec{"v1": facade.V1, "v2": facade.V2}
 	for _, version := range []string{"v1", "v2"} {
 		schema, err := tsdef.ParseDir(filepath.Join(*source, version))
 		if err != nil {
@@ -46,6 +49,17 @@ func run(args []string) error {
 		}
 		for _, name := range slices.Sorted(maps.Keys(files)) {
 			results = append(results, result{filepath.Join(*output, version, name), files[name]})
+		}
+		if *facadeRoot == "" {
+			continue
+		}
+		spec := specs[version]
+		facadeFiles, err := facade.Generate(spec, schema)
+		if err != nil {
+			return fmt.Errorf("%s façade: %w", version, err)
+		}
+		for _, name := range slices.Sorted(maps.Keys(facadeFiles)) {
+			results = append(results, result{filepath.Join(*facadeRoot, spec.Dir, name), facadeFiles[name]})
 		}
 	}
 	for _, r := range results {

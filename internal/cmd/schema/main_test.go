@@ -43,6 +43,11 @@ func TestPinnedSDKGeneration(t *testing.T) {
 			}
 		}
 	}
+	// The façade files are checked in at the module root; they cannot compile
+	// standalone, so stale detection against the repository is their test.
+	if err := run(append(args, "-facade", "../../..", "-check")); err != nil {
+		t.Fatal(err)
+	}
 	stale := filepath.Join(output, "v1", "schema.gen.go")
 	if err := os.WriteFile(stale, []byte("stale"), 0644); err != nil {
 		t.Fatal(err)
