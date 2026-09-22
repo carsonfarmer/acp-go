@@ -1,8 +1,8 @@
-// Package acp implements the Agent Client Protocol (ACP) v1 for Go.
+// Package acpv1 implements the Agent Client Protocol (ACP) v1 for Go.
 //
 // The wire types are generated from the upstream TypeScript SDK and live in
-// [github.com/ironpark/go-acp/schema/v1]; this package adds the JSON-RPC
-// runtime and the two connection façades:
+// [github.com/ironpark/go-acp/schema/v1]; this package adds the two
+// connection façades on the shared runtime in [github.com/ironpark/go-acp]:
 //
 //   - [AgentSideConnection] serves an [Agent] and calls the peer [Client].
 //   - [ClientSideConnection] serves a [Client] and calls the peer [Agent].
@@ -10,10 +10,11 @@
 // Incoming parameters are validated with the SDK's Zod rules before a handler
 // sees them, so handlers receive normalized values.
 //
+// Connection options, transports, middleware and [github.com/ironpark/go-acp.RequestError] come from
+// the root package.
+//
 // See the protocol docs: https://agentclientprotocol.com
-package acp
-
-//go:generate sh -c "cd internal/cmd/schema && go run . -source ../../../schema/typescript -out ../../../schema -facade ../../.."
+package acpv1
 
 import (
 	"context"

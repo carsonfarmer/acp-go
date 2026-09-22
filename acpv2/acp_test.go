@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv2"
 	schema "github.com/ironpark/go-acp/schema/v2"
 )
@@ -221,18 +222,18 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
-	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); !hasCode(err, acpv2.ErrorCodeResourceNotFound) {
+	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); !hasCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Errorf("second delete: %v, want resource not found", err)
 	}
 }
 
 func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
-	if _, err := conn.Login(t.Context(), &acpv2.LoginAuthRequest{MethodID: "oauth"}); !hasCode(err, acpv2.ErrorCodeMethodNotFound) {
+	if _, err := conn.Login(t.Context(), &acpv2.LoginAuthRequest{MethodID: "oauth"}); !hasCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("Login error = %v, want method not found", err)
 	}
 	_, agentConn := connect(t, newTestAgent(), newTestClient())
-	if _, err := agentConn.ConnectMCP(t.Context(), &acpv2.ConnectMCPRequest{ServerID: "s1"}); !hasCode(err, acpv2.ErrorCodeMethodNotFound) {
+	if _, err := agentConn.ConnectMCP(t.Context(), &acpv2.ConnectMCPRequest{ServerID: "s1"}); !hasCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("ConnectMCP error = %v, want method not found", err)
 	}
 }
@@ -240,7 +241,7 @@ func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 func TestInvalidParamsAreRejectedBeforeTheHandler(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
 	_, err := conn.ExtMethod(t.Context(), schema.AgentMethodsSessionPrompt, map[string]any{"prompt": []any{}})
-	if !hasCode(err, acpv2.ErrorCodeInvalidParams) {
+	if !hasCode(err, acp.ErrorCodeInvalidParams) {
 		t.Errorf("error = %v, want invalid params", err)
 	}
 }
@@ -276,7 +277,7 @@ func TestAgentCallsBackIntoTheClient(t *testing.T) {
 	}
 }
 
-func hasCode(err error, code acpv2.ErrorCode) bool {
-	var reqErr *acpv2.RequestError
+func hasCode(err error, code acp.ErrorCode) bool {
+	var reqErr *acp.RequestError
 	return errors.As(err, &reqErr) && reqErr.Code == code
 }

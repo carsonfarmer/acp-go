@@ -17,14 +17,15 @@ import (
 	"strings"
 
 	acp "github.com/ironpark/go-acp"
+	"github.com/ironpark/go-acp/acpv1"
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// exampleClient implements acp.Client, plus acp.FileReader and acp.FileWriter
+// exampleClient implements acpv1.Client, plus acpv1.FileReader and acpv1.FileWriter
 // for the capabilities it advertises during initialization.
 type exampleClient struct{}
 
-func (c *exampleClient) SessionUpdate(_ context.Context, params *acp.SessionNotification) error {
+func (c *exampleClient) SessionUpdate(_ context.Context, params *acpv1.SessionNotification) error {
 	switch update := params.Update.Variant().(type) {
 	case schema.SessionUpdateAgentMessageChunk:
 		if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
@@ -54,7 +55,7 @@ func (c *exampleClient) SessionUpdate(_ context.Context, params *acp.SessionNoti
 	return nil
 }
 
-func (c *exampleClient) RequestPermission(_ context.Context, params *acp.RequestPermissionRequest) (*acp.RequestPermissionResponse, error) {
+func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
 	title := ""
 	if params.ToolCall.Title != nil {
 		title = *params.ToolCall.Title
@@ -76,7 +77,7 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acp.Request
 			fmt.Printf("Enter a number between 1 and %d.\n", len(params.Options))
 			continue
 		}
-		return &acp.RequestPermissionResponse{
+		return &acpv1.RequestPermissionResponse{
 			Outcome: schema.NewRequestPermissionOutcome(schema.RequestPermissionOutcomeSelected{
 				OptionID: params.Options[choice-1].OptionID,
 			}),
@@ -84,19 +85,19 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acp.Request
 	}
 }
 
-func (c *exampleClient) ReadTextFile(_ context.Context, params *acp.ReadTextFileRequest) (*acp.ReadTextFileResponse, error) {
+func (c *exampleClient) ReadTextFile(_ context.Context, params *acpv1.ReadTextFileRequest) (*acpv1.ReadTextFileResponse, error) {
 	content, err := os.ReadFile(params.Path)
 	if err != nil {
 		return nil, acp.ErrResourceNotFound(params.Path)
 	}
-	return &acp.ReadTextFileResponse{Content: string(content)}, nil
+	return &acpv1.ReadTextFileResponse{Content: string(content)}, nil
 }
 
-func (c *exampleClient) WriteTextFile(_ context.Context, params *acp.WriteTextFileRequest) (*acp.WriteTextFileResponse, error) {
+func (c *exampleClient) WriteTextFile(_ context.Context, params *acpv1.WriteTextFileRequest) (*acpv1.WriteTextFileResponse, error) {
 	if err := os.WriteFile(params.Path, []byte(params.Content), 0o644); err != nil {
 		return nil, err
 	}
-	return &acp.WriteTextFileResponse{}, nil
+	return &acpv1.WriteTextFileResponse{}, nil
 }
 
 func main() {
@@ -113,7 +114,7 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+	conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
 		return &exampleClient{}
 	}, agentBinary)
 	if err != nil {
@@ -128,8 +129,8 @@ func run(ctx context.Context) error {
 	}()
 
 	enabled := true
-	initialized, err := conn.Initialize(ctx, &acp.InitializeRequest{
-		ProtocolVersion: acp.ProtocolVersion,
+	initialized, err := conn.Initialize(ctx, &acpv1.InitializeRequest{
+		ProtocolVersion: acpv1.ProtocolVersion,
 		ClientCapabilities: &schema.ClientCapabilities{
 			Fs: &schema.FileSystemCapabilities{ReadTextFile: &enabled, WriteTextFile: &enabled},
 		},
@@ -141,15 +142,15 @@ func run(ctx context.Context) error {
 	fmt.Printf("Connected to agent (protocol v%d)\n", initialized.ProtocolVersion)
 
 	cwd, _ := os.Getwd()
-	created, err := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+	created, err := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
 	fmt.Printf("Created session: %s\nUser: Hello, agent!\n\n", created.SessionID)
 
-	result, err := conn.Prompt(ctx, &acp.PromptRequest{
+	result, err := conn.Prompt(ctx, &acpv1.PromptRequest{
 		SessionID: created.SessionID,
-		Prompt: []acp.ContentBlock{
+		Prompt: []acpv1.ContentBlock{
 			schema.NewContentBlock(schema.ContentBlockText{Text: "Hello, agent!"}),
 		},
 	})

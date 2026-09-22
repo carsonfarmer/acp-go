@@ -1,4 +1,4 @@
-package acp_test
+package acpv1_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	acp "github.com/ironpark/go-acp"
+	"github.com/ironpark/go-acp/acpv1"
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
@@ -17,43 +18,43 @@ import (
 // and extension hooks the tests exercise. Session lifecycle comes from the
 // embedded manager.
 type testAgent struct {
-	*acp.SessionManager[*testSession]
-	client acp.Client
+	*acpv1.SessionManager[*testSession]
+	client acpv1.Client
 
-	cancelled chan acp.SessionID
+	cancelled chan acpv1.SessionID
 }
 
 type testSession struct{ cwd string }
 
 func newTestAgent() *testAgent {
 	return &testAgent{
-		SessionManager: acp.NewSessionManager(
-			acp.NewMemoryStore[*testSession](),
-			func(_ context.Context, params *acp.NewSessionRequest) (acp.SessionID, *testSession, error) {
-				return acp.GenerateSessionID(), &testSession{cwd: params.Cwd}, nil
+		SessionManager: acpv1.NewSessionManager(
+			acpv1.NewMemoryStore[*testSession](),
+			func(_ context.Context, params *acpv1.NewSessionRequest) (acpv1.SessionID, *testSession, error) {
+				return acpv1.GenerateSessionID(), &testSession{cwd: params.Cwd}, nil
 			},
 		),
-		cancelled: make(chan acp.SessionID, 1),
+		cancelled: make(chan acpv1.SessionID, 1),
 	}
 }
 
-func (a *testAgent) Initialize(context.Context, *acp.InitializeRequest) (*acp.InitializeResponse, error) {
-	return &acp.InitializeResponse{ProtocolVersion: acp.ProtocolVersion}, nil
+func (a *testAgent) Initialize(context.Context, *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
+	return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion}, nil
 }
 
-func (a *testAgent) Authenticate(context.Context, *acp.AuthenticateRequest) (*acp.AuthenticateResponse, error) {
-	return &acp.AuthenticateResponse{}, nil
+func (a *testAgent) Authenticate(context.Context, *acpv1.AuthenticateRequest) (*acpv1.AuthenticateResponse, error) {
+	return &acpv1.AuthenticateResponse{}, nil
 }
 
-func (a *testAgent) Prompt(ctx context.Context, params *acp.PromptRequest) (*acp.PromptResponse, error) {
-	stream := acp.NewSessionStream(a.client, params.SessionID)
-	if err := stream.SendText(ctx, "hello", acp.WithMessageID("msg_1")); err != nil {
+func (a *testAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+	stream := acpv1.NewSessionStream(a.client, params.SessionID)
+	if err := stream.SendText(ctx, "hello", acpv1.WithMessageID("msg_1")); err != nil {
 		return nil, err
 	}
-	return &acp.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+	return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 
-func (a *testAgent) Cancel(_ context.Context, params *acp.CancelNotification) error {
+func (a *testAgent) Cancel(_ context.Context, params *acpv1.CancelNotification) error {
 	a.cancelled <- params.SessionID
 	return nil
 }
@@ -64,42 +65,42 @@ func (a *testAgent) ExtMethod(_ context.Context, method string, params jsontext.
 
 // testClient records the updates it receives and always allows tool calls.
 type testClient struct {
-	updates chan *acp.SessionNotification
+	updates chan *acpv1.SessionNotification
 }
 
 func newTestClient() *testClient {
-	return &testClient{updates: make(chan *acp.SessionNotification, 16)}
+	return &testClient{updates: make(chan *acpv1.SessionNotification, 16)}
 }
 
-func (c *testClient) SessionUpdate(_ context.Context, params *acp.SessionNotification) error {
+func (c *testClient) SessionUpdate(_ context.Context, params *acpv1.SessionNotification) error {
 	c.updates <- params
 	return nil
 }
 
-func (c *testClient) RequestPermission(_ context.Context, params *acp.RequestPermissionRequest) (*acp.RequestPermissionResponse, error) {
-	return &acp.RequestPermissionResponse{
+func (c *testClient) RequestPermission(_ context.Context, params *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
+	return &acpv1.RequestPermissionResponse{
 		Outcome: schema.NewRequestPermissionOutcome(schema.RequestPermissionOutcomeSelected{
 			OptionID: params.Options[0].OptionID,
 		}),
 	}, nil
 }
 
-func (c *testClient) ReadTextFile(_ context.Context, params *acp.ReadTextFileRequest) (*acp.ReadTextFileResponse, error) {
-	return &acp.ReadTextFileResponse{Content: "contents of " + params.Path}, nil
+func (c *testClient) ReadTextFile(_ context.Context, params *acpv1.ReadTextFileRequest) (*acpv1.ReadTextFileResponse, error) {
+	return &acpv1.ReadTextFileResponse{Content: "contents of " + params.Path}, nil
 }
 
 // connect wires an agent and a client together over in-memory pipes.
-func connect(t *testing.T, agent *testAgent, client acp.Client) (*acp.ClientSideConnection, *acp.AgentSideConnection) {
+func connect(t *testing.T, agent *testAgent, client acpv1.Client) (*acpv1.ClientSideConnection, *acpv1.AgentSideConnection) {
 	t.Helper()
 
 	agentIn, clientOut := io.Pipe()
 	clientIn, agentOut := io.Pipe()
 
-	agentConn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+	agentConn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
 		agent.client = c
 		return agent
 	}, agentIn, agentOut)
-	clientConn := acp.NewClientSideConnection(func(*acp.ClientSideConnection) acp.Client {
+	clientConn := acpv1.NewClientSideConnection(func(*acpv1.ClientSideConnection) acpv1.Client {
 		return client
 	}, clientIn, clientOut)
 
@@ -128,22 +129,22 @@ func TestPromptTurn(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), client)
 	ctx := t.Context()
 
-	initialized, err := conn.Initialize(ctx, &acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersion})
+	initialized, err := conn.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
 	if err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
-	if initialized.ProtocolVersion != acp.ProtocolVersion {
-		t.Errorf("protocol version = %d, want %d", initialized.ProtocolVersion, acp.ProtocolVersion)
+	if initialized.ProtocolVersion != acpv1.ProtocolVersion {
+		t.Errorf("protocol version = %d, want %d", initialized.ProtocolVersion, acpv1.ProtocolVersion)
 	}
 
-	created, err := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: "/tmp", MCPServers: []schema.MCPServer{}})
+	created, err := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: "/tmp", MCPServers: []schema.MCPServer{}})
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
 
-	result, err := conn.Prompt(ctx, &acp.PromptRequest{
+	result, err := conn.Prompt(ctx, &acpv1.PromptRequest{
 		SessionID: created.SessionID,
-		Prompt:    []acp.ContentBlock{schema.NewContentBlock(schema.ContentBlockText{Text: "hi"})},
+		Prompt:    []acpv1.ContentBlock{schema.NewContentBlock(schema.ContentBlockText{Text: "hi"})},
 	})
 	if err != nil {
 		t.Fatalf("Prompt: %v", err)
@@ -172,7 +173,7 @@ func TestPromptTurn(t *testing.T) {
 
 func TestVoidResponseDecodes(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
-	if _, err := conn.Authenticate(t.Context(), &acp.AuthenticateRequest{MethodID: "none"}); err != nil {
+	if _, err := conn.Authenticate(t.Context(), &acpv1.AuthenticateRequest{MethodID: "none"}); err != nil {
 		t.Fatalf("Authenticate: %v", err)
 	}
 }
@@ -181,21 +182,21 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
 	ctx := t.Context()
 
-	created, err := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: "/tmp", MCPServers: []schema.MCPServer{}})
+	created, err := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: "/tmp", MCPServers: []schema.MCPServer{}})
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	listed, err := conn.ListSessions(ctx, &acp.ListSessionsRequest{})
+	listed, err := conn.ListSessions(ctx, &acpv1.ListSessionsRequest{})
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
 	if len(listed.Sessions) != 1 || listed.Sessions[0].SessionID != created.SessionID {
 		t.Fatalf("listed sessions = %#v", listed.Sessions)
 	}
-	if _, err := conn.DeleteSession(ctx, &acp.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
+	if _, err := conn.DeleteSession(ctx, &acpv1.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
-	if _, err := conn.LoadSession(ctx, &acp.LoadSessionRequest{
+	if _, err := conn.LoadSession(ctx, &acpv1.LoadSessionRequest{
 		SessionID:  created.SessionID,
 		Cwd:        "/tmp",
 		MCPServers: []schema.MCPServer{},
@@ -206,7 +207,7 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 
 func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
-	_, err := conn.SetSessionMode(t.Context(), &acp.SetSessionModeRequest{
+	_, err := conn.SetSessionMode(t.Context(), &acpv1.SetSessionModeRequest{
 		SessionID: "session_1",
 		ModeID:    "ask",
 	})
@@ -246,7 +247,7 @@ func TestCancelNotificationReachesTheAgent(t *testing.T) {
 	agent := newTestAgent()
 	conn, _ := connect(t, agent, newTestClient())
 
-	if err := conn.Cancel(t.Context(), &acp.CancelNotification{SessionID: "session_1"}); err != nil {
+	if err := conn.Cancel(t.Context(), &acpv1.CancelNotification{SessionID: "session_1"}); err != nil {
 		t.Fatalf("Cancel: %v", err)
 	}
 	select {
@@ -264,7 +265,7 @@ func TestAgentCallsBackIntoTheClient(t *testing.T) {
 	_, agentConn := connect(t, agent, newTestClient())
 	ctx := t.Context()
 
-	read, err := agentConn.ReadTextFile(ctx, &acp.ReadTextFileRequest{SessionID: "session_1", Path: "/etc/hosts"})
+	read, err := agentConn.ReadTextFile(ctx, &acpv1.ReadTextFileRequest{SessionID: "session_1", Path: "/etc/hosts"})
 	if err != nil {
 		t.Fatalf("ReadTextFile: %v", err)
 	}
@@ -272,7 +273,7 @@ func TestAgentCallsBackIntoTheClient(t *testing.T) {
 		t.Errorf("content = %q", read.Content)
 	}
 
-	granted, err := agentConn.RequestPermission(ctx, &acp.RequestPermissionRequest{
+	granted, err := agentConn.RequestPermission(ctx, &acpv1.RequestPermissionRequest{
 		SessionID: "session_1",
 		ToolCall:  schema.ToolCallUpdate{ToolCallID: "call_1"},
 		Options: []schema.PermissionOption{
@@ -291,7 +292,7 @@ func TestAgentCallsBackIntoTheClient(t *testing.T) {
 func TestUnsupportedClientMethodIsMethodNotFound(t *testing.T) {
 	// testClient implements neither FileWriter nor TerminalHandler.
 	_, agentConn := connect(t, newTestAgent(), newTestClient())
-	_, err := agentConn.WriteTextFile(t.Context(), &acp.WriteTextFileRequest{
+	_, err := agentConn.WriteTextFile(t.Context(), &acpv1.WriteTextFileRequest{
 		SessionID: "session_1",
 		Path:      "/tmp/file",
 		Content:   "data",

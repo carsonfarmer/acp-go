@@ -1,4 +1,4 @@
-package acpv2
+package acpv1
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	acp "github.com/ironpark/go-acp"
 )
 
-// SessionStore is [acp.SessionStore] keyed by v2 session ids.
+// SessionStore is [acp.SessionStore] keyed by v1 session ids.
 type SessionStore[T any] = acp.SessionStore[SessionID, T]
 
-// MemoryStore is [acp.MemoryStore] keyed by v2 session ids.
+// MemoryStore is [acp.MemoryStore] keyed by v1 session ids.
 type MemoryStore[T any] = acp.MemoryStore[SessionID, T]
 
 // NewMemoryStore creates an empty in-memory store.
@@ -27,21 +27,21 @@ type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) 
 // [SessionStore], so an agent can embed it instead of writing them:
 //
 //	type myAgent struct {
-//		*acpv2.SessionManager[*mySession]
+//		*acpv1.SessionManager[*mySession]
 //	}
 //
-//	agent := &myAgent{SessionManager: acpv2.NewSessionManager(
-//		acpv2.NewMemoryStore[*mySession](),
-//		func(ctx context.Context, params *acpv2.NewSessionRequest) (acpv2.SessionID, *mySession, error) {
-//			id := acpv2.GenerateSessionID()
+//	agent := &myAgent{SessionManager: acpv1.NewSessionManager(
+//		acpv1.NewMemoryStore[*mySession](),
+//		func(ctx context.Context, params *acpv1.NewSessionRequest) (acpv1.SessionID, *mySession, error) {
+//			id := acpv1.GenerateSessionID()
 //			return id, &mySession{id: id, cwd: params.Cwd}, nil
 //		},
 //	)}
 //
-// Embedding it satisfies [Agent]'s NewSession plus [SessionLister] and
-// [SessionDeleter]; override any of them by declaring the method on the agent
-// itself. There is no session/load in v2. The agent still advertises the
-// matching capabilities from Initialize — the manager does not do that for it.
+// Embedding it satisfies [Agent]'s NewSession plus [SessionLoader],
+// [SessionLister] and [SessionDeleter]; override any of them by declaring the
+// method on the agent itself. The agent still advertises the matching
+// capabilities from Initialize — the manager does not do that for it.
 type SessionManager[T any] struct {
 	store   SessionStore[T]
 	factory SessionFactory[T]
@@ -66,6 +66,15 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 	}
 	m.store.Set(id, session)
 	return &NewSessionResponse{SessionID: id}, nil
+}
+
+// LoadSession reports whether the session exists. Replaying its history is the
+// agent's job; override this method to do it.
+func (m *SessionManager[T]) LoadSession(_ context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
+	if _, ok := m.store.Get(params.SessionID); !ok {
+		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	}
+	return &LoadSessionResponse{}, nil
 }
 
 // ListSessions lists the stored sessions. It ignores the request's cwd filter

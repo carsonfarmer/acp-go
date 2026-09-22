@@ -16,9 +16,10 @@ Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(
 이 브랜치는 Go 1.27+ 를 요구하며 SDK를 `encoding/json/v2` 기반으로 다시 만든 버전입니다.
 와이어 타입은 공식 TypeScript SDK에서 `go-tree-sitter`로 생성합니다
 ([스키마 생성](../schema/README.md) 참고).
-루트 `acp` 패키지는 `schema/v1` 위에서 ACP v1을 구현합니다. 초안 단계인 v2는 `schema/v2` 위의
-[`acpv2`](../acpv2/)에 있고, [`router`](../router/)가 한 엔드포인트에서 두 버전을 함께 서비스합니다.
-업스트림과 마찬가지로 v1이 안정 진입점이고 v2는 opt-in이며 바뀔 수 있습니다.
+루트 `acp` 패키지는 모든 프로토콜 버전이 공유하는 것 — 옵션, transport, 미들웨어, 에러 타입,
+세션 스토어 — 만 담습니다. 프로토콜 파사드는 버전별 형제 패키지입니다: `schema/v1` 위의
+[`acpv1`](../acpv1/)(안정)과 `schema/v2` 위의 [`acpv2`](../acpv2/)(초안, 바뀔 수 있음).
+[`router`](../router/)가 한 엔드포인트에서 두 버전을 함께 서비스합니다.
 
 ## 설치
 
@@ -42,7 +43,7 @@ go get github.com/ironpark/go-acp
 ### 에이전트 구현
 
 ```go
-conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
     return &MyAgent{client: c} // 연결 자체가 상대편 Client 입니다
 }, os.Stdin, os.Stdout)
 
@@ -52,14 +53,21 @@ if err := conn.Start(context.Background()); err != nil {
 ```
 
 `Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `Authenticate`, `NewSession`,
-`Prompt`, `Cancel` 다섯 개뿐입니다. 나머지는 선택적 인터페이스(`acp.SessionLoader`,
-`acp.SessionLister`, `acp.SessionModeSetter`, `acp.NesHandler` 등)로 구현하고
-`Initialize` 응답에서 해당 capability를 알리면 됩니다.
+`Prompt`, `Cancel` 다섯 개뿐입니다. 나머지는 선택적 인터페이스(`acpv1.SessionLoader`,
+`acpv1.SessionLister`, `acpv1.SessionModeSetter`, `acpv1.NesHandler` 등)로 구현합니다.
+`acpv1.CapabilitiesOf(agent)`가 구현된 인터페이스에서 capability를 유도해 주므로, `Initialize`
+응답이 연결이 거부할 메서드를 광고하는 일이 없습니다:
+
+```go
+caps := acpv1.CapabilitiesOf(a)
+caps.PromptCapabilities = &schema.PromptCapabilities{Image: &yes} // 콘텐츠 capability는 직접 설정
+return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion, AgentCapabilities: caps}, nil
+```
 
 ### 클라이언트 구현
 
 ```go
-conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
     return &MyClient{}
 }, "my-agent")
 if err != nil {
@@ -67,27 +75,28 @@ if err != nil {
 }
 go conn.Start(ctx)
 
-conn.Initialize(ctx, &acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersion})
-session, _ := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
-conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
+conn.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
+session, _ := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+conn.Prompt(ctx, &acpv1.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
 ```
 
 `Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다.
-파일 시스템·터미널·elicitation 지원은 `acp.FileReader`, `acp.FileWriter`,
-`acp.TerminalHandler`, `acp.ElicitationHandler`로 추가합니다.
+파일 시스템·터미널·elicitation 지원은 `acpv1.FileReader`, `acpv1.FileWriter`,
+`acpv1.TerminalHandler`, `acpv1.ElicitationHandler`로 추가하며, `acpv1.ClientCapabilitiesOf(client)`가
+대응하는 플래그를 유도합니다.
 
 ## 아키텍처
 
-- **`AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
-- **`ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
-- **`Transport`**: 플러그형 프레이밍 (기본 stdio, HTTP+SSE 포함)
-- **`SessionManager`**: `SessionStore` 기반 세션 수명주기 메서드
-- **`SessionStream`**: union을 직접 만들지 않고 세션 업데이트 전송
-- **`Middleware`**: 요청/알림을 감싸는 래퍼
-- **`TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
-- **`schema/v1`**: 생성된 와이어 타입, union, Zod 검증
+- **`acp`** (루트): `Option`, `Transport`(stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`
+- **`acpv1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
+- **`acpv1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
+- **`acpv1.SessionManager`**: 스토어 기반 세션 수명주기 메서드
+- **`acpv1.SessionStream`**: union을 직접 만들지 않고 세션 업데이트 전송
+- **`acpv1.TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
+- **`acpv1.CapabilitiesOf`**: 에이전트가 구현한 인터페이스에서 capability 유도
 - **`acpv2`**: 초안 ACP v2(`schema/v2`)용 동일 구조의 파사드
 - **`router.ProtocolRouter`**: v1·v2 에이전트를 한 엔드포인트로 서비스
+- **`schema/v1`, `schema/v2`**: 생성된 와이어 타입, union, Zod 검증
 
 ## 주요 기능
 
@@ -102,7 +111,7 @@ conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt
 
 ```go
 r := router.New().
-    WithV1(func(c *acp.AgentSideConnection) acp.Agent { return &v1Agent{client: c} }).
+    WithV1(func(c *acpv1.AgentSideConnection) acpv1.Agent { return &v1Agent{client: c} }).
     WithV2(func(c *acpv2.AgentSideConnection) acpv2.Agent { return &v2Agent{client: c} })
 err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
 ```
@@ -111,20 +120,20 @@ err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
 initialize 파라미터만 그 버전 모양으로 고칩니다(v1 전용 에이전트에 v2 요청이 오면 `info` → `clientInfo`,
 `fs`/`terminal` 없음으로 다운그레이드). 이후 메시지는 그대로 전달합니다. 클라이언트는 import 하는
 패키지로 버전을 고르며, 에이전트가 더 낮은 `protocolVersion`으로 응답하면 다른 패키지로 재연결합니다.
-옵션·transport·미들웨어는 공유 타입이라 한 값으로 양쪽 파사드를 설정합니다.
+옵션·transport·미들웨어는 루트 `acp` 패키지에 있어 한 값으로 양쪽 파사드를 설정합니다.
 
 ### 세션 관리
 
 ```go
-manager := acp.NewSessionManager(
-    acp.NewMemoryStore[*MySession](),
-    func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
-        return acp.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
+manager := acpv1.NewSessionManager(
+    acpv1.NewMemoryStore[*MySession](),
+    func(ctx context.Context, params *acpv1.NewSessionRequest) (acpv1.SessionID, *MySession, error) {
+        return acpv1.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
     },
 )
 
 type MyAgent struct {
-    *acp.SessionManager[*MySession] // NewSession, LoadSession, ListSessions, DeleteSession 제공
+    *acpv1.SessionManager[*MySession] // NewSession, LoadSession, ListSessions, DeleteSession 제공
 }
 ```
 
@@ -133,7 +142,7 @@ type MyAgent struct {
 ### 미들웨어
 
 ```go
-conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
         acp.LoggingMiddleware(logger.Printf),
         acp.TimeoutMiddleware(30*time.Second),
@@ -163,7 +172,7 @@ update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
 ### 연결 옵션
 
 ```go
-acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithWriteQueueSize(500),               // 쓰기 큐 크기
     acp.WithRequestTimeout(30*time.Second),    // 나가는 호출 기본 타임아웃
     acp.WithShutdownTimeout(10*time.Second),   // 셧다운 대기 한도

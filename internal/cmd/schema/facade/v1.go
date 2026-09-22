@@ -1,9 +1,9 @@
 package facade
 
-// V1 is the method table for the stable ACP v1 façade at the module root.
+// V1 is the method table for the stable ACP v1 façade in acpv1.
 var V1 = &Spec{
-	Package:    "acp",
-	Dir:        "",
+	Package:    "acpv1",
+	Dir:        "acpv1",
 	SchemaPath: "github.com/ironpark/go-acp/schema/v1",
 	Unhandled: []string{
 		// The reference SDKs leave MCP proxying to extensions in v1.

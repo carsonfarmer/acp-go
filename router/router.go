@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	acp "github.com/ironpark/go-acp"
+	"github.com/ironpark/go-acp/acpv1"
 	"github.com/ironpark/go-acp/acpv2"
 	schemav1 "github.com/ironpark/go-acp/schema/v1"
 	schemav2 "github.com/ironpark/go-acp/schema/v2"
@@ -36,7 +37,7 @@ const (
 
 // ProtocolRouter routes each connection to a v1 or v2 agent implementation.
 type ProtocolRouter struct {
-	v1 func(*acp.AgentSideConnection) acp.Agent
+	v1 func(*acpv1.AgentSideConnection) acpv1.Agent
 	v2 func(*acpv2.AgentSideConnection) acpv2.Agent
 }
 
@@ -44,7 +45,7 @@ type ProtocolRouter struct {
 func New() *ProtocolRouter { return &ProtocolRouter{} }
 
 // WithV1 configures the ACP v1 agent implementation.
-func (r *ProtocolRouter) WithV1(newAgent func(*acp.AgentSideConnection) acp.Agent) *ProtocolRouter {
+func (r *ProtocolRouter) WithV1(newAgent func(*acpv1.AgentSideConnection) acpv1.Agent) *ProtocolRouter {
 	r.v1 = newAgent
 	return r
 }
@@ -116,7 +117,7 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 	case 2:
 		return acpv2.NewAgentSideConnection(r.v2, nil, nil, opts...).Start(ctx)
 	default:
-		return acp.NewAgentSideConnection(r.v1, nil, nil, opts...).Start(ctx)
+		return acpv1.NewAgentSideConnection(r.v1, nil, nil, opts...).Start(ctx)
 	}
 }
 

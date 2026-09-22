@@ -3,6 +3,7 @@ package acpv2
 import (
 	"context"
 	"encoding/json/jsontext"
+	acp "github.com/ironpark/go-acp"
 	"io"
 
 	"github.com/ironpark/go-acp/internal/acpconn"
@@ -23,7 +24,7 @@ var _ Agent = (*ClientSideConnection)(nil)
 // the connection being built so the client can call the agent from its own
 // handlers. reader carries messages from the agent and writer carries messages
 // to it; when spawning an agent process those are its stdout and stdin.
-func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...Option) *ClientSideConnection {
+func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
 	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)

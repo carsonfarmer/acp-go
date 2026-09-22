@@ -21,15 +21,16 @@ ACP(Agent Client Protocol) for golang
 - Generator: `internal/cmd/schema` (separate Go module)
 - Details: `schema/README.md`
 - Outputs: `schema/{v1,v2}/schema.gen.go` (wire types), `schema/{v1,v2}/zod.gen.go` (Zod rule tables),
-  plus `types.gen.go`/`methods.gen.go` in the root and `acpv2` façade packages (from `internal/cmd/schema/facade/{v1,v2}.go`)
+  plus `types.gen.go`/`methods.gen.go` in the `acpv1` and `acpv2` façade packages (from `internal/cmd/schema/facade/{v1,v2}.go`)
 - Adding or regrouping a protocol method: edit the façade table, run `go generate ./...`; never edit `*.gen.go`
 - Shared Zod evaluator: `schema/zod`
 
 ### Packages (`next`)
 
-- Root `acp`: ACP v1 façade on `schema/v1`. `acpv2`: draft v2 façade on `schema/v2` (never imports root).
-- `router`: `ProtocolRouter` serving both versions on one endpoint (imports both façades).
-- `internal/jsonrpc`: version-agnostic JSON-RPC 2.0 core. `internal/acpconn`: shared options and generic dispatch.
+- Root `acp`: version-neutral runtime API — options, transports, middleware, errors, session store. Imports no façade.
+- `acpv1` / `acpv2`: protocol façades on `schema/v1` / `schema/v2`; symmetric, both import root.
+- `router`: `ProtocolRouter` serving both versions on one endpoint (imports root and both façades).
+- `internal/jsonrpc`: JSON-RPC 2.0 core. `internal/acpconn`: option plumbing and generic dispatch used by the façades.
 
 ### SDK
 

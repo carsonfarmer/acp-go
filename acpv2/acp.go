@@ -1,14 +1,14 @@
 // Package acpv2 implements the draft Agent Client Protocol v2 for Go.
 //
 // ACP v2 is still a draft: its wire protocol and this API may change
-// incompatibly in any release. The stable entry point remains the v1 package
-// at the module root; import this package to opt in, exactly as the upstream
-// TypeScript SDK exposes v2 under an experimental entry point.
+// incompatibly in any release. The stable protocol is [github.com/ironpark/go-acp/acpv1];
+// import this package to opt in, exactly as the upstream TypeScript SDK
+// exposes v2 under an experimental entry point.
 //
 // The wire types live in [github.com/ironpark/go-acp/schema/v2]; this package
 // adds the [AgentSideConnection] and [ClientSideConnection] façades on the
-// same JSON-RPC runtime the v1 package uses. Options, transports, middleware
-// and [RequestError] are shared types, so one value configures either version.
+// shared runtime in [github.com/ironpark/go-acp], which also provides the
+// options, transports, middleware and error type both versions use.
 //
 // Compared with v1, v2 moves file system and terminal access behind MCP
 // (`mcp/*`), replaces `authenticate` with `auth/login`/`auth/logout`, drops

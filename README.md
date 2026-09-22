@@ -16,9 +16,10 @@ Learn more about the protocol at [agentclientprotocol.com](https://agentclientpr
 This branch requires Go 1.27+ and is a rebuild of the SDK on `encoding/json/v2`.
 Wire types are generated from the official TypeScript SDK with `go-tree-sitter` — see
 [schema generation](schema/README.md) for inputs, regeneration and current limits.
-The root `acp` package implements ACP v1 on top of `schema/v1`. The draft v2 lives in
-[`acpv2`](./acpv2/) on top of `schema/v2`, and [`router`](./router/) serves both versions on one
-endpoint. As upstream, v1 is the stable entry point and v2 is opt-in and may change.
+The root `acp` package holds what every protocol version shares — options, transports, middleware,
+errors and the session store. The protocol façades are versioned siblings: [`acpv1`](./acpv1/) on
+`schema/v1` (stable) and [`acpv2`](./acpv2/) on `schema/v2` (draft, may change). [`router`](./router/)
+serves both versions on one endpoint.
 
 ## Installation
 
@@ -35,16 +36,16 @@ See the [docs/example](./docs/example/) directory for complete working examples:
 
 ## Architecture
 
-- **`AgentSideConnection`** — serves an `Agent` and calls the peer client
-- **`ClientSideConnection`** — serves a `Client` and calls the peer agent
-- **`Transport`** — pluggable framing (stdio by default, HTTP+SSE included)
-- **`SessionManager`** — session lifecycle methods backed by a `SessionStore`
-- **`SessionStream`** — session updates without rebuilding the union by hand
-- **`Middleware`** — composable wrappers around incoming requests and notifications
-- **`TerminalHandle`** — terminal id and session id bound together
-- **`schema/v1`** — generated wire types, unions and Zod-based validation
+- **`acp`** (root) — `Option`s, `Transport` (stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`
+- **`acpv1.AgentSideConnection`** — serves an `Agent` and calls the peer client
+- **`acpv1.ClientSideConnection`** — serves a `Client` and calls the peer agent
+- **`acpv1.SessionManager`** — session lifecycle methods backed by a store
+- **`acpv1.SessionStream`** — session updates without rebuilding the union by hand
+- **`acpv1.TerminalHandle`** — terminal id and session id bound together
+- **`acpv1.CapabilitiesOf`** — capabilities derived from the interfaces an agent implements
 - **`acpv2`** — the same façades for the draft ACP v2 (`schema/v2`)
 - **`router.ProtocolRouter`** — one endpoint serving v1 and v2 agents
+- **`schema/v1`, `schema/v2`** — generated wire types, unions and Zod-based validation
 
 Incoming parameters are validated with the SDK's own Zod rules before a handler sees them,
 and invalid ones are answered with `-32602` without invoking the handler.
@@ -54,7 +55,7 @@ and invalid ones are answered with `-32602` without invoking the handler.
 ### Agent
 
 ```go
-conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
     return &MyAgent{client: c} // the connection is also the peer Client
 }, os.Stdin, os.Stdout)
 
@@ -64,14 +65,21 @@ if err := conn.Start(context.Background()); err != nil {
 ```
 
 `Agent` requires only `Initialize`, `Authenticate`, `NewSession`, `Prompt` and `Cancel`.
-Everything else is an optional interface — implement `acp.SessionLoader`, `acp.SessionLister`,
-`acp.SessionModeSetter`, `acp.NesHandler` and so on, and advertise the matching capability from
-`Initialize`. Methods you do not implement are answered with `-32601`.
+Everything else is an optional interface — implement `acpv1.SessionLoader`, `acpv1.SessionLister`,
+`acpv1.SessionModeSetter`, `acpv1.NesHandler` and so on. Methods you do not implement are answered
+with `-32601`. `acpv1.CapabilitiesOf(agent)` returns the capabilities those interfaces imply, so the
+`Initialize` response cannot advertise a method the connection would reject:
+
+```go
+caps := acpv1.CapabilitiesOf(a)
+caps.PromptCapabilities = &schema.PromptCapabilities{Image: &yes} // content capabilities are yours to set
+return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion, AgentCapabilities: caps}, nil
+```
 
 ### Client
 
 ```go
-conn, err := acp.SpawnAgent(ctx, func(*acp.ClientSideConnection) acp.Client {
+conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
     return &MyClient{}
 }, "my-agent")
 if err != nil {
@@ -79,14 +87,14 @@ if err != nil {
 }
 go conn.Start(ctx)
 
-conn.Initialize(ctx, &acp.InitializeRequest{ProtocolVersion: acp.ProtocolVersion})
-session, _ := conn.NewSession(ctx, &acp.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
-conn.Prompt(ctx, &acp.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
+conn.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
+session, _ := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+conn.Prompt(ctx, &acpv1.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
 ```
 
 `Client` requires only `SessionUpdate` and `RequestPermission`. File system, terminal and
-elicitation support come from `acp.FileReader`, `acp.FileWriter`, `acp.TerminalHandler` and
-`acp.ElicitationHandler`.
+elicitation support come from `acpv1.FileReader`, `acpv1.FileWriter`, `acpv1.TerminalHandler` and
+`acpv1.ElicitationHandler`; `acpv1.ClientCapabilitiesOf(client)` derives the matching flags.
 
 ## Features
 
@@ -101,7 +109,7 @@ On the receiving side the matching handler's context is cancelled, and the peer 
 
 ```go
 r := router.New().
-    WithV1(func(c *acp.AgentSideConnection) acp.Agent { return &v1Agent{client: c} }).
+    WithV1(func(c *acpv1.AgentSideConnection) acpv1.Agent { return &v1Agent{client: c} }).
     WithV2(func(c *acpv2.AgentSideConnection) acpv2.Agent { return &v2Agent{client: c} })
 err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
 ```
@@ -111,24 +119,24 @@ version not above the one requested, rewrites only the initialize params (a v2 r
 a v1-only agent is downgraded: `info` → `clientInfo`, no `fs`/`terminal`), and forwards everything
 after that unchanged. Clients pick a version by which package they import; if the agent answers
 with a lower `protocolVersion`, reconnect with the other package. Options, transports and
-middleware are shared types, so one value configures either façade.
+middleware live in the root `acp` package, so one value configures either façade.
 
 ### Transport Layer
 
 ```go
 // Default: stdio (newline-delimited JSON)
-conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout)
+conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout)
 
 // HTTP+SSE for web deployments
 transport := acp.NewHTTPServerTransport()
-conn := acp.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(transport))
+conn := acpv1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(transport))
 http.Handle("/", transport.Handler())
 ```
 
 ### Middleware
 
 ```go
-conn := acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
         acp.LoggingMiddleware(logger.Printf),    // log methods and durations
         acp.TimeoutMiddleware(30*time.Second),   // per-handler timeout
@@ -155,16 +163,22 @@ authenticated := acp.Middleware{
 ### Sessions
 
 ```go
-manager := acp.NewSessionManager(
-    acp.NewMemoryStore[*MySession](),
-    func(ctx context.Context, params *acp.NewSessionRequest) (acp.SessionID, *MySession, error) {
-        return acp.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
+manager := acpv1.NewSessionManager(
+    acpv1.NewMemoryStore[*MySession](),
+    func(ctx context.Context, params *acpv1.NewSessionRequest) (acpv1.SessionID, *MySession, error) {
+        return acpv1.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
     },
 )
 
 type MyAgent struct {
-    *acp.SessionManager[*MySession] // supplies NewSession, LoadSession, ListSessions, DeleteSession
+    *acpv1.SessionManager[*MySession] // supplies NewSession, LoadSession, ListSessions, DeleteSession
 }
+```
+
+`acp.SessionStore[ID, T]` and `acp.MemoryStore` are the version-neutral store types; each façade
+aliases them with its own session id.
+
+```go
 ```
 
 Override any of those by declaring the method on the agent itself.
@@ -172,7 +186,7 @@ Override any of those by declaring the method on the agent itself.
 ### SessionStream
 
 ```go
-stream := acp.NewSessionStream(client, sessionID)
+stream := acpv1.NewSessionStream(client, sessionID)
 
 stream.SendText(ctx, "Hello!")
 stream.SendThought(ctx, "thinking...")
@@ -206,7 +220,7 @@ Unknown tags round-trip unchanged through the union's `Custom` variant.
 ### Connection Options
 
 ```go
-acp.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithWriteQueueSize(500),               // outgoing queue depth
     acp.WithRequestTimeout(30*time.Second),    // default deadline for outgoing calls
     acp.WithShutdownTimeout(10*time.Second),   // bound Close on in-flight handlers

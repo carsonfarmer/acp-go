@@ -1,8 +1,9 @@
-package acp
+package acpv1
 
 import (
 	"context"
 	"encoding/json/jsontext"
+	acp "github.com/ironpark/go-acp"
 	"io"
 
 	"github.com/ironpark/go-acp/internal/acpconn"
@@ -28,7 +29,7 @@ var _ Client = (*AgentSideConnection)(nil)
 // newAgent receives the connection being built, so the agent can keep it and
 // call the client while handling a request:
 //
-//	conn := acp.NewAgentSideConnection(func(c *acp.AgentSideConnection) acp.Agent {
+//	conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
 //		return &myAgent{client: c}
 //	}, os.Stdin, os.Stdout)
 //	err := conn.Start(ctx)
@@ -37,7 +38,7 @@ var _ Client = (*AgentSideConnection)(nil)
 // for a stdio agent those are os.Stdin and os.Stdout.
 //
 // See protocol docs: [Communication Model](https://agentclientprotocol.com/protocol/overview#communication-model)
-func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...Option) *AgentSideConnection {
+func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...acp.Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
 	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)

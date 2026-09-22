@@ -31,14 +31,14 @@ Inputs and outputs:
 | `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/go-acp/schema/v2` |
 
 Both Go packages are named `schema`; use aliases such as `acpv1` and `acpv2` when importing both.
-The root `acp` package implements ACP v1 on top of `schema/v1`, `acpv2` implements the draft v2 on
-top of `schema/v2`, and `router` serves both on one endpoint. The previous JSON Schema generator,
+`acpv1` implements ACP v1 on top of `schema/v1`, `acpv2` implements the draft v2 on top of
+`schema/v2`, the root `acp` package holds the runtime they share, and `router` serves both on one
+endpoint. The previous JSON Schema generator,
 inputs and configuration have been removed.
 
 ## Façade generation
 
-`-facade <module root>` also writes `types.gen.go` and `methods.gen.go` into the root `acp` package
-and into `acpv2`. Their input is the method table in `internal/cmd/schema/facade/{v1,v2}.go`: how
+`-facade <module root>` also writes `types.gen.go` and `methods.gen.go` into `acpv1` and `acpv2`. Their input is the method table in `internal/cmd/schema/facade/{v1,v2}.go`: how
 wire methods group into Go interfaces, which are required, and what their docs say. The generator
 checks the table against the schema constants and type names, so an upstream method that is
 neither in the table nor listed as `Unhandled` fails generation instead of silently going unrouted.

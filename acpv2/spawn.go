@@ -3,6 +3,7 @@ package acpv2
 import (
 	"context"
 	"fmt"
+	acp "github.com/ironpark/go-acp"
 	"os/exec"
 )
 
@@ -21,7 +22,7 @@ func SpawnAgent(ctx context.Context, newClient func(*ClientSideConnection) Clien
 // SpawnAgentCmd connects to an agent process the caller has configured but not
 // yet started. Its Stdin and Stdout are replaced by the connection's pipes, and
 // the process is killed when ctx is done.
-func SpawnAgentCmd(ctx context.Context, newClient func(*ClientSideConnection) Client, cmd *exec.Cmd, opts ...Option) (*ClientSideConnection, error) {
+func SpawnAgentCmd(ctx context.Context, newClient func(*ClientSideConnection) Client, cmd *exec.Cmd, opts ...acp.Option) (*ClientSideConnection, error) {
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("agent stdin pipe: %w", err)
