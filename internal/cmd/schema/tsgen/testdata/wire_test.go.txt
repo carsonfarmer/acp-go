@@ -4,128 +4,141 @@ import (
 	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"strings"
 	"testing"
 )
 
-func TestRoundTrip(t *testing.T) {
-	v, err := NewMessageText(MessageText{Text: "hello"})
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestTaggedUnionRoundTrip(t *testing.T) {
+	v := NewMessage(MessageText{Text: "hello"})
 	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b) != "{\"text\":\"hello\",\"kind\":\"text\"}" {
+	if string(b) != `{"kind":"text","text":"hello"}` {
 		t.Fatalf("unexpected wire value: %s", b)
 	}
-	text, ok := v.AsText()
-	if !ok || text.Text != "hello" {
-		t.Fatal("failed to narrow text")
+	if v.Tag() != "text" {
+		t.Fatalf("wrong tag %q", v.Tag())
 	}
-	if _, ok := v.AsCustom(); ok {
-		t.Fatal("matched wrong discriminator")
+	var back Message
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
 	}
-	for _, bad := range []string{"null", "{}", "{\"kind\":\"text\"}", "{\"kind\":\"text\",\"text\":42}"} {
-		value, err := ParseMessage([]byte(bad))
-		if err != nil {
-			t.Fatal(err)
+	switch m := back.Variant().(type) {
+	case MessageText:
+		if m.Text != "hello" {
+			t.Fatalf("lost text: %+v", m)
 		}
-		if _, ok := value.AsText(); ok {
-			t.Fatalf("matched invalid shape %s", bad)
+	default:
+		t.Fatalf("wrong variant %T", m)
+	}
+	if _, err := json.Marshal(Message{}); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := json.Marshal(Message{}); string(b) != "null" {
+		t.Fatalf("zero value should encode as null: %s", b)
+	}
+	if err := json.Unmarshal([]byte("null"), &back); err != nil || back.Variant() != nil {
+		t.Fatalf("null should reset the union: %v %v", err, back.Variant())
+	}
+	for _, bad := range []string{`42`, `{"kind":"text","text":42}`, `{"kind":"text","kind":"detail"}`, `{"kind":7}`} {
+		if err := json.Unmarshal([]byte(bad), &back); err == nil {
+			t.Fatalf("accepted %s", bad)
 		}
 	}
-	raw := []byte("{\"kind\":\"future\",\"vendor\":{\"x\":9007199254740993}}")
-	future, err := ParseMessage(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw[0] = '['
-	encoded, err := json.Marshal(future)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(encoded, []byte("9007199254740993")) {
-		t.Fatalf("lost precision: %s", encoded)
-	}
-	copy := future.RawJSON()
-	copy[0] = '['
-	if future.RawJSON()[0] != '{' {
-		t.Fatal("raw storage leaked")
-	}
-	if _, err := ParseMessage([]byte("{\"kind\":\"text\",\"kind\":\"custom\"}")); err == nil {
-		t.Fatal("accepted duplicate object member")
-	}
-	if _, err := ParseMessage([]byte{'"', 0xff, '"'}); err == nil {
-		t.Fatal("accepted invalid UTF-8")
-	}
-	var custom MessageCustom
-	if err := json.Unmarshal([]byte("{\"kind\":\"custom\",\"vendor\":true}"), &custom); err != nil {
-		t.Fatal(err)
-	}
-	custom.AdditionalProperties["kind"] = jsontext.Value("\"wrong\"")
-	if _, err := json.Marshal(custom); err == nil {
-		t.Fatal("accepted a duplicate extension key")
-	}
-	delete(custom.AdditionalProperties, "kind")
-	b, err = json.Marshal(custom)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fields map[string]jsontext.Value
-	if err = json.Unmarshal(b, &fields); err != nil {
-		t.Fatal(err)
-	}
-	if string(fields["kind"]) != "\"custom\"" || string(fields["vendor"]) != "true" {
-		t.Fatalf("lost custom fields: %s", b)
-	}
-	enabled := false
-	empty := []string{}
-	label := ""
-	b, err = json.Marshal(Options{Enabled: &enabled, Tags: empty, Label: &label})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != "{\"enabled\":false,\"count\":null,\"tags\":[],\"label\":\"\"}" {
-		t.Fatalf("lost optional/nullable fields: %s", b)
-	}
-	b, err = json.Marshal(Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != "{\"count\":null}" {
-		t.Fatalf("nil optional collection was not omitted: %s", b)
+	if err := json.Unmarshal([]byte(`{"kind":"text","kind":"detail","text":"x"}`), &back, jsontext.AllowDuplicateNames(true)); err != nil {
+		t.Fatalf("decoder options did not reach the variant: %v", err)
 	}
 }
 
-func TestUnionOwnershipAndStreams(t *testing.T) {
-	original, err := ParseMessage([]byte(`{"kind":"text","text":"first"}`))
+func TestTaggedUnionCustomVariant(t *testing.T) {
+	raw := []byte(`{"kind":"future","vendor":{"x":9007199254740993}}`)
+	var v Message
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	custom, ok := v.Variant().(MessageCustom)
+	if !ok || custom.Kind != "future" || v.Tag() != "future" {
+		t.Fatalf("unknown tag was not preserved: %T %+v", v.Variant(), v.Variant())
+	}
+	encoded, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	copied := original
-	if err := copied.UnmarshalJSON([]byte(`{"kind":"text","text":"other"}`)); err != nil {
-		t.Fatal(err)
+	if !bytes.Contains(encoded, []byte("9007199254740993")) || !bytes.Contains(encoded, []byte(`"kind":"future"`)) {
+		t.Fatalf("lost custom payload: %s", encoded)
 	}
-	first, ok := original.AsText()
-	if !ok || first.Text != "first" {
-		t.Fatal("decoding a copy changed the original")
+	custom.AdditionalProperties["kind"] = jsontext.Value(`"wrong"`)
+	if _, err := json.Marshal(custom); err == nil {
+		t.Fatal("accepted a duplicate extension key")
 	}
-	encoded, err := original.MarshalJSON()
+}
+
+func TestNestedTaggedUnion(t *testing.T) {
+	v := NewMessage(MessageDetail{Value: NewDetail(DetailWarn{Code: 3})})
+	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded[0] = '['
-	if original.RawJSON()[0] != '{' {
-		t.Fatal("MarshalJSON exposed mutable storage")
+	if string(b) != `{"kind":"detail","level":"warn","code":3}` {
+		t.Fatalf("unexpected wire value: %s", b)
 	}
-	before := copied.RawJSON()
-	if err := copied.UnmarshalJSON([]byte(`{`)); err == nil {
-		t.Fatal("invalid input accepted")
+	var back Message
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
 	}
-	if !bytes.Equal(before, copied.RawJSON()) {
-		t.Fatal("failed decode mutated receiver")
+	detail, ok := back.Variant().(MessageDetail)
+	if !ok {
+		t.Fatalf("wrong variant %T", back.Variant())
 	}
+	if warn, ok := detail.Value.Variant().(DetailWarn); !ok || warn.Code != 3 {
+		t.Fatalf("nested variant lost: %+v", detail.Value.Variant())
+	}
+	if err := json.Unmarshal([]byte(`{"kind":"detail","level":"custom","extra":1}`), &back); err != nil {
+		t.Fatal(err)
+	}
+	inner := back.Variant().(MessageDetail).Value.Variant().(DetailCustom)
+	if _, leaked := inner.AdditionalProperties["kind"]; leaked || inner.Level != "custom" {
+		t.Fatalf("outer tag leaked into the nested custom payload: %+v", inner)
+	}
+	again, err := json.Marshal(back, json.Deterministic(true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(again) != `{"kind":"detail","level":"custom","extra":1}` {
+		t.Fatalf("nested custom payload did not round-trip: %s", again)
+	}
+	if err := json.Unmarshal([]byte(`{"kind":"detail","level":"info"}`), &back); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := back.Variant().(MessageDetail).Value.Variant().(DetailInfo); !ok {
+		t.Fatal("nested known variant not decoded")
+	}
+	b, err = json.Marshal(NewMessage(MessageDetail{Value: NewDetail(DetailInfo{})}))
+	if err != nil || string(b) != `{"kind":"detail","level":"info"}` {
+		t.Fatalf("empty nested payload: %s %v", b, err)
+	}
+}
+
+func TestVariantStandalone(t *testing.T) {
+	var text MessageText
+	if err := json.Unmarshal([]byte(`{"kind":"detail","text":"x"}`), &text); err == nil || !strings.Contains(err.Error(), "expected kind") {
+		t.Fatalf("standalone variant accepted the wrong tag: %v", err)
+	}
+	if err := json.Unmarshal([]byte(`{"kind":"text","text":"x"}`), &text); err != nil || text.Text != "x" {
+		t.Fatalf("standalone variant decode failed: %v", err)
+	}
+	b, err := json.Marshal(text)
+	if err != nil || string(b) != `{"kind":"text","text":"x"}` {
+		t.Fatalf("standalone variant lost its tag: %s %v", b, err)
+	}
+	if text.Tag() != "text" {
+		t.Fatal("wrong variant tag")
+	}
+	var _ MessageVariant = text
+}
+
+func TestStreams(t *testing.T) {
 	dec := jsontext.NewDecoder(bytes.NewBufferString(`{"kind":"text","text":"first"} {"kind":"text","text":"other"}`))
 	var a, b Message
 	if err := json.UnmarshalDecode(dec, &a); err != nil {
@@ -134,44 +147,51 @@ func TestUnionOwnershipAndStreams(t *testing.T) {
 	if err := json.UnmarshalDecode(dec, &b); err != nil {
 		t.Fatal(err)
 	}
-	first, ok = a.AsText()
-	if !ok || first.Text != "first" {
+	if a.Variant().(MessageText).Text != "first" || b.Variant().(MessageText).Text != "other" {
 		t.Fatal("decoder buffer was retained")
 	}
 	var out bytes.Buffer
 	if err := json.MarshalEncode(jsontext.NewEncoder(&out), &a); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ParseMessage(out.Bytes()); err != nil {
-		t.Fatal(err)
-	}
-	// Decoder options must reach the generated streaming method.
-	duplicate := []byte(`{"kind":"text","kind":"custom"}`)
-	if err := json.Unmarshal(duplicate, &a, jsontext.AllowDuplicateNames(true)); err != nil {
+	if err := json.Unmarshal(out.Bytes(), &b); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestNarrowingNullAndLiterals(t *testing.T) {
-	if _, err := NewLiteralChoiceVariant1("no"); err == nil {
-		t.Fatal("constructor accepted wrong literal")
-	}
-	if _, err := NewNullableChoiceVariant2(jsontext.Value(`42`)); err == nil {
-		t.Fatal("null constructor accepted number")
-	}
-	bad, err := ParseMessage([]byte(`{"kind":"text","text":null}`))
+func TestOptionalFields(t *testing.T) {
+	enabled := false
+	empty := []string{}
+	label := ""
+	b, err := json.Marshal(Options{Enabled: &enabled, Tags: empty, Label: &label})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := bad.AsText(); ok {
-		t.Fatal("null matched required string")
+	if string(b) != `{"enabled":false,"count":null,"tags":[],"label":""}` {
+		t.Fatalf("lost optional/nullable fields: %s", b)
+	}
+	b, err = json.Marshal(Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != `{"count":null}` {
+		t.Fatalf("nil optional collection was not omitted: %s", b)
+	}
+}
+
+func TestRawUnions(t *testing.T) {
+	if _, err := NewLiteralChoiceYes("no"); err == nil {
+		t.Fatal("constructor accepted wrong literal")
+	}
+	if _, err := NewNullableChoiceNull(jsontext.Value(`42`)); err == nil {
+		t.Fatal("null constructor accepted number")
 	}
 	for _, source := range []string{`"no"`, `null`, `42`} {
 		v, err := ParseLiteralChoice([]byte(source))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := v.AsVariant1(); ok {
+		if _, ok := v.AsYes(); ok {
 			t.Fatalf("%s matched literal yes", source)
 		}
 	}
@@ -179,25 +199,53 @@ func TestNarrowingNullAndLiterals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value, ok := yes.AsVariant1(); !ok || value != "yes" {
+	if value, ok := yes.AsYes(); !ok || value != "yes" {
 		t.Fatal("literal did not match")
+	}
+	if _, ok := yes.AsNumber(); ok {
+		t.Fatal("string matched number")
 	}
 	var nullable NullableChoice
 	if err := nullable.UnmarshalJSON([]byte(" \n null \t")); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := nullable.AsVariant2(); !ok {
+	if _, ok := nullable.AsNull(); !ok {
 		t.Fatal("whitespace affected null classification")
 	}
-	if _, ok := nullable.AsVariant1(); ok {
+	if _, ok := nullable.AsString(); ok {
 		t.Fatal("null matched string")
 	}
 	v, err := ParseWithNullable([]byte(`{"value":null}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := v.AsVariant1(); !ok {
+	if _, ok := v.AsValue(); !ok {
 		t.Fatal("nullable required field was rejected")
+	}
+	if _, ok := v.AsTrue(); ok {
+		t.Fatal("missing literal matched")
+	}
+	original, err := ParseLiteralChoice([]byte(`"yes"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	copied := original
+	if err := copied.UnmarshalJSON([]byte(`7`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := original.AsYes(); !ok {
+		t.Fatal("decoding a copy changed the original")
+	}
+	encoded, err := original.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded[0] = '['
+	if original.RawJSON()[0] != '"' {
+		t.Fatal("MarshalJSON exposed mutable storage")
+	}
+	if _, err := ParseLiteralChoice([]byte{'"', 0xff, '"'}); err == nil {
+		t.Fatal("accepted invalid UTF-8")
 	}
 }
 

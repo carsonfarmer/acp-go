@@ -39,7 +39,11 @@ func TestZodCustomUnion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw := string(good.RawJSON())
+	encoded, err := json.Marshal(good)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := string(encoded)
 	if strings.Contains(raw, "note") || strings.Contains(raw, "vendor") {
 		t.Fatalf("known variant was not normalized: %s", raw)
 	}
@@ -47,15 +51,19 @@ func TestZodCustomUnion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw = string(custom.RawJSON())
+	encoded, err = json.Marshal(custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = string(encoded)
 	if !strings.Contains(raw, `"vendor":9007199254740993`) || !strings.Contains(raw, `"note":42`) || !strings.Contains(raw, `"constructor":true`) {
 		t.Fatalf("custom payload lost: %s", raw)
 	}
 	if strings.Contains(raw, `"_meta"`) || strings.Contains(raw, `"__proto__"`) {
 		t.Fatalf("salvaged/excluded fields restored: %s", raw)
 	}
-	if _, err := json.Marshal(custom); err != nil {
-		t.Fatal(err)
+	if _, ok := custom.Variant().(MessageCustom); !ok {
+		t.Fatalf("custom payload decoded as %T", custom.Variant())
 	}
 }
 func TestZodStringConstraints(t *testing.T) {

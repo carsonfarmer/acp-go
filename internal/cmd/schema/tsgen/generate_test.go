@@ -13,7 +13,8 @@ import (
 func TestGeneratedWireTypes(t *testing.T) {
 	s, err := tsdef.Parse("fixture.ts", []byte(`
  export type Text = { text: string; };
- export type Message = (Text & { kind: "text" }) | { kind: "custom"; [key: string]: unknown; };
+ export type Detail = { level: "info" } | { level: "warn"; code: number } | { level: string; [key: string]: unknown; };
+ export type Message = (Text & { kind: "text" }) | (Detail & { kind: "detail" }) | { kind: string; [key: string]: unknown; };
  export type Options = { enabled?: boolean; count: number | null; tags?: Array<string>; label?: string; };
  export type Status = "pending" | "done";
  export type Kind = "read" | "write" | string;
@@ -52,7 +53,7 @@ func TestGeneratedWireTypes(t *testing.T) {
 	}
 }
 func TestGenerationErrors(t *testing.T) {
-	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type ParseX = string;`, `export type X = string | number; export type NewXVariant1 = string;`} {
+	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type ParseX = string;`, `export type X = string | number; export type NewXString = string;`} {
 		s, err := tsdef.Parse("fixture.ts", []byte(source))
 		if err != nil {
 			t.Fatal(err)

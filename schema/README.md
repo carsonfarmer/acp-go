@@ -64,16 +64,43 @@ case-sensitively. Required nil slices/maps encode as empty arrays/objects. Nulla
 still encode nil as null. These defaults apply to the new schema packages; the existing root
 runtime still uses `encoding/json` pending its migration.
 
-Literal unions produce named scalar types and constants. Other unions preserve their JSON payload
-and expose generated constructors, `As…` decoding helpers, `Parse…` and `RawJSON`.
+Literal unions produce named scalar types and constants.
+
+Discriminated object unions such as `SessionUpdate`, `ContentBlock` and `McpServer` become a small
+wrapper struct around a sealed `<Type>Variant` interface. Each variant is a plain struct without
+the discriminator member; the tag is implied by the Go type, written first by the variant's own
+`MarshalJSONTo`, and checked by its `UnmarshalJSONFrom`. Decode with ordinary `json.Unmarshal`
+and branch with a type switch:
+
+```go
+var update acpv2.SessionUpdate
+if err := json.Unmarshal(data, &update); err != nil { ... }
+switch v := update.Variant().(type) {
+case acpv2.SessionUpdateAgentMessageChunk:
+	// v.Content ...
+case acpv2.SessionUpdateCustom:
+	// v.SessionUpdate holds the unknown tag; v.AdditionalProperties keeps every member.
+}
+out := acpv2.NewSessionUpdate(acpv2.SessionUpdateAgentMessageChunk{Content: block})
+```
+
+A catch-all `{ tag: string; [key: string]: unknown }` member becomes `<Type>Custom`, so unknown
+tags round-trip unchanged including large numbers. Members of the form `Inner & { tag: "x" }`
+where `Inner` is itself a union (for example `StateUpdate` inside `SessionUpdate`) become
+`struct { Value Inner }`; the outer tag is spliced into the inner object on encode and removed
+on decode. Missing required members are not rejected by plain decoding; use `Decode…JSON` for
+SDK-level validation. The zero wrapper encodes as `null` and `null` decodes to the zero wrapper.
+
+Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
+method `params` unions, ...) preserve their JSON payload and expose generated constructors,
+`As…` decoding helpers, `Parse…` and `RawJSON`. Alternatives are named after their reference,
+scalar kind (`Null`, `String`, `Number`, `Bool`, `…List`), literal, or the required members
+unique to that alternative (`AgentResponse.Result` / `.Error`).
 Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods integrate with JSON v2 encoders and
 decoders. Stored JSON is copied on decode and when returned to the caller, so decoding a copied
-union value does not mutate the original.
-Constructors set object discriminators and reject incorrect scalar literal values.
-`As…` helpers check required properties, non-nullable object fields and literal tags
-when the alternative is an object, then decode its Go representation. They are not substitutes for
-the explicit Zod decoding API below. Unknown variants remain available through `RawJSON`
-and round-trip unchanged when using the ordinary JSON decoder.
+union value does not mutate the original. Constructors set object discriminators and reject
+incorrect scalar literal values. `As…` helpers check required properties, non-nullable object
+fields and literal tags when the alternative is an object, then decode its Go representation.
 
 The generator first processes both versions before writing output, and `-check` detects stale
 checked-in output without modifying it. Generator tests cover parsing failures, numeric hints,
@@ -84,8 +111,10 @@ compilation and JSON round trips of generated Go code, plus both pinned SDK vers
 Method constants use Go-style names such as `AgentMethodsSessionNew` and
 `ClientMethodsSessionUpdate`. `CurrentProtocolVersion` is the numeric version constant;
 `ProtocolVersion` is the wire type. Type names retain common initialisms, such as
-`RequestID` and `MCPServerHTTP`. Collisions involving enum constants, constructors and
-parse functions fail generation rather than producing Go code that cannot compile.
+`RequestID` and `MCPServerHTTP`. Tagged-union variants are named `<Union><TagValue>`; when
+the SDK already uses that name for the payload type (`AuthMethodTerminal`), the variant gets a
+`Variant` suffix. Collisions involving enum constants, constructors and parse functions fail
+generation rather than producing Go code that cannot compile.
 
 ## Zod-aware decoding
 
