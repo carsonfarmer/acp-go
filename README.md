@@ -6,10 +6,10 @@ English | [한국어](./docs/README.ko.md)
 
 A Go implementation of the Agent Client Protocol (ACP), which standardizes communication between _code editors_ (interactive programs for viewing and editing source code) and _coding agents_ (programs that use generative AI to autonomously modify code).
 
-This is an **unofficial** implementation of the ACP specification in Go. The official protocol specification and reference implementations can be found at the [official repository](https://github.com/zed-industries/agent-client-protocol).
+This is an **unofficial** implementation of the ACP specification in Go. The official protocol specification and reference implementations can be found at the [official repository](https://github.com/agentclientprotocol/agent-client-protocol).
 
 > [!NOTE]
-> The Agent Client Protocol is under active development. This implementation may lag behind the latest specification changes. Please refer to the [official repository](https://github.com/zed-industries/agent-client-protocol) for the most up-to-date protocol specification.
+> The Agent Client Protocol is under active development. This implementation may lag behind the latest specification changes. Please refer to the [official repository](https://github.com/agentclientprotocol/agent-client-protocol) for the most up-to-date protocol specification.
 
 Learn more about the protocol at [agentclientprotocol.com](https://agentclientprotocol.com/).
 
@@ -474,7 +474,7 @@ cancelled with `acp.ErrTurnCancelled`.
 
 ## Contributing
 
-This is an unofficial implementation. For protocol specification changes, please contribute to the [official repository](https://github.com/zed-industries/agent-client-protocol).
+This is an unofficial implementation. For protocol specification changes, please contribute to the [official repository](https://github.com/agentclientprotocol/agent-client-protocol).
 
 For Go implementation issues and improvements, please open an issue or pull request.
 
@@ -484,7 +484,7 @@ This implementation follows the same license as the official ACP specification.
 
 ## Related Projects
 
-- **Official ACP Repository**: [zed-industries/agent-client-protocol](https://github.com/zed-industries/agent-client-protocol)
+- **Official ACP Repository**: [agentclientprotocol/agent-client-protocol](https://github.com/agentclientprotocol/agent-client-protocol)
 - **Rust Implementation**: Part of the official repository
 - **Protocol Documentation**: [agentclientprotocol.com](https://agentclientprotocol.com/)
 
