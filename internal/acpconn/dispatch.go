@@ -61,6 +61,12 @@ func Call[R any](ctx context.Context, conn *jsonrpc.Connection, method string, p
 	if err != nil {
 		return nil, err
 	}
+	return DecodeResult[R](raw)
+}
+
+// DecodeResult decodes a response result, treating null or empty as the zero
+// value.
+func DecodeResult[R any](raw jsontext.Value) (*R, error) {
 	response := new(R)
 	if len(raw) == 0 || string(raw) == "null" {
 		return response, nil
