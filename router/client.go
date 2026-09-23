@@ -161,7 +161,7 @@ func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acp2.
 	// need not decode as a v2 one.
 	raw, err := remote.ExtMethod(ctx, initializeMethod, &c.v2.init)
 	if err != nil {
-		shutdown(remote)
+		_ = remote.Close()
 		if acp.IsCode(err, acp.ErrorCodeInvalidParams) || acp.IsCode(err, acp.ErrorCodeInvalidRequest) {
 			// A strict v1 agent may reject the v2 request shape outright
 			// rather than answer protocolVersion 1.
@@ -171,12 +171,12 @@ func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acp2.
 	}
 	version, _ := protocolVersionOf(raw) // 0 if missing or malformed: no common version
 	if version != acp2.ProtocolVersion {
-		shutdown(remote)
+		_ = remote.Close()
 		return nil, int(version), nil
 	}
 	init, err := acpconn.DecodeResult[acp2.InitializeResponse](raw)
 	if err != nil {
-		shutdown(remote)
+		_ = remote.Close()
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}
 	return &Agent{Connection: remote, V2: remote, V2Init: init}, 0, nil
@@ -189,18 +189,12 @@ func (c *ClientConnector) initializeV1(ctx context.Context, start func() (*acp1.
 	}
 	init, err := remote.Initialize(ctx, &c.v1.init)
 	if err != nil {
-		shutdown(remote)
+		_ = remote.Close()
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
 	if init.ProtocolVersion != acp1.ProtocolVersion {
-		shutdown(remote)
+		_ = remote.Close()
 		return nil, fmt.Errorf("%w: agent answered protocolVersion %d", ErrNoCommonVersion, init.ProtocolVersion)
 	}
 	return &Agent{Connection: remote, V1: remote, V1Init: init}, nil
-}
-
-// shutdown closes a connection and waits for it, and any process, to end.
-func shutdown(conn Connection) {
-	_ = conn.Close()
-	_ = conn.Wait()
 }

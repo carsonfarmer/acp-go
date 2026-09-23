@@ -13,7 +13,9 @@ type answerClient struct {
 	offered  []acp2.PermissionOption
 }
 
-func (*answerClient) SessionUpdate(context.Context, *acp2.UpdateSessionNotification) error { return nil }
+func (*answerClient) SessionUpdate(context.Context, *acp2.UpdateSessionNotification) error {
+	return nil
+}
 
 func (c *answerClient) RequestPermission(_ context.Context, params *acp2.RequestPermissionRequest) (*acp2.RequestPermissionResponse, error) {
 	c.offered = params.Options

@@ -27,16 +27,14 @@ import (
 // exit error if it failed, or the connection's read error.
 func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*RemoteAgent, error) {
 	var conn *ClientSideConnection
-	wait, err := acpconn.Spawn(ctx, cmd, func(t acp.Transport) acpconn.Conn {
+	wait, stop, err := acpconn.Spawn(ctx, cmd, func(t acp.Transport) acpconn.Conn {
 		conn = NewClientSideConnection(newClient, t, opts...)
 		return conn
 	})
 	if err != nil {
 		return nil, err
 	}
-	// Close closes the agent's stdin and returns: the agent exits on its own,
-	// and Wait reports how.
-	return &RemoteAgent{ClientSideConnection: conn, wait: wait, close: conn.Close}, nil
+	return &RemoteAgent{ClientSideConnection: conn, wait: wait, close: stop}, nil
 }
 
 // Pipe connects an agent and a client in memory and starts both, for tests
