@@ -5,7 +5,8 @@
 // the model calls (tools.go) through the client, which reads and writes files
 // and runs commands in its terminal. In ask mode (modes.go) it asks before a
 // write or a command. The OpenRouter client (openrouter.go) uses only the
-// standard library.
+// standard library. Sessions are saved to disk (sessions.go), so a client can
+// list, load and resume them after the agent restarts.
 //
 // It reads its configuration from the environment:
 //
@@ -13,6 +14,8 @@
 //	OPENROUTER_MODEL     the model to use; default openai/gpt-oss-120b
 //	OPENROUTER_BASE_URL  default https://openrouter.ai/api/v1; any
 //	                     OpenAI-compatible endpoint works
+//	OPEN_AGENT_SESSIONS  the directory sessions are saved in; default
+//	                     open-agent/sessions in the user cache directory
 package main
 
 import (
@@ -37,6 +40,7 @@ type session struct {
 	mode    acp1.SessionModeID
 	history []message // the conversation so far, without the system prompt
 	cost    float64   // the session's running cost in USD
+	updated time.Time // when history last changed
 }
 
 // messages returns a copy of the conversation so far.
@@ -51,6 +55,7 @@ func (s *session) commit(messages ...message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.history = append(s.history, messages...)
+	s.updated = time.Now()
 }
 
 // addCost adds the cost of a model call and returns the session's total.
@@ -68,6 +73,7 @@ type openAgent struct {
 	*acp1.SessionManager[*session]
 	client *acp1.AgentSideConnection
 	llm    *openRouter
+	logger *slog.Logger
 
 	// The tools offered to the model: only those the client can run.
 	tools []tool
@@ -97,6 +103,9 @@ func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 	defer done()
 
 	stopReason, err := a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt))
+	// The history holds whole exchanges however the turn ended, so it is
+	// always safe to save.
+	a.save(ctx, params.SessionID, sess)
 	if err != nil {
 		if context.Cause(ctx) == acp.ErrTurnCancelled {
 			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
@@ -154,20 +163,30 @@ func main() {
 		logger.Warn("model lookup failed; not reporting usage", "error", err)
 	}
 
+	dir, err := sessionDir()
+	if err != nil {
+		logger.Error("find the session directory; set OPEN_AGENT_SESSIONS", "error", err)
+		os.Exit(1)
+	}
+	store, err := acp1.NewFileStore[*session](dir)
+	if err != nil {
+		logger.Error("open the session store", "error", err)
+		os.Exit(1)
+	}
 	manager := acp1.NewSessionManager(
-		acp1.NewMemoryStore[*session](),
+		store,
 		func(_ context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *session, error) {
 			return acp1.GenerateSessionID(), &session{cwd: params.Cwd, mode: askMode}, nil
 		},
 	)
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
-		return &openAgent{SessionManager: manager, client: c, llm: llm}
+		return &openAgent{SessionManager: manager, client: c, llm: llm, logger: logger}
 	}, acp.NewStdioTransport(os.Stdin, os.Stdout),
 		acp.WithMiddleware(acp.LoggingMiddleware(logger)),
 		acp.WithErrorHandler(func(err error) { logger.Error("acp", "error", err) }),
 	)
 
-	logger.Info("open-agent ready", "model", llm.model)
+	logger.Info("open-agent ready", "model", llm.model, "sessions", dir)
 	if err := conn.Start(context.Background()); err != nil {
 		logger.Error("connection ended", "error", err)
 		os.Exit(1)

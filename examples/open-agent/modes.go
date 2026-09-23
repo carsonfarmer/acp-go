@@ -38,6 +38,7 @@ func (a *openAgent) SetSessionMode(ctx context.Context, params *acp1.SetSessionM
 		return nil, acp.ErrInvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
 	}
 	sess.setMode(params.ModeID)
+	a.save(ctx, params.SessionID, sess)
 	return &acp1.SetSessionModeResponse{}, nil
 }
 
