@@ -21,9 +21,8 @@ import (
 	"encoding/json/jsontext"
 )
 
-// ExtMethodHandler handles methods outside the spec, including the mcp/*
-// methods, which the reference SDKs also leave to extensions. Prefix custom
-// methods with a unique identifier such as a domain name.
+// ExtMethodHandler handles methods outside the spec. Prefix custom methods
+// with a unique identifier such as a domain name.
 //
 // See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 type ExtMethodHandler interface {

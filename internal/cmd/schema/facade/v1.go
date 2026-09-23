@@ -120,8 +120,7 @@ original history.`,
 			}},
 		},
 		{
-			Interface:    "SessionResumer",
-			Experimental: true,
+			Interface: "SessionResumer",
 			Doc: `SessionResumer handles session/resume, continuing a session without
 replaying its history. Advertise it with the ` + "`sessionCapabilities.resume`" + `
 agent capability.`,
@@ -131,8 +130,7 @@ agent capability.`,
 			}},
 		},
 		{
-			Interface:    "SessionCloser",
-			Experimental: true,
+			Interface: "SessionCloser",
 			Doc: `SessionCloser handles session/close. Advertise it with the
 ` + "`sessionCapabilities.close`" + ` agent capability.`,
 			Methods: []Method{{

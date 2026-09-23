@@ -87,16 +87,12 @@ type SessionForker interface {
 // SessionResumer handles session/resume, continuing a session without
 // replaying its history. Advertise it with the `sessionCapabilities.resume`
 // agent capability.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
 
 // SessionCloser handles session/close. Advertise it with the
 // `sessionCapabilities.close` agent capability.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 type SessionCloser interface {
 	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
@@ -363,15 +359,11 @@ func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSess
 }
 
 // ResumeSession continues a session without replaying its history.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
 }
 
 // CloseSession cancels any ongoing work and frees the session's resources.
-//
-// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
 	return acpconn.Call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
 }

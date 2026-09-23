@@ -405,14 +405,15 @@ ACP protocol version 1, as pinned in [`schema/typescript/REVISION`](schema/types
 | `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` (unstable) |
-| `session/resume` | `SessionResumer` (unstable) |
-| `session/close` | `SessionCloser` (unstable) |
+| `session/resume` | `SessionResumer` |
+| `session/close` | `SessionCloser` |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
+| `mcp/message` | `MCPMessageHandler` (unstable) |
 
 ### Client methods (agent → client)
 
@@ -423,9 +424,9 @@ ACP protocol version 1, as pinned in [`schema/typescript/REVISION`](schema/types
 | `fs/write_text_file` | `FileWriter` |
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
 
-The `mcp/*` methods have no typed handler in v1, matching the reference SDKs; they arrive
-through `ExtMethodHandler`. `$/cancel_request` is handled by the connection itself.
+`$/cancel_request` is handled by the connection itself.
 
 ### ACP v2 (`acp2`, draft)
 

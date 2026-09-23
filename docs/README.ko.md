@@ -349,14 +349,15 @@ ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/R
 | `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
 | `session/fork` | `SessionForker` (unstable) |
-| `session/resume` | `SessionResumer` (unstable) |
-| `session/close` | `SessionCloser` (unstable) |
+| `session/resume` | `SessionResumer` |
+| `session/close` | `SessionCloser` |
 | `session/set_mode` | `SessionModeSetter` |
 | `session/set_config_option` | `SessionConfigOptionSetter` |
 | `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
 | `logout` | `LogoutHandler` |
 | `nes/*` | `NesHandler` (unstable) |
 | `document/did*` | `DocumentHandler` (unstable) |
+| `mcp/message` | `MCPMessageHandler` (unstable) |
 
 ### 클라이언트 메서드 (에이전트 → 클라이언트)
 
@@ -367,8 +368,8 @@ ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/R
 | `fs/write_text_file` | `FileWriter` |
 | `terminal/*` | `TerminalHandler` |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
+| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
 
-v1의 `mcp/*` 메서드는 참조 SDK와 마찬가지로 전용 핸들러가 없으며 `ExtMethodHandler`로 전달됩니다.
 `$/cancel_request`는 연결이 직접 처리합니다.
 
 ### ACP v2 (`acp2`, 초안)
