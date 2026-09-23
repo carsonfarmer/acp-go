@@ -60,11 +60,10 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*T
 		go s.watch(t, idle)
 	}
 	response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content})
+	// A rejected prompt ends the turn only if no prompt that joined it was
+	// accepted; otherwise the work runs on until idle.
+	s.conn.turns.Settle(s.ID, t, err)
 	if err != nil {
-		if created {
-			// This prompt was to start the work; nothing will report idle.
-			s.conn.turns.End(s.ID, t, nil, err)
-		}
 		return nil, "", err
 	}
 	return &Turn{t: t}, response.MessageID, nil
@@ -80,7 +79,7 @@ func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, *StopReason], idle 
 	case <-s.conn.Done():
 		s.conn.turns.End(s.ID, t, nil, errConnectionClosed)
 	case <-t.Done():
-		// Ended by a rejected prompt.
+		// Every prompt that joined it was rejected.
 	}
 }
 

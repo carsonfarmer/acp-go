@@ -23,6 +23,11 @@ type Turn[U, R any] struct {
 	err      error
 	signal   chan struct{} // wakes a reader waiting for updates
 	done     chan struct{} // closed once the turn ends
+
+	// Guarded by the owning Turns' mutex: requests joined but not yet
+	// settled, and whether any was accepted.
+	pending  int
+	accepted bool
 }
 
 // NewTurn returns an empty turn.
@@ -118,19 +123,42 @@ func (r *Turns[ID, U, R]) Begin(id ID) (*Turn[U, R], error) {
 }
 
 // Join returns the session's turn in progress, or registers a new one;
-// created reports which.
+// created reports which. The caller then sends its request and must report
+// the outcome with Settle.
 func (r *Turns[ID, U, R]) Join(id ID) (t *Turn[U, R], created bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if t := r.active[id]; t != nil {
-		return t, false
+	if t = r.active[id]; t == nil {
+		if r.active == nil {
+			r.active = map[ID]*Turn[U, R]{}
+		}
+		t = NewTurn[U, R]()
+		r.active[id] = t
+		created = true
 	}
-	if r.active == nil {
-		r.active = map[ID]*Turn[U, R]{}
+	t.pending++
+	return t, created
+}
+
+// Settle records the outcome of a request that joined t. Once one request is
+// accepted the turn runs until End; if every request that joined it failed,
+// the turn ends with the last error. The turn leaves the session in the same
+// step, so a later Join never lands on a turn that is about to fail.
+func (r *Turns[ID, U, R]) Settle(id ID, t *Turn[U, R], err error) {
+	r.mu.Lock()
+	t.pending--
+	if err == nil {
+		t.accepted = true
 	}
-	t = NewTurn[U, R]()
-	r.active[id] = t
-	return t, true
+	failed := t.pending == 0 && !t.accepted
+	if failed && r.active[id] == t {
+		delete(r.active, id)
+	}
+	r.mu.Unlock()
+	if failed {
+		var zero R
+		t.Finish(zero, err)
+	}
 }
 
 // Deliver pushes an update to the session's turn in progress and returns that

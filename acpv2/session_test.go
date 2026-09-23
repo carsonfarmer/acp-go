@@ -144,3 +144,62 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 		}
 	}
 }
+
+// splitAgent rejects the first prompt only after a second one has arrived and
+// been accepted, then finishes the work the second prompt started.
+type splitAgent struct {
+	*testAgent
+	firstArrived chan struct{}
+	reject       chan struct{}
+}
+
+func (a *splitAgent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
+	if text, _ := acpv2.TextOf(params.Prompt[0]); text == "bad" {
+		close(a.firstArrived)
+		<-a.reject
+		return nil, acp.ErrInvalidParams(nil, "unsupported content")
+	}
+	stream := acpv2.NewSessionStream(a.client, params.SessionID)
+	go func() {
+		ctx := context.Background()
+		_ = stream.Running(ctx)
+		close(a.reject) // the starter is rejected while the work runs
+		_ = stream.SendText(ctx, "m1", "done")
+		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
+	}()
+	return &acpv2.PromptResponse{MessageID: "user_2"}, nil
+}
+
+func TestTurnSurvivesARejectedStarter(t *testing.T) {
+	agent := &splitAgent{testAgent: newTestAgent(), firstArrived: make(chan struct{}), reject: make(chan struct{})}
+	_, conn := acpv2.Pipe(t.Context(), func(c *acpv2.AgentSideConnection) acpv2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acpv2.ClientSideConnection) acpv2.Client { return newTestClient() })
+	session, err := conn.StartSession(t.Context(), &acpv2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	firstErr := make(chan error, 1)
+	go func() {
+		_, _, err := session.Prompt(t.Context(), acpv2.TextBlock("bad"))
+		firstErr <- err
+	}()
+	<-agent.firstArrived // the first prompt has started the turn
+
+	turn, messageID, err := session.Prompt(t.Context(), acpv2.TextBlock("good"))
+	if err != nil || messageID != "user_2" {
+		t.Fatalf("joining prompt: %q %v", messageID, err)
+	}
+	if err := <-firstErr; !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
+		t.Fatalf("starter: %v", err)
+	}
+	text, err := turn.Text()
+	if err != nil || text != "done" {
+		t.Fatalf("turn ended early: %q %v", text, err)
+	}
+	if reason, _ := turn.Wait(); reason == nil || *reason != schema.StopReasonEndTurn {
+		t.Fatalf("got %v", reason)
+	}
+}
