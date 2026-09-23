@@ -23,14 +23,14 @@ func TestParseSchemaSubset(t *testing.T) {
 		t.Fatalf("unexpected schema: %+v", s)
 	}
 	message := s.Types[0]
-	if message.Comment != "A message." || message.Type.Kind != "union" || len(message.Type.Members) != 2 {
+	if message.Comment != "A message." || message.Type.Kind != KindUnion || len(message.Type.Members) != 2 {
 		t.Fatalf("lost union: %+v", message)
 	}
-	if message.Type.Members[0].Kind != "intersection" {
+	if message.Type.Members[0].Kind != KindIntersection {
 		t.Fatal("lost intersection")
 	}
 	fields := s.Types[1].Type.Fields
-	if fields[0].Comment != "Body." || !fields[1].Optional || fields[1].Type.Members[0].Kind != "array" || fields[1].Type.Members[1].Kind != "null" {
+	if fields[0].Comment != "Body." || !fields[1].Optional || fields[1].Type.Members[0].Kind != KindArray || fields[1].Type.Members[1].Kind != KindNull {
 		t.Fatalf("lost field semantics: %+v", fields)
 	}
 	if s.Constants[0].Members[0].Value != `"session/new"` || s.Constants[1].Value != "2" {

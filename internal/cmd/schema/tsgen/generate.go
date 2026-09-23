@@ -82,7 +82,7 @@ func countRefs(t *tsdef.Type, refs map[string]int) {
 	if t == nil {
 		return
 	}
-	if t.Kind == "ref" {
+	if t.Kind == tsdef.KindRef {
 		refs[t.Name]++
 	}
 	for _, m := range t.Members {

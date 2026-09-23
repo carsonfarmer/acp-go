@@ -44,12 +44,12 @@ type taggedMember struct {
 // tagIntersection recognizes `Ref & { tag: "literal" }`, returning the
 // reference and the tag member.
 func (g *generator) tagIntersection(m *tsdef.Type) (string, tsdef.Field, bool) {
-	if m.Kind != "intersection" || len(m.Members) != 2 {
+	if m.Kind != tsdef.KindIntersection || len(m.Members) != 2 {
 		return "", tsdef.Field{}, false
 	}
 	for i, part := range m.Members {
 		other := m.Members[1-i]
-		if part.Kind != "ref" || other.Kind != "object" || len(other.Fields) != 1 || other.Element != nil {
+		if part.Kind != tsdef.KindRef || other.Kind != tsdef.KindObject || len(other.Fields) != 1 || other.Element != nil {
 			continue
 		}
 		f := other.Fields[0]
@@ -64,7 +64,7 @@ func (g *generator) tagIntersection(m *tsdef.Type) (string, tsdef.Field, bool) {
 // stringLiteral reports whether t is a string literal type.
 func stringLiteral(t *tsdef.Type) bool {
 	k, _ := literals(t)
-	return t.Kind == "literal" && k == "string"
+	return t.Kind == tsdef.KindLiteral && k == "string"
 }
 
 // taggedShape is a union member as tagged() sees it before a tag is chosen.
@@ -90,7 +90,7 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 		if intersection {
 			// `Ref & { tag: "literal" }` where Ref expands to a union cannot be
 			// flattened into one struct without losing its variants.
-			if target, err := g.expand(&tsdef.Type{Kind: "ref", Name: base}, map[string]bool{}); err == nil && target.Kind == "union" {
+			if target, err := g.expand(&tsdef.Type{Kind: tsdef.KindRef, Name: base}, map[string]bool{}); err == nil && target.Kind == tsdef.KindUnion {
 				shapes = append(shapes, taggedShape{nested: base, nestedTag: tagField.Name, nestedValue: tagField.Type.Literal})
 				candidates[tagField.Name] = true
 				continue
@@ -100,18 +100,18 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 		if err != nil {
 			return "", nil, false, err
 		}
-		if expanded.Kind != "object" && expanded.Kind != "union" {
+		if expanded.Kind != tsdef.KindObject && expanded.Kind != tsdef.KindUnion {
 			return "", nil, false, nil
 		}
 		shape := taggedShape{expanded: expanded}
 		if intersection {
 			shape.base = base
 		}
-		if m.Kind == "ref" {
+		if m.Kind == tsdef.KindRef {
 			shape.ref = m.Name
 		}
 		shapes = append(shapes, shape)
-		if expanded.Kind == "object" {
+		if expanded.Kind == tsdef.KindObject {
 			for _, f := range requiredLiterals(expanded) {
 				if stringLiteral(f.Type) {
 					candidates[f.Name] = true
@@ -141,7 +141,7 @@ func classify(tag string, shapes []taggedShape) ([]taggedMember, bool) {
 				return nil, false
 			}
 			m = taggedMember{kind: memberNested, nested: sh.nested, value: sh.nestedValue}
-		case sh.expanded.Kind == "union":
+		case sh.expanded.Kind == tsdef.KindUnion:
 			if !catchAllObjects(sh.expanded, tag) {
 				return nil, false
 			}
@@ -192,7 +192,7 @@ func catchAllObjects(u *tsdef.Type, tag string) bool {
 // required string beside an index signature.
 func isCatchAll(t *tsdef.Type, tag string) bool {
 	f := fieldNamed(t, tag)
-	return t.Kind == "object" && t.Element != nil && f != nil && !f.Optional && f.Type.Kind == "string"
+	return t.Kind == tsdef.KindObject && t.Element != nil && f != nil && !f.Optional && f.Type.Kind == tsdef.KindString
 }
 
 // fieldNamed returns the member of object t with the given JSON name, or nil.
@@ -548,9 +548,9 @@ func (g *generator) planVariants() error {
 // for [labelUnions] to name by its members.
 func (g *generator) memberLabel(m, expanded *tsdef.Type) (string, error) {
 	switch m.Kind {
-	case "ref":
+	case tsdef.KindRef:
 		return Name(m.Name), nil
-	case "literal":
+	case tsdef.KindLiteral:
 		if stringLiteral(m) {
 			value, err := strconv.Unquote(m.Literal)
 			if err != nil {
@@ -559,34 +559,34 @@ func (g *generator) memberLabel(m, expanded *tsdef.Type) (string, error) {
 			return Name(value), nil
 		}
 		return Name(m.Literal), nil
-	case "null":
+	case tsdef.KindNull:
 		return "Null", nil
-	case "string":
+	case tsdef.KindString:
 		return "String", nil
-	case "number":
+	case tsdef.KindNumber:
 		return "Number", nil
-	case "boolean":
+	case tsdef.KindBoolean:
 		return "Bool", nil
-	case "unknown", "any":
+	case tsdef.KindUnknown, tsdef.KindAny:
 		return "Unknown", nil
-	case "intersection":
+	case tsdef.KindIntersection:
 		var label strings.Builder
 		for _, part := range m.Members {
-			if part.Kind == "object" {
+			if part.Kind == tsdef.KindObject {
 				label.WriteString(literalLabel(part))
 			}
 		}
 		if label.String() != "" {
 			return label.String(), nil
 		}
-	case "array":
+	case tsdef.KindArray:
 		element, err := g.memberLabel(m.Element, m.Element)
 		if err != nil {
 			return "", err
 		}
 		return element + "List", nil
 	}
-	if expanded.Kind == "object" {
+	if expanded.Kind == tsdef.KindObject {
 		if label := literalLabel(expanded); label != "" {
 			return label, nil
 		}
@@ -639,7 +639,7 @@ func labelUnions(labels []string, expanded []*tsdef.Type) {
 // group declares. An id member names what it identifies: sessionId gives
 // Session, since a type named …SessionID reads as an identifier.
 func fieldsLabel(i int, group []int, expanded []*tsdef.Type) string {
-	if expanded[i].Kind != "object" {
+	if expanded[i].Kind != tsdef.KindObject {
 		return ""
 	}
 	var label strings.Builder
@@ -659,7 +659,7 @@ func fieldsLabel(i int, group []int, expanded []*tsdef.Type) string {
 // declaredByOther reports whether a member of group other than i declares field.
 func declaredByOther(field string, i int, group []int, expanded []*tsdef.Type) bool {
 	for _, j := range group {
-		if j == i || expanded[j].Kind != "object" {
+		if j == i || expanded[j].Kind != tsdef.KindObject {
 			continue
 		}
 		if fieldNamed(expanded[j], field) != nil {
@@ -742,16 +742,16 @@ func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 // altRule renders the union.Rule literal that recognizes one union alternative.
 func (g *generator) altRule(expanded *tsdef.Type) string {
 	var parts []string
-	if expanded.Kind == "null" {
+	if expanded.Kind == tsdef.KindNull {
 		parts = append(parts, "Null: true")
 	}
 	if !g.acceptsNull(expanded, map[string]bool{}) {
 		parts = append(parts, "NonNull: true")
 	}
-	if expanded.Kind == "literal" {
+	if expanded.Kind == tsdef.KindLiteral {
 		parts = append(parts, fmt.Sprintf("Literal: jsontext.Value(%q)", expanded.Literal))
 	}
-	if expanded.Kind == "object" {
+	if expanded.Kind == tsdef.KindObject {
 		var required, notNull, tags []string
 		for _, f := range expanded.Fields {
 			if !f.Optional {

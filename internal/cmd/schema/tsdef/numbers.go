@@ -54,9 +54,9 @@ func (r reader) numericHints(t *Type, n *ts.Node) {
 	if n == nil {
 		return
 	}
-	if t.Kind == "union" || t.Kind == "intersection" {
+	if t.Kind == KindUnion || t.Kind == KindIntersection {
 		// z.union([...]) members align positionally with the TypeScript union.
-		if elems := r.builderArray(n, "union"); elems != nil && len(elems) == len(t.Members) && t.Kind == "union" {
+		if elems := r.builderArray(n, "union"); elems != nil && len(elems) == len(t.Members) && t.Kind == KindUnion {
 			for i, m := range t.Members {
 				r.numericHints(m, elems[i])
 			}
@@ -67,7 +67,7 @@ func (r reader) numericHints(t *Type, n *ts.Node) {
 		}
 		return
 	}
-	if t.Kind == "number" {
+	if t.Kind == KindNumber {
 		integer, min, max := false, float64(-1), float64(0)
 		var visit func(*ts.Node)
 		visit = func(n *ts.Node) {
@@ -123,7 +123,7 @@ func (r reader) numericHints(t *Type, n *ts.Node) {
 			if fn.Kind() == "member_expression" && fn.ChildByFieldName("object").Utf8Text(r.source) == "z" {
 				method := fn.ChildByFieldName("property").Utf8Text(r.source)
 				if method == "object" && args.NamedChildCount() > 0 {
-					if t.Kind != "object" {
+					if t.Kind != KindObject {
 						return
 					}
 					for _, pair := range children(args.NamedChild(0)) {
@@ -139,7 +139,7 @@ func (r reader) numericHints(t *Type, n *ts.Node) {
 					}
 					return
 				}
-				if method == "array" && t.Kind == "array" && args.NamedChildCount() > 0 {
+				if method == "array" && t.Kind == KindArray && args.NamedChildCount() > 0 {
 					r.numericHints(t.Element, args.NamedChild(0))
 					return
 				}

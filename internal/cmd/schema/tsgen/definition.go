@@ -42,7 +42,7 @@ func (g *generator) form(t *tsdef.Type) (form, *tsdef.Type, error) {
 	if _, _, ok := openEnum(t); ok {
 		return formOpenEnum, t, nil
 	}
-	if t.Kind == "intersection" {
+	if t.Kind == tsdef.KindIntersection {
 		expanded, err := g.expand(t, map[string]bool{})
 		if err != nil {
 			return 0, nil, err
@@ -50,17 +50,17 @@ func (g *generator) form(t *tsdef.Type) (form, *tsdef.Type, error) {
 		t = expanded
 	}
 	switch t.Kind {
-	case "object":
+	case tsdef.KindObject:
 		if len(t.Fields) == 0 {
 			return formAlias, t, nil // records alias map[string]T
 		}
 		return formStruct, t, nil
-	case "union":
-		if nonnull, isNull := nullable(t); isNull && nonnull.Kind != "union" {
+	case tsdef.KindUnion:
+		if nonnull, isNull := nullable(t); isNull && nonnull.Kind != tsdef.KindUnion {
 			return formAlias, t, nil
 		}
 		return formUnion, t, nil
-	case "string", "number", "boolean":
+	case tsdef.KindString, tsdef.KindNumber, tsdef.KindBoolean:
 		return formNamed, t, nil
 	}
 	return formAlias, t, nil
@@ -96,14 +96,14 @@ func (g *generator) definition(d tsdef.Definition) error {
 	case formEnum:
 		kind, _ := literals(t)
 		members := t.Members
-		if t.Kind == "literal" {
+		if t.Kind == tsdef.KindLiteral {
 			members = []*tsdef.Type{t}
 		}
 		return g.enum(d.Name, d.Comment, kind, members, false)
 	case formOpenEnum:
 		base, members, _ := openEnum(t)
 		kind, _ := literals(members[0])
-		if base.Kind == "number" && base.Number != "" {
+		if base.Kind == tsdef.KindNumber && base.Number != "" {
 			kind = base.Number
 		}
 		return g.enum(d.Name, d.Comment, kind, members, true)
@@ -177,7 +177,7 @@ func (g *generator) enum(typeName, sdkDoc, kind string, members []*tsdef.Type, o
 
 // expand distributes intersections over unions and merges object members.
 func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, error) {
-	if t.Kind == "ref" {
+	if t.Kind == tsdef.KindRef {
 		if seen[t.Name] {
 			return nil, fmt.Errorf("cyclic intersection through %s", t.Name)
 		}
@@ -190,32 +190,32 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 		delete(seen, t.Name)
 		return out, err
 	}
-	if t.Kind == "union" {
+	if t.Kind == tsdef.KindUnion {
 		var members []*tsdef.Type
 		for _, member := range t.Members {
 			expanded, err := g.expand(member, seen)
 			if err != nil {
 				return nil, err
 			}
-			if expanded.Kind == "union" {
+			if expanded.Kind == tsdef.KindUnion {
 				members = append(members, expanded.Members...)
 			} else {
 				members = append(members, expanded)
 			}
 		}
-		return &tsdef.Type{Kind: "union", Members: members}, nil
+		return &tsdef.Type{Kind: tsdef.KindUnion, Members: members}, nil
 	}
-	if t.Kind != "intersection" {
+	if t.Kind != tsdef.KindIntersection {
 		return t, nil
 	}
-	variants := []*tsdef.Type{{Kind: "object"}}
+	variants := []*tsdef.Type{{Kind: tsdef.KindObject}}
 	for _, member := range t.Members {
 		m, err := g.expand(member, seen)
 		if err != nil {
 			return nil, err
 		}
 		alternatives := []*tsdef.Type{m}
-		if m.Kind == "union" {
+		if m.Kind == tsdef.KindUnion {
 			alternatives = m.Members
 		}
 		var next []*tsdef.Type
@@ -225,10 +225,10 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 				if err != nil {
 					return nil, err
 				}
-				if a.Kind != "object" {
+				if a.Kind != tsdef.KindObject {
 					return nil, fmt.Errorf("intersection member is %s, expected object", a.Kind)
 				}
-				merged := &tsdef.Type{Kind: "object", Fields: append([]tsdef.Field(nil), base.Fields...), Element: base.Element}
+				merged := &tsdef.Type{Kind: tsdef.KindObject, Fields: append([]tsdef.Field(nil), base.Fields...), Element: base.Element}
 				if a.Element != nil {
 					merged.Element = a.Element
 				}
@@ -239,8 +239,8 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 							found = true
 							f.Optional = f.Optional && old.Optional
 							if !reflect.DeepEqual(f.Type, old.Type) {
-								if f.Type.Kind == "literal" && old.Type.Kind == "string" {
-								} else if old.Type.Kind == "literal" && f.Type.Kind == "string" {
+								if f.Type.Kind == tsdef.KindLiteral && old.Type.Kind == tsdef.KindString {
+								} else if old.Type.Kind == tsdef.KindLiteral && f.Type.Kind == tsdef.KindString {
 									f.Type = old.Type
 								} else {
 									return nil, fmt.Errorf("unsupported intersection for property %s", f.Name)
@@ -262,7 +262,7 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 	if len(variants) == 1 {
 		return variants[0], nil
 	}
-	return &tsdef.Type{Kind: "union", Members: variants}, nil
+	return &tsdef.Type{Kind: tsdef.KindUnion, Members: variants}, nil
 }
 
 func (g *generator) reserve(name string) error {

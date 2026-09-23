@@ -136,28 +136,34 @@ func doc(s string) string {
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
+
+// primitives maps TypeScript's predefined types to their kinds.
+var primitives = map[string]Kind{
+	"string": KindString, "number": KindNumber, "boolean": KindBoolean,
+	"unknown": KindUnknown, "never": KindNever, "any": KindAny,
+}
+
 func (r reader) typ(n *ts.Node) (*Type, error) {
-	t := &Type{Kind: n.Kind()}
+	t := &Type{}
 	switch n.Kind() {
 	case "type_annotation", "parenthesized_type":
 		return r.typ(n.NamedChild(0))
 	case "predefined_type":
-		t.Kind = n.Utf8Text(r.source)
-		switch t.Kind {
-		case "string", "number", "boolean", "unknown", "never", "any":
-		default:
+		kind, ok := primitives[n.Utf8Text(r.source)]
+		if !ok {
 			return nil, r.fail(n, "unsupported primitive")
 		}
+		t.Kind = kind
 	case "type_identifier":
-		t.Kind = "ref"
+		t.Kind = KindRef
 		t.Name = n.Utf8Text(r.source)
 	case "literal_type":
 		child := n.NamedChild(0)
-		t.Kind = "literal"
+		t.Kind = KindLiteral
 		t.Literal = child.Utf8Text(r.source)
 		switch child.Kind() {
 		case "null":
-			t.Kind = "null"
+			t.Kind = KindNull
 		case "string":
 			value, err := strconv.Unquote(t.Literal)
 			if err != nil {
@@ -169,7 +175,10 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 			return nil, r.fail(n, "unsupported literal")
 		}
 	case "union_type", "intersection_type":
-		t.Kind = strings.TrimSuffix(n.Kind(), "_type")
+		t.Kind = KindUnion
+		if n.Kind() == "intersection_type" {
+			t.Kind = KindIntersection
+		}
 		for _, c := range children(n) {
 			if c.Kind() == "comment" {
 				continue
@@ -185,7 +194,7 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 			}
 		}
 	case "array_type":
-		t.Kind = "array"
+		t.Kind = KindArray
 		elem, err := r.typ(n.NamedChild(0))
 		if err != nil {
 			return nil, err
@@ -201,10 +210,10 @@ func (r reader) typ(n *ts.Node) (*Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		t.Kind = "array"
+		t.Kind = KindArray
 		t.Element = elem
 	case "object_type":
-		t.Kind = "object"
+		t.Kind = KindObject
 		comment := ""
 		for _, c := range children(n) {
 			if c.Kind() == "comment" {

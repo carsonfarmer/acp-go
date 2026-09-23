@@ -54,7 +54,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			tag += ",omitzero"
 		}
 		text := fieldDoc(f.Comment)
-		if !f.Optional && f.Type.Kind == "literal" {
+		if !f.Optional && f.Type.Kind == tsdef.KindLiteral {
 			text = strings.TrimSpace(text + "\n\nAlways " + f.Type.Literal + ": MarshalJSONTo writes it whatever the field holds.")
 		}
 		if f.Name == "_meta" && expr == "map[string]jsontext.Value" {
@@ -131,7 +131,7 @@ func (g *generator) emitGetters() {
 func (g *generator) isStruct(t *tsdef.Type) bool {
 	for {
 		t, _ = nullable(t)
-		if t.Kind != "ref" {
+		if t.Kind != tsdef.KindRef {
 			break
 		}
 		if t = g.defs[t.Name]; t == nil {

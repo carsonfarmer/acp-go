@@ -10,13 +10,13 @@ import (
 )
 
 func nullable(t *tsdef.Type) (*tsdef.Type, bool) {
-	if t.Kind != "union" {
-		return t, t.Kind == "null"
+	if t.Kind != tsdef.KindUnion {
+		return t, t.Kind == tsdef.KindNull
 	}
 	var members []*tsdef.Type
 	null := false
 	for _, m := range t.Members {
-		if m.Kind == "null" {
+		if m.Kind == tsdef.KindNull {
 			null = true
 		} else {
 			members = append(members, m)
@@ -25,11 +25,11 @@ func nullable(t *tsdef.Type) (*tsdef.Type, bool) {
 	if len(members) == 1 {
 		return members[0], null
 	}
-	return &tsdef.Type{Kind: "union", Members: members}, null
+	return &tsdef.Type{Kind: tsdef.KindUnion, Members: members}, null
 }
 
 func literals(t *tsdef.Type) (string, bool) {
-	if t.Kind == "literal" {
+	if t.Kind == tsdef.KindLiteral {
 		if strings.HasPrefix(t.Literal, "\"") || strings.HasPrefix(t.Literal, "'") {
 			return "string", true
 		}
@@ -38,7 +38,7 @@ func literals(t *tsdef.Type) (string, bool) {
 		}
 		return "float64", true
 	}
-	if t.Kind != "union" || len(t.Members) == 0 {
+	if t.Kind != tsdef.KindUnion || len(t.Members) == 0 {
 		return "", false
 	}
 	kind := ""
@@ -56,20 +56,20 @@ func literals(t *tsdef.Type) (string, bool) {
 // primitive type, such as "a" | "b" | string. The primitive member is returned
 // so its numeric hint can be used for the Go base type.
 func openEnum(t *tsdef.Type) (base *tsdef.Type, members []*tsdef.Type, ok bool) {
-	if t.Kind != "union" {
+	if t.Kind != tsdef.KindUnion {
 		return nil, nil, false
 	}
 	kind := ""
 	for _, m := range t.Members {
 		switch m.Kind {
-		case "literal":
+		case tsdef.KindLiteral:
 			k, _ := literals(m)
 			if kind != "" && k != kind {
 				return nil, nil, false
 			}
 			kind = k
 			members = append(members, m)
-		case "string", "number", "boolean":
+		case tsdef.KindString, tsdef.KindNumber, tsdef.KindBoolean:
 			if base != nil {
 				return nil, nil, false
 			}
@@ -81,7 +81,7 @@ func openEnum(t *tsdef.Type) (base *tsdef.Type, members []*tsdef.Type, ok bool) 
 	if base == nil || len(members) == 0 {
 		return nil, nil, false
 	}
-	baseKind := map[string]string{"string": "string", "number": "float64", "boolean": "bool"}[base.Kind]
+	baseKind := map[tsdef.Kind]string{tsdef.KindString: "string", tsdef.KindNumber: "float64", tsdef.KindBoolean: "bool"}[base.Kind]
 	if baseKind != kind {
 		return nil, nil, false
 	}
@@ -131,7 +131,7 @@ func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (st
 	t, isNull := nullable(t)
 	var out string
 	switch t.Kind {
-	case "ref":
+	case tsdef.KindRef:
 		d, ok := g.defs[t.Name]
 		if !ok {
 			return "", false, fmt.Errorf("unresolved type %s", t.Name)
@@ -149,26 +149,26 @@ func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (st
 				return "", false, err
 			}
 		}
-	case "string":
+	case tsdef.KindString:
 		out = "string"
-	case "number":
+	case tsdef.KindNumber:
 		out = "float64"
 		if t.Number != "" {
 			out = t.Number
 		}
-	case "boolean":
+	case tsdef.KindBoolean:
 		out = "bool"
-	case "unknown", "any", "null", "never":
+	case tsdef.KindUnknown, tsdef.KindAny, tsdef.KindNull, tsdef.KindNever:
 		out = "jsontext.Value"
-	case "literal":
+	case tsdef.KindLiteral:
 		out, _ = literals(t)
-	case "array":
+	case tsdef.KindArray:
 		e, ok, err := g.render(t.Element, hint+"Item", seen)
 		if !ok || err != nil {
 			return "", false, err
 		}
 		out = "[]" + e
-	case "object":
+	case tsdef.KindObject:
 		if len(t.Fields) > 0 {
 			if static {
 				return "", false, nil
@@ -184,7 +184,7 @@ func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (st
 			}
 			out = "map[string]" + e
 		}
-	case "union", "intersection":
+	case tsdef.KindUnion, tsdef.KindIntersection:
 		if static {
 			return "", false, nil
 		}
@@ -204,7 +204,7 @@ func (g *generator) isUnion(t *tsdef.Type) bool {
 	seen := map[string]bool{}
 	for {
 		t, _ = nullable(t)
-		if t.Kind != "ref" || seen[t.Name] {
+		if t.Kind != tsdef.KindRef || seen[t.Name] {
 			break
 		}
 		seen[t.Name] = true
@@ -213,7 +213,7 @@ func (g *generator) isUnion(t *tsdef.Type) bool {
 		}
 	}
 	// Unions become payload wrappers unless they are emitted as named enums.
-	if t.Kind != "union" {
+	if t.Kind != tsdef.KindUnion {
 		return false
 	}
 	_, lit := literals(t)
@@ -226,7 +226,7 @@ func (g *generator) isUnion(t *tsdef.Type) bool {
 func requiredLiterals(t *tsdef.Type) []tsdef.Field {
 	var out []tsdef.Field
 	for _, f := range t.Fields {
-		if !f.Optional && f.Type.Kind == "literal" {
+		if !f.Optional && f.Type.Kind == tsdef.KindLiteral {
 			out = append(out, f)
 		}
 	}
@@ -250,9 +250,9 @@ func collection(expr string) bool {
 // acceptsNull follows references without expanding recursive object fields.
 func (g *generator) acceptsNull(t *tsdef.Type, seen map[string]bool) bool {
 	switch t.Kind {
-	case "null", "unknown", "any":
+	case tsdef.KindNull, tsdef.KindUnknown, tsdef.KindAny:
 		return true
-	case "ref":
+	case tsdef.KindRef:
 		if seen[t.Name] {
 			return false
 		}
@@ -260,13 +260,13 @@ func (g *generator) acceptsNull(t *tsdef.Type, seen map[string]bool) bool {
 		defer delete(seen, t.Name)
 		target := g.defs[t.Name]
 		return target != nil && g.acceptsNull(target, seen)
-	case "union":
+	case tsdef.KindUnion:
 		for _, m := range t.Members {
 			if g.acceptsNull(m, seen) {
 				return true
 			}
 		}
-	case "intersection":
+	case tsdef.KindIntersection:
 		for _, m := range t.Members {
 			if !g.acceptsNull(m, seen) {
 				return false
