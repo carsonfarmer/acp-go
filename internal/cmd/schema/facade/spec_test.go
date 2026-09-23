@@ -130,6 +130,17 @@ func TestValidationRejectsDrift(t *testing.T) {
 	}
 }
 
+func TestValidationRejectsUnhandledProtocolMethod(t *testing.T) {
+	source := strings.Replace(fixture, `cancel_request: "$/cancel_request"`, `cancel_request: "$/cancel_request", ping: "$/ping"`, 1)
+	schema, err := tsdef.Parse("fixture.ts", []byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Generate(spec(), schema); err == nil || !strings.Contains(err.Error(), "$/ping") {
+		t.Fatalf("generation accepted a protocol method nothing handles: %v", err)
+	}
+}
+
 func TestSameWireMethodMayBeRequestAndNotification(t *testing.T) {
 	s := spec()
 	s.Agent[1].Methods = append(s.Agent[1].Methods, Method{Wire: "session/bye", Name: "ByeRequest", Params: "PingRequest", Response: "PingResponse"})

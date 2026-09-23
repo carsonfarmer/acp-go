@@ -84,6 +84,11 @@ func (m Method) callDoc() string {
 	return m.Doc
 }
 
+// connectionMethods are the PROTOCOL_METHODS that internal/jsonrpc handles
+// itself, in both directions and for every protocol version, so no method
+// table routes them. A protocol method missing here fails generation.
+var connectionMethods = []string{"$/cancel_request"}
+
 // side is the per-direction naming the emitter needs.
 type side struct {
 	constants string // "AGENT_METHODS" or "CLIENT_METHODS"
@@ -100,6 +105,14 @@ func Generate(spec *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
 		g.types[tsgen.Name(d.Name)] = true
 	}
 	for _, c := range schema.Constants {
+		if c.Name == "PROTOCOL_METHODS" {
+			for _, m := range c.Members {
+				if wire := strings.Trim(m.Value, `"`); !slices.Contains(connectionMethods, wire) {
+					return nil, fmt.Errorf("PROTOCOL_METHODS: %s is not handled by the JSON-RPC connection", wire)
+				}
+			}
+			continue
+		}
 		if c.Name != "AGENT_METHODS" && c.Name != "CLIENT_METHODS" {
 			continue
 		}
