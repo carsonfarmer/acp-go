@@ -756,7 +756,7 @@ type ContentBlockResourceLink struct {
 	// MIME type describing the encoded media payload.
 	MIMEType *MediaType `json:"mimeType,omitzero"`
 	// Optional size of the linked resource in bytes, if known.
-	Size *float64 `json:"size,omitzero"`
+	Size *int64 `json:"size,omitzero"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
 	Meta        Meta         `json:"_meta,omitzero"`
@@ -3784,9 +3784,9 @@ func (v *SessionUpdateSessionInfoUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder
 // Context window and cost update for a session.
 type SessionUpdateUsageUpdate struct {
 	// Tokens currently in context.
-	Used float64 `json:"used"`
+	Used uint64 `json:"used"`
 	// Total context window size in tokens.
-	Size float64 `json:"size"`
+	Size uint64 `json:"size"`
 	// Cumulative session cost (optional).
 	Cost *Cost `json:"cost,omitzero"`
 	Meta Meta  `json:"_meta,omitzero"`

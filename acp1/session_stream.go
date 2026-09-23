@@ -207,7 +207,7 @@ func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCo
 
 // SendUsage reports context window usage for the turn so far: used tokens out
 // of size, with an optional running cost.
-func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost *Cost) error {
+func (s *SessionStream) SendUsage(ctx context.Context, used, size uint64, cost *Cost) error {
 	return s.Send(ctx, schema.SessionUpdateUsageUpdate{
 		Used: used,
 		Size: size,

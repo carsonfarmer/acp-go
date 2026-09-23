@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"flag"
 	"fmt"
 	"maps"
@@ -13,6 +14,12 @@ import (
 	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 	"github.com/ironpark/acp-go/internal/cmd/schema/tsgen"
 )
+
+// overridesYAML corrects the TypeScript schema where it says less than the
+// protocol means; see the file for what it holds.
+//
+//go:embed overrides.yaml
+var overridesYAML []byte
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -34,12 +41,22 @@ func run(args []string) error {
 	}
 	// Complete parsing and generation of both versions before modifying outputs.
 	var results []result
+	overrides, err := tsdef.ParseOverrides(overridesYAML)
+	if err != nil {
+		return err
+	}
+	applied := map[string]bool{}
 	specs := map[string]*facade.Spec{"v1": facade.V1, "v2": facade.V2}
 	for _, version := range []string{"v1", "v2"} {
 		schema, err := tsdef.ParseDir(filepath.Join(*source, version))
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
 		}
+		used, err := overrides.Apply(schema)
+		if err != nil {
+			return fmt.Errorf("%s: %w", version, err)
+		}
+		maps.Copy(applied, used)
 		files, decls, err := tsgen.Generate(schema, "schema")
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
@@ -57,6 +74,11 @@ func run(args []string) error {
 		}
 		for _, name := range slices.Sorted(maps.Keys(facadeFiles)) {
 			results = append(results, result{filepath.Join(*facadeRoot, spec.Dir, name), facadeFiles[name]})
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(overrides.Numbers)) {
+		if !applied[key] {
+			return fmt.Errorf("overrides: numbers.%s names no member of any schema version", key)
 		}
 	}
 	// A result is stale when its file differs. Every *.gen.go in an output

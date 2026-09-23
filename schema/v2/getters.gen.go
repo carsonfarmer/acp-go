@@ -214,11 +214,11 @@ func (x *ContentBlockResourceLink) GetMIMEType() MediaType {
 }
 
 // GetSize returns the value of Size, or the zero value if x or Size is nil.
-func (x *ContentBlockResourceLink) GetSize() float64 {
+func (x *ContentBlockResourceLink) GetSize() int64 {
 	if x != nil && x.Size != nil {
 		return *x.Size
 	}
-	var zero float64
+	var zero int64
 	return zero
 }
 
@@ -892,11 +892,11 @@ func (x *NesOpenFile) GetVisibleRange() *Range {
 }
 
 // GetLastFocusedMs returns the value of LastFocusedMs, or the zero value if x or LastFocusedMs is nil.
-func (x *NesOpenFile) GetLastFocusedMs() float64 {
+func (x *NesOpenFile) GetLastFocusedMs() uint64 {
 	if x != nil && x.LastFocusedMs != nil {
 		return *x.LastFocusedMs
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }
 
@@ -1377,28 +1377,28 @@ func (x *ToolCallUpdate) GetStatus() ToolCallStatus {
 }
 
 // GetThoughtTokens returns the value of ThoughtTokens, or the zero value if x or ThoughtTokens is nil.
-func (x *Usage) GetThoughtTokens() float64 {
+func (x *Usage) GetThoughtTokens() uint64 {
 	if x != nil && x.ThoughtTokens != nil {
 		return *x.ThoughtTokens
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }
 
 // GetCachedReadTokens returns the value of CachedReadTokens, or the zero value if x or CachedReadTokens is nil.
-func (x *Usage) GetCachedReadTokens() float64 {
+func (x *Usage) GetCachedReadTokens() uint64 {
 	if x != nil && x.CachedReadTokens != nil {
 		return *x.CachedReadTokens
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }
 
 // GetCachedWriteTokens returns the value of CachedWriteTokens, or the zero value if x or CachedWriteTokens is nil.
-func (x *Usage) GetCachedWriteTokens() float64 {
+func (x *Usage) GetCachedWriteTokens() uint64 {
 	if x != nil && x.CachedWriteTokens != nil {
 		return *x.CachedWriteTokens
 	}
-	var zero float64
+	var zero uint64
 	return zero
 }

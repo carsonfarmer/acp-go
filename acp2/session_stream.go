@@ -160,7 +160,7 @@ func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionC
 
 // SendUsage reports context window usage: used tokens out of size, with an
 // optional running cost.
-func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost *Cost) error {
+func (s *SessionStream) SendUsage(ctx context.Context, used, size uint64, cost *Cost) error {
 	return s.Send(ctx, schema.SessionUpdateUsageUpdate{Used: used, Size: size, Cost: cost})
 }
 

@@ -547,7 +547,7 @@ type ContentBlockResourceLink struct {
 	// Human-readable name shown for this protocol object.
 	Name string `json:"name"`
 	// Optional size of the linked resource in bytes, if known.
-	Size *float64 `json:"size,omitzero"`
+	Size *int64 `json:"size,omitzero"`
 	// Optional display title for end-user UI.
 	Title *string `json:"title,omitzero"`
 	// URI associated with this resource or media payload.
@@ -2923,9 +2923,9 @@ func (v *SessionUpdateSessionInfoUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder
 // Context window and cost update for a session.
 type SessionUpdateUsageUpdate struct {
 	// Tokens currently in context.
-	Used float64 `json:"used"`
+	Used uint64 `json:"used"`
 	// Total context window size in tokens.
-	Size float64 `json:"size"`
+	Size uint64 `json:"size"`
 	// Cumulative session cost (optional).
 	Cost *Cost `json:"cost,omitzero"`
 	Meta Meta  `json:"_meta,omitzero"`

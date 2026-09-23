@@ -167,8 +167,8 @@ type CreateTerminalRequest struct {
 	// The Client MUST ensure truncation happens at a character boundary to maintain valid
 	// string output, even if this means the retained output is slightly less than the
 	// specified limit.
-	OutputByteLimit *float64 `json:"outputByteLimit,omitzero"`
-	Meta            Meta     `json:"_meta,omitzero"`
+	OutputByteLimit *uint64 `json:"outputByteLimit,omitzero"`
+	Meta            Meta    `json:"_meta,omitzero"`
 }
 
 // EnvVariable is an environment variable to set when launching an MCP server.
@@ -946,18 +946,18 @@ type PromptResponse struct {
 // Experimental: not part of the spec yet; it may change or be removed.
 type Usage struct {
 	// Sum of all token types across session.
-	TotalTokens float64 `json:"totalTokens"`
+	TotalTokens uint64 `json:"totalTokens"`
 	// Total input tokens across all turns.
-	InputTokens float64 `json:"inputTokens"`
+	InputTokens uint64 `json:"inputTokens"`
 	// Total output tokens across all turns.
-	OutputTokens float64 `json:"outputTokens"`
+	OutputTokens uint64 `json:"outputTokens"`
 	// Total thought/reasoning tokens
-	ThoughtTokens *float64 `json:"thoughtTokens,omitzero"`
+	ThoughtTokens *uint64 `json:"thoughtTokens,omitzero"`
 	// Total cache read tokens.
-	CachedReadTokens *float64 `json:"cachedReadTokens,omitzero"`
+	CachedReadTokens *uint64 `json:"cachedReadTokens,omitzero"`
 	// Total cache write tokens.
-	CachedWriteTokens *float64 `json:"cachedWriteTokens,omitzero"`
-	Meta              Meta     `json:"_meta,omitzero"`
+	CachedWriteTokens *uint64 `json:"cachedWriteTokens,omitzero"`
+	Meta              Meta    `json:"_meta,omitzero"`
 }
 
 // StartNesResponse is a response to `nes/start`.
@@ -1619,7 +1619,7 @@ type SuggestNesRequest struct {
 	// The URI of the document to suggest for.
 	URI string `json:"uri"`
 	// The version number of the document.
-	Version float64 `json:"version"`
+	Version int64 `json:"version"`
 	// The current cursor position.
 	Position Position `json:"position"`
 	// The current text selection range, if any.
@@ -1697,8 +1697,8 @@ type NesUserAction struct {
 	// The position where the action occurred.
 	Position Position `json:"position"`
 	// Timestamp in milliseconds since epoch.
-	TimestampMs float64 `json:"timestampMs"`
-	Meta        Meta    `json:"_meta,omitzero"`
+	TimestampMs uint64 `json:"timestampMs"`
+	Meta        Meta   `json:"_meta,omitzero"`
 }
 
 // NesOpenFile is an open file in the editor.
@@ -1710,8 +1710,8 @@ type NesOpenFile struct {
 	// The visible range in the editor, if any.
 	VisibleRange *Range `json:"visibleRange,omitzero"`
 	// Timestamp in milliseconds since epoch of when the file was last focused.
-	LastFocusedMs *float64 `json:"lastFocusedMs,omitzero"`
-	Meta          Meta     `json:"_meta,omitzero"`
+	LastFocusedMs *uint64 `json:"lastFocusedMs,omitzero"`
+	Meta          Meta    `json:"_meta,omitzero"`
 }
 
 // NesDiagnostic is a diagnostic (error, warning, etc.).
@@ -1844,7 +1844,7 @@ type DidOpenDocumentNotification struct {
 	// The language identifier of the document (e.g., "rust", "python").
 	LanguageID string `json:"languageId"`
 	// The version number of the document.
-	Version float64 `json:"version"`
+	Version int64 `json:"version"`
 	// The full text content of the document.
 	Text string `json:"text"`
 	Meta Meta   `json:"_meta,omitzero"`
@@ -1857,7 +1857,7 @@ type DidChangeDocumentNotification struct {
 	// The URI of the changed document.
 	URI string `json:"uri"`
 	// The new version number of the document.
-	Version float64 `json:"version"`
+	Version int64 `json:"version"`
 	// The content changes.
 	ContentChanges []TextDocumentContentChangeEvent `json:"contentChanges"`
 	Meta           Meta                             `json:"_meta,omitzero"`
@@ -1900,7 +1900,7 @@ type DidFocusDocumentNotification struct {
 	// The URI of the focused document.
 	URI string `json:"uri"`
 	// The version number of the document.
-	Version float64 `json:"version"`
+	Version int64 `json:"version"`
 	// The current cursor position.
 	Position Position `json:"position"`
 	// The portion of the file currently visible in the editor viewport.

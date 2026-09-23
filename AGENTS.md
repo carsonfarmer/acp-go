@@ -19,6 +19,7 @@ ACP(Agent Client Protocol) for golang
 - Inputs: `schema/typescript/v1/*.ts`, `schema/typescript/v2/*.ts`
 - Upstream revision: `schema/typescript/REVISION`
 - Generator: `internal/cmd/schema` (separate Go module)
+- Generator overrides (integer types for bare TypeScript numbers): `internal/cmd/schema/overrides.yaml`
 - Details: `schema/README.md`
 - Outputs: `schema/{v1,v2}/{methods,enums,types,unions,envelope,getters}.gen.go` (wire types by kind, plus nil-safe getters), `schema/{v1,v2}/zod.gen.go` (Zod rule tables),
   plus `types.gen.go`/`methods.gen.go` in the `acp1` and `acp2` façade packages (from `internal/cmd/schema/facade/{v1,v2}.go`)

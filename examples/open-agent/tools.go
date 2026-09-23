@@ -135,7 +135,7 @@ func (a *openAgent) reportUsage(ctx context.Context, stream *acp1.SessionStream,
 		return nil
 	}
 	cost := sess.addCost(u.Cost)
-	return stream.SendUsage(ctx, float64(u.PromptTokens+u.CompletionTokens), float64(a.llm.contextLength),
+	return stream.SendUsage(ctx, uint64(u.PromptTokens+u.CompletionTokens), uint64(a.llm.contextLength),
 		&acp1.Cost{Amount: cost, Currency: "USD"})
 }
 
@@ -315,7 +315,7 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 		Command:         shell,
 		Args:            []string{flag, command},
 		Cwd:             &sess.cwd,
-		OutputByteLimit: new(float64(outputLimit)),
+		OutputByteLimit: new(uint64(outputLimit)),
 	})
 	if err != nil {
 		return "", nil, err

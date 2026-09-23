@@ -1,0 +1,24 @@
+# Corrections the generator applies to the TypeScript schema snapshots in
+# schema/typescript, for both protocol versions. Keys use TypeScript names.
+
+# numbers gives the Go type of members the TypeScript schema types as a bare
+# `number`, which would otherwise become float64. Each is an integer in the
+# protocol's Rust schema (reference/agent-client-protocol/schema) with that
+# format. An entry no version has fails generation.
+numbers:
+  Usage.totalTokens: uint64
+  Usage.inputTokens: uint64
+  Usage.outputTokens: uint64
+  Usage.thoughtTokens: uint64
+  Usage.cachedReadTokens: uint64
+  Usage.cachedWriteTokens: uint64
+  UsageUpdate.used: uint64
+  UsageUpdate.size: uint64
+  CreateTerminalRequest.outputByteLimit: uint64
+  ResourceLink.size: int64
+  SuggestNesRequest.version: int64
+  DidOpenDocumentNotification.version: int64
+  DidChangeDocumentNotification.version: int64
+  DidFocusDocumentNotification.version: int64
+  NesUserAction.timestampMs: uint64
+  NesOpenFile.lastFocusedMs: uint64
