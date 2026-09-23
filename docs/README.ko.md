@@ -400,6 +400,7 @@ v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MC
 - **[에코 에이전트](./example/echo/)** - 가장 작은 에이전트: 필수 메서드 네 개
 - **[에이전트](./example/agent/)** - 세션, 모드, 취소, 계획, 터미널과 diff를 쓰는 도구 호출, 권한 요청, 확장 메서드
 - **[클라이언트](./example/client/)** - 모든 stdio 에이전트용 대화형 클라이언트: Ctrl-C 취소, 모드 전환, 터미널, 파일 메서드
+- **[오픈 에이전트](./example/open-agent/)** - OpenRouter 모델이 이끄는 코딩 에이전트: 스트리밍, 클라이언트의 파일과 터미널을 쓰는 도구 호출, 권한 요청
 - **[HTTP 에이전트](./example/http-agent/) / [HTTP 클라이언트](./example/http-client/)** - 같은 연결을 Streamable HTTP 또는 WebSocket으로, Bearer 토큰과 세션을 다시 불러오는 재연결
 - **[듀얼 에이전트](./example/dual-agent/) / [듀얼 클라이언트](./example/dual-client/)** - 하나의 엔드포인트에서 v1과 v2 제공, v2에서 v1로 폴백하는 클라이언트, 기록을 재생하는 v2 세션 resume
 - **[인프로세스](./example/inprocess/)** - `acp1.Pipe`로 한 프로세스 안에서 잇는 에이전트와 클라이언트

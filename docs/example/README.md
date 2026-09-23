@@ -8,6 +8,7 @@ different transport. Run each from the repository root.
 | [`echo`](./echo/main.go) | The smallest agent: the four required methods, streaming each prompt back | `go run ./docs/example/echo` |
 | [`agent`](./agent/) | A complete agent: `SessionManager` sessions and cancellation, session modes, a plan, `SessionStream` tool calls with a command run in the client's terminal and a file diff, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./docs/example/agent` |
 | [`client`](./client/) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, plans and diffs, Ctrl-C cancellation, permission prompts, `/mode` switching, file system and terminal methods, `CallExt` | `go run ./docs/example/client [agent command...]` |
+| [`open-agent`](./open-agent/) | A coding agent driven by a model on [OpenRouter](https://openrouter.ai): streamed answers and reasoning, a tool-calling loop whose tools read and write files through the client and run commands in its terminal, permission in ask mode, usage and cost reports; the model client uses only the standard library | `OPENROUTER_API_KEY=... go run ./docs/example/open-agent` |
 | [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acp.HTTPServer`, with sessions that outlive a connection and an optional bearer token | `go run ./docs/example/http-agent [-token secret]` |
 | [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` with `ConnectAgent`, over Streamable HTTP or, with `-ws`, WebSocket; `-reconnect` then resumes the session with `session/load` | `go run ./docs/example/http-client [-ws] [-reconnect] [-token secret]` |
 | [`dual-agent`](./dual-agent/) | One binary serving ACP v1 and the draft v2 through `router.ProtocolRouter`, including the v2 prompt lifecycle and v2 session resume with history replay; each version's agent in its own file | `go run ./docs/example/dual-agent` |
@@ -33,6 +34,38 @@ Any other stdio agent works too; give its command after the flags:
 ```sh
 go build -o /tmp/echo ./docs/example/echo
 go run ./docs/example/client /tmp/echo
+```
+
+## With a model on OpenRouter
+
+`open-agent` hands its turns to a model on [OpenRouter](https://openrouter.ai). The model reads files, writes them,
+and runs commands through the client:
+
+```sh
+export OPENROUTER_API_KEY=sk-or-...
+go build -o /tmp/open-agent ./docs/example/open-agent
+go run ./docs/example/client /tmp/open-agent
+```
+
+Ask it about the project, for example "what does this module depend on?". In `ask` mode it asks before each write
+and each command; `/mode auto` lets it go ahead. It reads its configuration from the environment:
+
+| Variable | Default |
+|---|---|
+| `OPENROUTER_API_KEY` | required, from [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `OPENROUTER_MODEL` | `openai/gpt-oss-120b`; any OpenRouter model that supports tools |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1`; any OpenAI-compatible endpoint |
+
+In Zed, give it the key through `env`:
+
+```json
+  "agent_servers": {
+    "Open Agent": {
+      "command": "go",
+      "args": ["run", "-C", "/path/to/go-acp/docs/example/open-agent", "."],
+      "env": { "OPENROUTER_API_KEY": "sk-or-..." }
+    }
+  }
 ```
 
 ## Over HTTP
