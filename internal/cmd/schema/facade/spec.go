@@ -266,9 +266,9 @@ func (g *emitter) typesFile(schema *tsdef.Schema, decls map[string]tsgen.Decl) {
 }
 
 // payloadType reports whether a schema type is a method payload rather than
-// one of the JSON-RPC envelope unions.
+// part of the JSON-RPC envelope.
 func payloadType(name string) bool {
-	if slices.Contains([]string{"AgentRequest", "AgentResponse", "AgentNotification", "ClientRequest", "ClientResponse", "ClientNotification", "ProtocolLevelNotification"}, name) {
+	if tsgen.Envelope(name) {
 		return false
 	}
 	for _, suffix := range []string{"Request", "Response", "Notification"} {

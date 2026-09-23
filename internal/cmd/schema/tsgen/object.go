@@ -22,7 +22,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		return nil
 	}
 	g.write("type %s struct {\n", name)
-	payload := !envelope(name)
+	payload := !Envelope(name)
 	names := map[string]bool{}
 	var pointers []getter
 	for _, f := range t.Fields {

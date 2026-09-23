@@ -85,7 +85,7 @@ func (g *generator) definition(d tsdef.Definition) error {
 	switch {
 	case f == formEnum || f == formOpenEnum || f == formNamed:
 		file = fileEnums
-	case envelope(d.Name):
+	case Envelope(d.Name):
 		file = fileEnvelope
 	case f == formUnion:
 		file = fileUnions

@@ -48,10 +48,15 @@ const (
 	fileZod      = "zod.gen.go"      // Zod rule tables and Validated/Decode/Validate
 )
 
-// envelope reports whether a type belongs to the JSON-RPC envelope rather than
-// to a method payload.
-func envelope(name string) bool {
-	for _, prefix := range []string{"AgentRequest", "AgentResponse", "AgentNotification", "ClientRequest", "ClientResponse", "ClientNotification", "ProtocolLevelNotification", "RequestID"} {
+// envelopeUnions are the JSON-RPC envelope unions: every message one side
+// sends, as opposed to the payload of a single method.
+var envelopeUnions = []string{"AgentRequest", "AgentResponse", "AgentNotification", "ClientRequest", "ClientResponse", "ClientNotification", "ProtocolLevelNotification"}
+
+// Envelope reports whether a type belongs to the JSON-RPC envelope rather
+// than to a method payload: an envelope union, a type declared for one of its
+// members, the request id or the error object.
+func Envelope(name string) bool {
+	for _, prefix := range append(envelopeUnions, "RequestID") {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
