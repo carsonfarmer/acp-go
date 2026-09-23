@@ -22,16 +22,18 @@ import (
 )
 
 // ExtMethodHandler handles methods outside the spec. Prefix custom methods
-// with a unique identifier such as a domain name.
+// with a unique identifier such as a domain name. Its method is named Serve,
+// like http.Handler's, so an agent or client can embed both a handler, such as
+// acp.ExtRouter, and its connection, whose ExtMethod sends requests.
 //
 // See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 type ExtMethodHandler interface {
-	ExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
+	ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
 }
 
 // ExtNotificationHandler handles notifications outside the spec.
 //
 // The connection answers $/cancel_request itself, so it never reaches here.
 type ExtNotificationHandler interface {
-	ExtNotification(ctx context.Context, method string, params jsontext.Value) error
+	ServeExtNotification(ctx context.Context, method string, params jsontext.Value) error
 }

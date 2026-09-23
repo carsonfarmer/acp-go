@@ -25,7 +25,7 @@ func (l loopback) ExtMethod(ctx context.Context, method string, params any) (jso
 	if err != nil {
 		return nil, err
 	}
-	result, err := l.router.ExtMethod(ctx, method, raw)
+	result, err := l.router.ServeExtMethod(ctx, method, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -50,17 +50,17 @@ func TestExtRouter(t *testing.T) {
 	}
 
 	var reqErr *RequestError
-	if _, err := r.ExtMethod(ctx, "_test/missing", nil); !errors.As(err, &reqErr) || reqErr.Code != ErrorCodeMethodNotFound {
+	if _, err := r.ServeExtMethod(ctx, "_test/missing", nil); !errors.As(err, &reqErr) || reqErr.Code != ErrorCodeMethodNotFound {
 		t.Fatalf("missing method: %v", err)
 	}
-	if _, err := r.ExtMethod(ctx, "_test/echo", jsontext.Value(`{"text":7}`)); !errors.As(err, &reqErr) || reqErr.Code != ErrorCodeInvalidParams {
+	if _, err := r.ServeExtMethod(ctx, "_test/echo", jsontext.Value(`{"text":7}`)); !errors.As(err, &reqErr) || reqErr.Code != ErrorCodeInvalidParams {
 		t.Fatalf("bad params: %v", err)
 	}
 
-	if err := r.ExtNotification(ctx, "_test/note", jsontext.Value(`{"text":"n"}`)); err != nil || notified != "n" {
+	if err := r.ServeExtNotification(ctx, "_test/note", jsontext.Value(`{"text":"n"}`)); err != nil || notified != "n" {
 		t.Fatalf("notification: %q %v", notified, err)
 	}
-	if err := r.ExtNotification(ctx, "_test/unknown", nil); err != nil {
+	if err := r.ServeExtNotification(ctx, "_test/unknown", nil); err != nil {
 		t.Fatalf("unregistered notification should be ignored: %v", err)
 	}
 }

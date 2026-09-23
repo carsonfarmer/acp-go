@@ -520,7 +520,7 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 		}
 	default:
 		if h, ok := c.agent.(ExtMethodHandler); ok {
-			return h.ExtMethod(ctx, method, params)
+			return h.ServeExtMethod(ctx, method, params)
 		}
 	}
 	return nil, jsonrpc.MethodNotFound(method)
@@ -564,7 +564,7 @@ func (c *AgentSideConnection) handleNotification(ctx context.Context, method str
 		}
 	default:
 		if h, ok := c.agent.(ExtNotificationHandler); ok {
-			return h.ExtNotification(ctx, method, params)
+			return h.ServeExtNotification(ctx, method, params)
 		}
 	}
 	return jsonrpc.MethodNotFound(method)
@@ -592,7 +592,7 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 		}
 	default:
 		if h, ok := c.client.(ExtMethodHandler); ok {
-			return h.ExtMethod(ctx, method, params)
+			return h.ServeExtMethod(ctx, method, params)
 		}
 	}
 	return nil, jsonrpc.MethodNotFound(method)
@@ -612,7 +612,7 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 		}
 	default:
 		if h, ok := c.client.(ExtNotificationHandler); ok {
-			return h.ExtNotification(ctx, method, params)
+			return h.ServeExtNotification(ctx, method, params)
 		}
 	}
 	return jsonrpc.MethodNotFound(method)

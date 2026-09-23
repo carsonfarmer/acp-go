@@ -84,8 +84,8 @@ func (r *ExtRouter) OnExtNotification[P any](method string, fn func(context.Cont
 	}
 }
 
-// ExtMethod dispatches an extension request to its registered handler.
-func (r *ExtRouter) ExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error) {
+// ServeExtMethod dispatches an extension request to its registered handler.
+func (r *ExtRouter) ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	handler, ok := r.methods[method]
 	if !ok {
 		return nil, ErrMethodNotFound(method)
@@ -93,9 +93,9 @@ func (r *ExtRouter) ExtMethod(ctx context.Context, method string, params jsontex
 	return handler(ctx, method, params)
 }
 
-// ExtNotification dispatches an extension notification to its registered
-// handler, ignoring notifications nothing is registered for.
-func (r *ExtRouter) ExtNotification(ctx context.Context, method string, params jsontext.Value) error {
+// ServeExtNotification dispatches an extension notification to its
+// registered handler, ignoring notifications nothing is registered for.
+func (r *ExtRouter) ServeExtNotification(ctx context.Context, method string, params jsontext.Value) error {
 	if handler, ok := r.notifications[method]; ok {
 		return handler(ctx, method, params)
 	}

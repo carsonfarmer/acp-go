@@ -68,7 +68,7 @@ func (a *testAgent) Cancel(_ context.Context, params *acp1.CancelNotification) e
 	return nil
 }
 
-func (a *testAgent) ExtMethod(_ context.Context, method string, params jsontext.Value) (any, error) {
+func (a *testAgent) ServeExtMethod(_ context.Context, method string, params jsontext.Value) (any, error) {
 	return map[string]string{"method": method, "params": string(params)}, nil
 }
 
@@ -324,3 +324,17 @@ func TestUnsupportedClientMethodIsMethodNotFound(t *testing.T) {
 }
 
 // hasCode reports whether err is a RequestError with the given code.
+
+// An agent that embeds both acp.ExtRouter and its connection still serves
+// extension methods: the handler methods and the connection's senders have
+// different names, so neither selector is ambiguous.
+var (
+	_ acp1.ExtMethodHandler = (*struct {
+		acp.ExtRouter
+		*acp1.AgentSideConnection
+	})(nil)
+	_ acp1.ExtNotificationHandler = (*struct {
+		acp.ExtRouter
+		*acp1.AgentSideConnection
+	})(nil)
+)

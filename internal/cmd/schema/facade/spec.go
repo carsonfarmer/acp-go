@@ -393,9 +393,9 @@ func (g *emitter) dispatch(s side) {
 			}
 		}
 		if notification {
-			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtNotificationHandler); ok {\n\t\t\treturn h.ExtNotification(ctx, method, params)\n\t\t}\n\t}\n\treturn jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
+			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtNotificationHandler); ok {\n\t\t\treturn h.ServeExtNotification(ctx, method, params)\n\t\t}\n\t}\n\treturn jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
 		} else {
-			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtMethodHandler); ok {\n\t\t\treturn h.ExtMethod(ctx, method, params)\n\t\t}\n\t}\n\treturn nil, jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
+			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtMethodHandler); ok {\n\t\t\treturn h.ServeExtMethod(ctx, method, params)\n\t\t}\n\t}\n\treturn nil, jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
 		}
 	}
 }
