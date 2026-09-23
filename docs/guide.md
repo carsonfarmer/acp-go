@@ -346,6 +346,17 @@ conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os
 updates, at Debug, with `method` and `duration` attributes; a failure logs at Warn with `error`
 and the JSON-RPC `code`.
 
+`MetricsMiddleware` reports every handled message to an `acp.Metrics` implementation with its
+method, kind (`acp.RPCRequest` or `acp.RPCNotification`), duration and error, so one hook covers
+counters, histograms and tracing:
+
+```go
+acp.MetricsMiddleware(acp.MetricsFunc(func(ctx context.Context, method string, kind acp.RPCKind, d time.Duration, err error) {
+    rpcCalls.WithLabelValues(method, string(kind)).Inc()
+    rpcDuration.WithLabelValues(method).Observe(d.Seconds())
+}))
+```
+
 Panics in handlers are already recovered by the connection and reported as `-32603`,
 so no recovery middleware is needed. Custom middleware wraps either direction:
 

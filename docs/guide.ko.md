@@ -308,6 +308,16 @@ conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os
 `LoggingMiddleware`는 요청을 Info, 자주 오는 session update 같은 알림을 Debug 레벨로 `method`,
 `duration` 속성과 함께 기록하고, 실패하면 Warn 레벨로 `error`와 JSON-RPC `code`를 덧붙입니다.
 
+`MetricsMiddleware`는 처리한 모든 메시지를 `acp.Metrics` 구현으로 넘겨 메서드, 종류
+(`acp.RPCRequest` 또는 `acp.RPCNotification`), 소요 시간, 오류를 전달하므로 카운터·히스토그램·트레이싱을 훅 하나로 처리합니다:
+
+```go
+acp.MetricsMiddleware(acp.MetricsFunc(func(ctx context.Context, method string, kind acp.RPCKind, d time.Duration, err error) {
+    rpcCalls.WithLabelValues(method, string(kind)).Inc()
+    rpcDuration.WithLabelValues(method).Observe(d.Seconds())
+}))
+```
+
 핸들러의 패닉은 연결이 직접 복구해 `-32603`으로 응답하므로 별도의 recovery 미들웨어가 필요하지 않습니다.
 
 ## 데이터와 확장
