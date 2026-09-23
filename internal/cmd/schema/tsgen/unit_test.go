@@ -149,3 +149,17 @@ func TestMetaDoc(t *testing.T) {
 		t.Errorf("metaDoc kept %q", got)
 	}
 }
+
+func TestLabelUnionsNumbersUniquely(t *testing.T) {
+	// The third member's numbered label, A3, is the first member's own.
+	labels := []string{"A3", "A", "A"}
+	expanded := []*tsdef.Type{{Kind: tsdef.KindString}, {Kind: tsdef.KindString}, {Kind: tsdef.KindString}}
+	labelUnions(labels, expanded)
+	seen := map[string]bool{}
+	for _, label := range labels {
+		if seen[label] {
+			t.Fatalf("labels %v repeat %s", labels, label)
+		}
+		seen[label] = true
+	}
+}

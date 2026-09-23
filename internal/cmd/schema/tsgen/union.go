@@ -621,9 +621,11 @@ func labelUnions(labels []string, expanded []*tsdef.Type) {
 		}
 	}
 	used := map[string]bool{}
-	for i, label := range labels {
-		if used[label] {
-			labels[i] = label + strconv.Itoa(i+1)
+	for i := range labels {
+		// The numbered label can itself be taken, by an earlier member
+		// labelled Form3 for instance; extend it until it is not.
+		for used[labels[i]] {
+			labels[i] += strconv.Itoa(i + 1)
 		}
 		used[labels[i]] = true
 	}
