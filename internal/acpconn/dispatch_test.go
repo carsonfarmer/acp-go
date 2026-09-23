@@ -35,8 +35,7 @@ func TestDecodeParams(t *testing.T) {
 
 	// A type mismatch is an invalid-params error, not a decode panic.
 	_, err = decodeParams[sampleParams](schema.Validated(), jsontext.Value(`{"name":123}`))
-	var reqErr *jsonrpc.RequestError
-	if !errors.As(err, &reqErr) || reqErr.Code != jsonrpc.CodeInvalidParams {
+	if !isInvalidParams(err) {
 		t.Fatalf("decodeParams(mismatch) = %v, want invalid params", err)
 	}
 }
@@ -88,8 +87,7 @@ func TestNotify(t *testing.T) {
 	called := false
 	err = Notify(ctx, schema.Validated(), jsontext.Value(`{"name":123}`),
 		func(context.Context, *sampleParams) error { called = true; return nil })
-	var reqErr *jsonrpc.RequestError
-	if !errors.As(err, &reqErr) || reqErr.Code != jsonrpc.CodeInvalidParams {
+	if !isInvalidParams(err) {
 		t.Fatalf("Notify(mismatch) = %v, want invalid params", err)
 	}
 	if called {

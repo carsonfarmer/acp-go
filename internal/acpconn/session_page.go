@@ -1,6 +1,7 @@
 package acpconn
 
 import (
+	"container/heap"
 	"encoding/base64"
 	"encoding/json/v2"
 	"slices"
@@ -69,7 +70,27 @@ type SessionPager[T any] struct {
 	size  int
 	// kept holds the best candidates, up to size+1 of them, as a heap with
 	// the one that sorts last on top, so the next better session evicts it.
-	kept []T
+	kept sessionHeap[T]
+}
+
+// pagedSession is a candidate with its position, computed once in Add.
+type pagedSession[T any] struct {
+	pos  SessionPosition
+	item T
+}
+
+// sessionHeap is a [heap.Interface] with the candidate that sorts last on top.
+type sessionHeap[T any] []pagedSession[T]
+
+func (h sessionHeap[T]) Len() int           { return len(h) }
+func (h sessionHeap[T]) Less(i, j int) bool { return h[i].pos.Compare(h[j].pos) > 0 }
+func (h sessionHeap[T]) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *sessionHeap[T]) Push(x any)        { *h = append(*h, x.(pagedSession[T])) }
+func (h *sessionHeap[T]) Pop() any {
+	old := *h
+	last := old[len(old)-1]
+	*h = old[:len(old)-1]
+	return last
 }
 
 // NewSessionPager starts a page after the request's cursor token, or at the
@@ -108,67 +129,34 @@ func (p *SessionPager[T]) Limit() int {
 
 // Add offers one session for the page.
 func (p *SessionPager[T]) Add(item T) {
-	pos := p.key(item)
-	if p.after != nil && pos.Compare(*p.after) <= 0 {
+	candidate := pagedSession[T]{pos: p.key(item), item: item}
+	if p.after != nil && candidate.pos.Compare(*p.after) <= 0 {
 		return // on an earlier page
 	}
-	if p.size <= 0 {
-		p.kept = append(p.kept, item)
-		return
-	}
-	// One extra candidate tells Page whether another page follows.
-	if len(p.kept) <= p.size {
-		p.kept = append(p.kept, item)
-		p.up(len(p.kept) - 1)
-		return
-	}
-	if pos.Compare(p.key(p.kept[0])) < 0 {
-		p.kept[0] = item
-		p.down(0)
+	switch {
+	case p.size <= 0:
+		p.kept = append(p.kept, candidate)
+	case len(p.kept) <= p.size:
+		// One extra candidate tells Page whether another page follows.
+		heap.Push(&p.kept, candidate)
+	case candidate.pos.Compare(p.kept[0].pos) < 0:
+		p.kept[0] = candidate
+		heap.Fix(&p.kept, 0)
 	}
 }
 
 // Page returns the page in session/list order and the token to pass as the
 // request cursor for the following page, or "" when the page is the last.
 func (p *SessionPager[T]) Page() (page []T, next string) {
-	page = p.kept
-	slices.SortFunc(page, func(a, b T) int { return p.key(a).Compare(p.key(b)) })
-	if p.size > 0 && len(page) > p.size {
-		page = page[:p.size]
-		next = encodeSessionCursor(p.key(page[len(page)-1]))
+	slices.SortFunc(p.kept, func(a, b pagedSession[T]) int { return a.pos.Compare(b.pos) })
+	kept := p.kept
+	if p.size > 0 && len(kept) > p.size {
+		kept = kept[:p.size]
+		next = encodeSessionCursor(kept[len(kept)-1].pos)
+	}
+	page = make([]T, len(kept))
+	for i, candidate := range kept {
+		page[i] = candidate.item
 	}
 	return page, next
-}
-
-// later reports whether kept[i] sorts after kept[j], the heap's order.
-func (p *SessionPager[T]) later(i, j int) bool {
-	return p.key(p.kept[i]).Compare(p.key(p.kept[j])) > 0
-}
-
-func (p *SessionPager[T]) up(i int) {
-	for i > 0 {
-		parent := (i - 1) / 2
-		if !p.later(i, parent) {
-			return
-		}
-		p.kept[i], p.kept[parent] = p.kept[parent], p.kept[i]
-		i = parent
-	}
-}
-
-func (p *SessionPager[T]) down(i int) {
-	for {
-		top, l, r := i, 2*i+1, 2*i+2
-		if l < len(p.kept) && p.later(l, top) {
-			top = l
-		}
-		if r < len(p.kept) && p.later(r, top) {
-			top = r
-		}
-		if top == i {
-			return
-		}
-		p.kept[i], p.kept[top] = p.kept[top], p.kept[i]
-		i = top
-	}
 }

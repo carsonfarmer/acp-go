@@ -194,6 +194,9 @@ func (m *SessionManager[T]) ListSessions(ctx context.Context, params *ListSessio
 			pager.Add(info)
 		}
 	}
+	// The lister's rows still pass through add and the pager, which trim the
+	// extra row into the next cursor and keep a store that bends the
+	// contract from breaking the page order.
 	if lister, ok := m.store.(SessionInfoLister); ok {
 		sessions, err := lister.ListSessionInfo(ctx, acp.SessionListQuery{
 			Cwd:   string(params.GetCwd()),
