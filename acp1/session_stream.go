@@ -3,6 +3,7 @@ package acp1
 import (
 	"context"
 	"encoding/json/jsontext"
+	"errors"
 
 	schema "github.com/ironpark/acp-go/schema/v1"
 )
@@ -212,6 +213,74 @@ func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost 
 		Size: size,
 		Cost: cost,
 	})
+}
+
+// RequestPermission asks the user whether the tool call may go ahead, offering
+// options, or [DefaultPermissionOptions] when there are none, and returns the
+// option the user chose and whether it allows the call. A request whose turn
+// was cancelled chooses and allows nothing:
+//
+//	_, allowed, err := stream.RequestPermission(ctx, acp1.ToolCallUpdate{
+//		ToolCallID: id,
+//		Status:     new(acp1.ToolCallStatusPending),
+//		Content:    []acp1.ToolCallContent{diff},
+//	})
+func (s *SessionStream) RequestPermission(ctx context.Context, toolCall ToolCallUpdate, options ...PermissionOption) (choice PermissionOption, allowed bool, err error) {
+	if len(options) == 0 {
+		options = DefaultPermissionOptions()
+	}
+	response, err := s.client.RequestPermission(ctx, &RequestPermissionRequest{
+		SessionID: s.sessionID,
+		ToolCall:  toolCall,
+		Options:   options,
+		Meta:      s.meta,
+	})
+	if err != nil {
+		return PermissionOption{}, false, err
+	}
+	return chosen(options, response)
+}
+
+// ReadTextFile reads a text file through the client, which includes unsaved
+// changes in its editor. The stream's client must implement [FileReader], as
+// [AgentSideConnection] does; read part of a file with its ReadTextFile.
+func (s *SessionStream) ReadTextFile(ctx context.Context, path string) (string, error) {
+	reader, ok := s.client.(FileReader)
+	if !ok {
+		return "", errors.New("acp1: the stream's client cannot read files")
+	}
+	response, err := reader.ReadTextFile(ctx, &ReadTextFileRequest{SessionID: s.sessionID, Path: path, Meta: s.meta})
+	if err != nil {
+		return "", err
+	}
+	return response.Content, nil
+}
+
+// WriteTextFile writes a text file through the client. The stream's client
+// must implement [FileWriter], as [AgentSideConnection] does.
+func (s *SessionStream) WriteTextFile(ctx context.Context, path, content string) error {
+	writer, ok := s.client.(FileWriter)
+	if !ok {
+		return errors.New("acp1: the stream's client cannot write files")
+	}
+	_, err := writer.WriteTextFile(ctx, &WriteTextFileRequest{SessionID: s.sessionID, Path: path, Content: content, Meta: s.meta})
+	return err
+}
+
+// NewTerminal creates a terminal in the stream's session, which it sets as
+// params' SessionID, and returns a handle bound to it. The stream's client
+// must implement [TerminalHandler], as [AgentSideConnection] does.
+func (s *SessionStream) NewTerminal(ctx context.Context, params CreateTerminalRequest) (*TerminalHandle, error) {
+	terminals, ok := s.client.(TerminalHandler)
+	if !ok {
+		return nil, errors.New("acp1: the stream's client cannot run terminals")
+	}
+	params.SessionID = s.sessionID
+	response, err := terminals.CreateTerminal(ctx, &params)
+	if err != nil {
+		return nil, err
+	}
+	return NewTerminalHandle(response.TerminalID, s.sessionID, terminals), nil
 }
 
 // Send sends any session update variant, including those without a helper:

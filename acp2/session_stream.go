@@ -181,6 +181,31 @@ func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
 	return s.state(ctx, schema.StateUpdateIdle{StopReason: &reason})
 }
 
+// RequestPermission asks the user whether the action title describes may go
+// ahead, offering options, or [DefaultPermissionOptions] when there are none,
+// and returns the option the user chose and whether it allows the action.
+// subject says what the request is about, such as a tool call, and may be
+// the zero value. A request whose turn was cancelled chooses and allows
+// nothing:
+//
+//	_, allowed, err := stream.RequestPermission(ctx, "Write config.json", acp2.RequestPermissionSubject{})
+func (s *SessionStream) RequestPermission(ctx context.Context, title string, subject RequestPermissionSubject, options ...PermissionOption) (choice PermissionOption, allowed bool, err error) {
+	if len(options) == 0 {
+		options = DefaultPermissionOptions()
+	}
+	response, err := s.client.RequestPermission(ctx, &RequestPermissionRequest{
+		SessionID: s.sessionID,
+		Title:     title,
+		Subject:   subject,
+		Options:   options,
+		Meta:      s.meta,
+	})
+	if err != nil {
+		return PermissionOption{}, false, err
+	}
+	return chosen(options, response)
+}
+
 // Send sends any session update variant, including those without a helper:
 //
 //	stream.Send(ctx, acp2.SessionUpdatePlanRemoved{PlanID: id})

@@ -286,19 +286,15 @@ func (a *openAgent) readFile(ctx context.Context, stream *acp1.SessionStream, pa
 func (a *openAgent) writeFile(ctx context.Context, stream *acp1.SessionStream, sess *session, id acp1.ToolCallID, path, content string) (string, []acp1.ToolCallContent, error) {
 	// A file the client cannot read is shown as a new one.
 	var oldText *string
-	if old, err := a.client.ReadTextFile(ctx, &acp1.ReadTextFileRequest{SessionID: stream.SessionID(), Path: path}); err == nil {
-		oldText = &old.Content
+	if old, err := stream.ReadTextFile(ctx, path); err == nil {
+		oldText = &old
 	}
 	diff := []acp1.ToolCallContent{acp1.ToolDiff(path, oldText, content)}
 
 	if err := a.allow(ctx, stream, sess, id, diff...); err != nil {
 		return "", diff, err
 	}
-	if _, err := a.client.WriteTextFile(ctx, &acp1.WriteTextFileRequest{
-		SessionID: stream.SessionID(),
-		Path:      path,
-		Content:   content,
-	}); err != nil {
+	if err := stream.WriteTextFile(ctx, path, content); err != nil {
 		return "", diff, err
 	}
 	return "Wrote " + path, diff, nil
@@ -315,8 +311,7 @@ func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, 
 	if runtime.GOOS == "windows" {
 		shell, flag = "cmd", "/C"
 	}
-	terminal, err := a.client.NewTerminal(ctx, &acp1.CreateTerminalRequest{
-		SessionID:       stream.SessionID(),
+	terminal, err := stream.NewTerminal(ctx, acp1.CreateTerminalRequest{
 		Command:         shell,
 		Args:            []string{flag, command},
 		Cwd:             &sess.cwd,
@@ -371,26 +366,18 @@ func (a *openAgent) allow(ctx context.Context, stream *acp1.SessionStream, sess 
 	if sess.currentMode() == autoMode {
 		return nil
 	}
-	permission, err := a.client.RequestPermission(ctx, &acp1.RequestPermissionRequest{
-		SessionID: stream.SessionID(),
-		ToolCall: acp1.ToolCallUpdate{
-			ToolCallID: id,
-			Status:     new(acp1.ToolCallStatusPending),
-			Content:    content,
-		},
-		Options: []acp1.PermissionOption{
-			{OptionID: "allow", Name: "Allow", Kind: acp1.PermissionOptionKindAllowOnce},
-			{OptionID: "reject", Name: "Reject", Kind: acp1.PermissionOptionKindRejectOnce},
-		},
-	})
+	toolCall := acp1.ToolCallUpdate{ToolCallID: id, Status: new(acp1.ToolCallStatusPending), Content: content}
+	_, allowed, err := stream.RequestPermission(ctx, toolCall,
+		acp1.NewPermissionOption(acp1.PermissionOptionKindAllowOnce, "Allow"),
+		acp1.NewPermissionOption(acp1.PermissionOptionKindRejectOnce, "Reject"))
 	if err != nil {
 		return err
 	}
-	// Anything but a selected "allow", including a cancelled request, rejects.
-	if selected, ok := permission.Outcome.As[acp1.RequestPermissionOutcomeSelected](); ok && selected.OptionID == "allow" {
-		return nil
+	// Anything but an allowing choice, including a cancelled request, rejects.
+	if !allowed {
+		return errRejected
 	}
-	return errRejected
+	return nil
 }
 
 // resolve makes a path from the model absolute, relative to the session's

@@ -69,11 +69,7 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acp1.Reques
 			fmt.Printf("Enter a number between 1 and %d.\n", len(params.Options))
 			continue
 		}
-		return &acp1.RequestPermissionResponse{
-			Outcome: acp1.NewRequestPermissionOutcome(acp1.RequestPermissionOutcomeSelected{
-				OptionID: params.Options[choice-1].OptionID,
-			}),
-		}, nil
+		return acp1.PermissionSelected(params.Options[choice-1].OptionID), nil
 	}
 }
 

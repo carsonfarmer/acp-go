@@ -64,11 +64,10 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 		return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText("This client cannot run commands.")))
 	}
 
-	terminal, err := a.client.NewTerminal(ctx, &acp1.CreateTerminalRequest{
-		SessionID: stream.SessionID(),
-		Command:   command,
-		Args:      args,
-		Cwd:       &sess.cwd,
+	terminal, err := stream.NewTerminal(ctx, acp1.CreateTerminalRequest{
+		Command: command,
+		Args:    args,
+		Cwd:     &sess.cwd,
 	})
 	if err != nil {
 		return stream.FailToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText(err.Error())))
@@ -132,28 +131,20 @@ func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStrea
 
 // askPermission shows the user the proposed diff and asks whether to apply it.
 func (a *exampleAgent) askPermission(ctx context.Context, sessionID acp1.SessionID, id acp1.ToolCallID, path string, diff acp1.ToolCallContent) (bool, error) {
-	permission, err := a.client.RequestPermission(ctx, &acp1.RequestPermissionRequest{
-		SessionID: sessionID,
-		ToolCall: acp1.ToolCallUpdate{
-			ToolCallID: id,
-			Title:      new("Modifying configuration"),
-			Kind:       new(acp1.ToolKindEdit),
-			Status:     new(acp1.ToolCallStatusPending),
-			Locations:  []acp1.ToolCallLocation{{Path: path}},
-			Content:    []acp1.ToolCallContent{diff},
-		},
-		Options: []acp1.PermissionOption{
-			{OptionID: "allow", Name: "Allow this change", Kind: acp1.PermissionOptionKindAllowOnce},
-			{OptionID: "reject", Name: "Skip this change", Kind: acp1.PermissionOptionKindRejectOnce},
-		},
-	})
-	if err != nil {
-		return false, err
+	// Anything but an allowing choice, including a cancelled request, skips
+	// the change.
+	toolCall := acp1.ToolCallUpdate{
+		ToolCallID: id,
+		Title:      new("Modifying configuration"),
+		Kind:       new(acp1.ToolKindEdit),
+		Status:     new(acp1.ToolCallStatusPending),
+		Locations:  []acp1.ToolCallLocation{{Path: path}},
+		Content:    []acp1.ToolCallContent{diff},
 	}
-	// Anything but a selected "allow", including a cancelled request or an
-	// outcome added after this example was written, skips the change.
-	selected, ok := permission.Outcome.As[acp1.RequestPermissionOutcomeSelected]()
-	return ok && selected.OptionID == "allow", nil
+	_, allowed, err := acp1.NewSessionStream(a.client, sessionID).RequestPermission(ctx, toolCall,
+		acp1.NewPermissionOption(acp1.PermissionOptionKindAllowOnce, "Allow this change"),
+		acp1.NewPermissionOption(acp1.PermissionOptionKindRejectOnce, "Skip this change"))
+	return allowed, err
 }
 
 // pause stands in for real work and returns early when the turn is cancelled.
