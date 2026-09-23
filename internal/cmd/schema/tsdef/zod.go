@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,16 @@ type Zod struct {
 	Pattern string         `json:"pattern,omitzero"`
 	Offset  bool           `json:"offset,omitzero"`
 }
+
+// Children returns the rules nested directly in z.
+func (z *Zod) Children() []*Zod {
+	out := append([]*Zod{z.Inner, z.Key}, z.Members...)
+	for _, f := range z.Fields {
+		out = append(out, f.Schema)
+	}
+	return slices.DeleteFunc(out, func(c *Zod) bool { return c == nil })
+}
+
 type ZodField struct {
 	Name   string `json:"name"`
 	Schema *Zod   `json:"schema"`
@@ -81,25 +92,11 @@ func ParseZod(filename string, source []byte) (map[string]*Zod, error) {
 	}
 	var check func(*Zod) error
 	check = func(z *Zod) error {
-		if z == nil {
-			return nil
-		}
 		if z.Kind == "ref" && result[z.Ref] == nil {
 			return fmt.Errorf("%s: unresolved Zod reference %s", filename, z.Ref)
 		}
-		if err := check(z.Inner); err != nil {
-			return err
-		}
-		if err := check(z.Key); err != nil {
-			return err
-		}
-		for _, m := range z.Members {
-			if err := check(m); err != nil {
-				return err
-			}
-		}
-		for _, f := range z.Fields {
-			if err := check(f.Schema); err != nil {
+		for _, c := range z.Children() {
+			if err := check(c); err != nil {
 				return err
 			}
 		}

@@ -3,7 +3,6 @@ package zod
 import (
 	"bytes"
 	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"strconv"
 	"strings"
 )
@@ -69,9 +68,8 @@ func unquote(raw []byte) string {
 	if bytes.IndexByte(body, '\\') < 0 {
 		return string(body)
 	}
-	var s string
-	_ = json.Unmarshal(raw, &s)
-	return s
+	text, _ := jsontext.AppendUnquote(nil, raw)
+	return string(text)
 }
 
 // number parses a number node, reporting false for one outside float64's
@@ -103,6 +101,7 @@ func (n *node) indexMembers() {
 // names. It allocates nodes in blocks.
 type parser struct {
 	data  []byte
+	text  string // data as a string, for property names without escapes
 	block []node
 	grown int // the size of the last block, doubled for the next
 }
@@ -139,14 +138,14 @@ func (p *parser) space(i int) int {
 
 // value parses the value at i and returns it with the index after it.
 func (p *parser) value(i int) (*node, int) {
-	start := i
-	switch c := p.data[i]; c {
+	start, c := i, p.data[i]
+	switch c {
 	case '{':
 		n := p.node('{')
 		i = p.space(i + 1)
 		for p.data[i] != '}' {
 			end := p.stringEnd(i)
-			name := unquote(p.data[i:end])
+			name := p.name(i, end)
 			var value *node
 			value, i = p.value(p.space(p.space(end) + 1)) // past the colon
 			n.members = append(n.members, member{name, value})
@@ -183,13 +182,22 @@ func (p *parser) value(i int) (*node, int) {
 		for i < len(p.data) && strings.IndexByte("+-0123456789.eE", p.data[i]) >= 0 {
 			i++
 		}
-		n := p.node(c)
-		n.raw = p.data[start:i]
-		return n, i
 	}
-	n := p.node(p.data[start])
+	n := p.node(c)
 	n.raw = p.data[start:i]
 	return n, i
+}
+
+// name decodes the property name data[start:end]. One copy of the input as a
+// string serves every name without escapes, instead of a copy per name.
+func (p *parser) name(start, end int) string {
+	if bytes.IndexByte(p.data[start+1:end-1], '\\') >= 0 {
+		return unquote(p.data[start:end])
+	}
+	if p.text == "" {
+		p.text = string(p.data)
+	}
+	return p.text[start+1 : end-1]
 }
 
 // stringEnd returns the index after the string that starts at i.
@@ -231,15 +239,4 @@ func encode(dst []byte, n *node) []byte {
 		return append(dst, ']')
 	}
 	return dst
-}
-
-// same reports whether two values are canonically equal JSON.
-func same(a, b *node) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	if a == b {
-		return true
-	}
-	return Equal(encode(nil, a), encode(nil, b))
 }

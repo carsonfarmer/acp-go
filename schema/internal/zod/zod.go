@@ -12,6 +12,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strconv"
 )
 
 // Kind identifies a supported Zod builder or ACP helper.
@@ -68,8 +69,7 @@ type Rule struct {
 	Regexp  *regexp.Regexp
 	Offset  bool
 
-	// Set by Link; a rule that was never linked is evaluated without them.
-	linked   bool
+	// Set by Link, which every registry goes through before evaluation.
 	target   *Rule            // KindRef: the rule Ref names
 	bound    float64          // KindMin, KindMax, KindGte, KindLte: Value as a number
 	lit      jsontext.Value   // KindLiteral: Value in canonical form
@@ -78,9 +78,13 @@ type Rule struct {
 	cases    map[string]*Rule // KindUnion: the member for each tag value
 	fallback *Rule            // KindUnion: the member for any other value, if any
 	value    *node            // KindDefault, KindCatch, KindRequiredCatch: Value as a tree
-	// needsValue reports that the rule rejects an absent value, so an
-	// optional or recovering rule around it need not try it on one.
-	needsValue bool
+	// absent is what Inner makes of an absent value, for KindOptional,
+	// KindNullish and KindCatch, which meet one for every missing property;
+	// absentOK is false when Inner rejects it. Until absentReady, as while
+	// Link is computing them, evaluation finds out by evaluating Inner.
+	absent      outcome
+	absentOK    bool
+	absentReady bool
 }
 
 // Field is a named object property.
@@ -95,41 +99,22 @@ type Registry map[string]*Rule
 // Link prepares r's rules for evaluation and returns r. The generated
 // packages call it once, when they initialize; evaluation reads the prepared
 // rules concurrently, so they are not changed afterwards. It resolves each
-// reference, reads each bound and literal once, merges an intersection of
-// objects with distinct properties into one object, and indexes a union
-// whose members are objects told apart by a string literal property, so
-// evaluation picks that member instead of trying each in turn. None of these
-// changes what a rule accepts or produces.
+// reference, reads each bound, literal and default once, merges an
+// intersection of objects with distinct properties into one object, indexes a
+// union whose members are objects told apart by a string literal property, so
+// evaluation picks that member instead of trying each in turn, and records
+// what optional rules make of an absent value. None of these changes what a
+// rule accepts or produces. A rule the generator could not have meant, such
+// as a reference to a missing schema, panics.
 func Link(r Registry) Registry {
-	linked := map[*Rule]bool{}
-	var walk func(*Rule)
-	walk = func(s *Rule) {
-		if s == nil || linked[s] {
-			return
-		}
-		linked[s] = true
-		walk(s.Inner)
-		walk(s.Key)
-		for _, m := range s.Members {
-			walk(m)
-		}
-		for _, f := range s.Fields {
-			walk(f.Schema)
-		}
-		r.link(s)
-	}
+	l := &linker{r: r, seen: map[*Rule]bool{}, flattened: map[*Rule]bool{}}
 	for _, name := range slices.Sorted(maps.Keys(r)) {
-		walk(r[name])
+		l.walk(r[name])
 	}
 	// Intersections and unions look through references to rules that may be
 	// linked after them, so they are prepared once every rule is; an
 	// intersection is merged when first looked through.
-	l := &linker{r: r, flattened: map[*Rule]bool{}}
-	decided := map[*Rule]bool{}
-	for s := range linked {
-		s.needsValue = r.needsValue(s, decided)
-	}
-	for s := range linked {
+	for s := range l.seen {
 		switch s.Kind {
 		case KindIntersection:
 			l.flatten(s)
@@ -137,81 +122,70 @@ func Link(r Registry) Registry {
 			l.index(s)
 		}
 	}
+	// Evaluating needs everything else prepared. A rule whose Inner holds an
+	// optional rule not yet ready evaluates that one directly, so the order
+	// does not matter.
+	for s := range l.seen {
+		switch s.Kind {
+		case KindOptional, KindNullish, KindCatch:
+			result, err := r.apply(s.Inner, nil, nil, 0)
+			s.absent, s.absentOK, s.absentReady = result, err == nil, true
+		}
+	}
 	return r
 }
 
-// needsValue reports whether s rejects an absent value whatever it wraps.
-// It errs towards false, which only costs an evaluation: a rule reached
-// again through a reference while it is being decided counts as accepting.
-// decided holds each rule's answer, false until it is known.
-func (r Registry) needsValue(s *Rule, decided map[*Rule]bool) bool {
-	if s == nil {
-		return false
-	}
-	if answer, ok := decided[s]; ok {
-		return answer
-	}
-	decided[s] = false
-	answer := r.decideNeedsValue(s, decided)
-	decided[s] = answer
-	return answer
-}
-
-func (r Registry) decideNeedsValue(s *Rule, visiting map[*Rule]bool) bool {
-	switch s.Kind {
-	case KindNull, KindString, KindBoolean, KindNumber, KindLiteral, KindURL, KindDateTime,
-		KindArray, KindSkipArray, KindObject, KindRecord, KindNever, KindRequiredCatch:
-		return true
-	case KindInt:
-		return s.Inner == nil || r.needsValue(s.Inner, visiting)
-	case KindRef:
-		return r.needsValue(r[s.Ref], visiting)
-	case KindNullable, KindMin, KindMax, KindGte, KindLte, KindRegex, KindOpenTags, KindExcludeTags, KindPreserve:
-		return r.needsValue(s.Inner, visiting)
-	case KindUnion:
-		for _, m := range s.Members {
-			if !r.needsValue(m, visiting) {
-				return false
-			}
-		}
-		return len(s.Members) > 0
-	case KindIntersection:
-		for _, m := range s.Members {
-			if r.needsValue(m, visiting) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// linker merges intersections and indexes unions for Link.
+// linker holds Link's state.
 type linker struct {
-	r Registry
+	r    Registry
+	seen map[*Rule]bool
 	// flattened holds the intersections already considered, including one
 	// being merged, so an intersection that reaches itself is left as is.
 	flattened map[*Rule]bool
 }
 
-func (r Registry) link(s *Rule) {
-	s.linked = true
+// walk links s and every rule nested in it.
+func (l *linker) walk(s *Rule) {
+	if s == nil || l.seen[s] {
+		return
+	}
+	l.seen[s] = true
+	for _, c := range s.children() {
+		l.walk(c)
+	}
 	switch s.Kind {
 	case KindRef:
-		s.target = r[s.Ref]
-	case KindMin, KindMax, KindGte, KindLte:
-		if json.Unmarshal(s.Value, &s.bound) != nil {
-			s.linked = false // evaluation reports the invalid bound
+		if s.target = l.r[s.Ref]; s.target == nil {
+			panic("zod: unresolved schema " + s.Ref)
 		}
+	case KindMin, KindMax, KindGte, KindLte:
+		bound, err := strconv.ParseFloat(string(s.Value), 64)
+		if err != nil {
+			panic(fmt.Sprintf("zod: invalid bound %s", s.Value))
+		}
+		s.bound = bound
 	case KindLiteral:
 		s.lit = s.Value.Clone()
-		if s.lit.Canonicalize() != nil {
-			s.lit = nil
+		if err := s.lit.Canonicalize(); err != nil {
+			panic(fmt.Sprintf("zod: invalid literal %s", s.Value))
 		}
 	case KindDefault, KindCatch, KindRequiredCatch:
-		if s.Value.IsValid() {
+		if s.Value != nil {
+			if !s.Value.IsValid() {
+				panic(fmt.Sprintf("zod: invalid default %s", s.Value))
+			}
 			s.value = parseTree(s.Value)
 		}
 	}
+}
+
+// children returns the rules nested directly in s.
+func (s *Rule) children() []*Rule {
+	out := append([]*Rule{s.Inner, s.Key}, s.Members...)
+	for _, f := range s.Fields {
+		out = append(out, f.Schema)
+	}
+	return slices.DeleteFunc(out, func(c *Rule) bool { return c == nil })
 }
 
 // object returns the object rule s is, looking through references and
@@ -222,7 +196,7 @@ func (l *linker) object(s *Rule) *Rule {
 		case s == nil:
 			return nil
 		case s.Kind == KindRef:
-			s = l.r[s.Ref]
+			s = s.target
 		case s.Kind == KindIntersection:
 			l.flatten(s)
 			if s.flat == nil {
@@ -247,7 +221,7 @@ func (l *linker) flatten(s *Rule) {
 		return
 	}
 	l.flattened[s] = true
-	flat := &Rule{Kind: KindObject, linked: true}
+	flat := &Rule{Kind: KindObject}
 	names := map[string]bool{}
 	for _, m := range s.Members {
 		o := l.object(m)
@@ -332,11 +306,7 @@ func (l *linker) literalField(m *Rule, name string) (string, bool) {
 		if f.Name != name || f.Schema.Kind != KindLiteral || f.Schema.Value.Kind() != '"' {
 			continue
 		}
-		var value string
-		if json.Unmarshal(f.Schema.Value, &value) != nil {
-			return "", false
-		}
-		return value, true
+		return unquote(f.Schema.Value), true
 	}
 	return "", false
 }

@@ -1,6 +1,7 @@
 package zod
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
@@ -23,24 +24,27 @@ var datetimePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\
 type outcome struct {
 	n *node
 	// object and more are the object rules evaluated, record any record:
-	// together they say which properties were evaluated.
+	// together they say which properties were evaluated. object holds the
+	// common single rule without allocating a slice.
 	object *Rule
 	more   []*Rule
 	record bool
 }
 
+// objects returns the object rules evaluated.
+func (o outcome) objects() []*Rule {
+	if o.object == nil {
+		return o.more
+	}
+	return append([]*Rule{o.object}, o.more...)
+}
+
 // evaluated reports whether the rules that produced o evaluated the property
 // name of their input.
 func (o outcome) evaluated(name string) bool {
-	if o.record {
-		return true
-	}
-	for _, s := range append([]*Rule{o.object}, o.more...) {
-		if s != nil && slices.ContainsFunc(s.Fields, func(f Field) bool { return f.Name == name }) {
-			return true
-		}
-	}
-	return false
+	return o.record || slices.ContainsFunc(o.objects(), func(s *Rule) bool {
+		return slices.ContainsFunc(s.Fields, func(f Field) bool { return f.Name == name })
+	})
 }
 
 // ruleError is a value a rule rejected. It is formatted only when read: an
@@ -58,8 +62,9 @@ func (e *ruleError) Error() string {
 	return fmt.Sprintf("%s: %s", e.path, e.message)
 }
 
-// jsonPath is where in the input a rule applies, built as evaluation descends
-// and formatted only for an error. The root is nil.
+// jsonPath is where in the input a rule applies, built on the stack as
+// evaluation descends and copied to the heap only for an error. The root is
+// nil.
 type jsonPath struct {
 	parent  *jsonPath
 	name    string
@@ -72,53 +77,51 @@ func (p *jsonPath) String() string {
 		return "$"
 	}
 	if p.element {
-		return fmt.Sprintf("%s[%d]", p.parent, p.index)
+		return fmt.Sprintf("%s[%d]", p.parent.String(), p.index)
 	}
-	return fmt.Sprintf("%s[%q]", p.parent, p.name)
+	return fmt.Sprintf("%s[%q]", p.parent.String(), p.name)
 }
 
-// valueNode is the tree of a rule's default or fallback value, parsed by Link
-// or, for a rule never linked, now.
-func (s *Rule) valueNode() *node {
-	if s.value != nil || s.Value == nil {
-		return s.value
+// clone copies the path out of the stack frames it was built in.
+func (p *jsonPath) clone() *jsonPath {
+	if p == nil {
+		return nil
 	}
-	return parseTree(s.Value)
+	c := *p
+	c.parent = p.parent.clone()
+	return &c
 }
 
 // apply evaluates s on n, the value at path, or nil for an absent one.
 func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, error) {
 	if depth > 512 {
-		return outcome{}, fmt.Errorf("%s: schema nesting limit exceeded", path)
+		return outcome{}, fmt.Errorf("%s: schema nesting limit exceeded", path.String())
 	}
 	pass := func() (outcome, error) { return outcome{n: n}, nil }
-	fail := func(message string) (outcome, error) { return outcome{}, &ruleError{path: path, message: message} }
+	fail := func(message string) (outcome, error) {
+		return outcome{}, &ruleError{path: path.clone(), message: message}
+	}
 	inner := func() (outcome, error) { return r.apply(s.Inner, n, path, depth+1) }
 	switch s.Kind {
 	case KindRef:
-		target := s.target
-		if target == nil {
-			target = r[s.Ref]
-		}
-		if target == nil {
-			return fail(fmt.Sprintf("unresolved schema %s", s.Ref))
-		}
-		return r.apply(target, n, path, depth+1)
+		return r.apply(s.target, n, path, depth+1)
 	case KindOptional, KindNullish:
 		if s.Kind == KindNullish && kindOf(n) == 'n' {
 			return pass()
 		}
-		if n == nil {
-			if s.Inner.needsValue {
-				return pass()
-			}
-			result, err := inner()
-			if err == nil {
-				return result, nil
+		if n != nil {
+			return inner()
+		}
+		if s.absentReady {
+			if s.absentOK {
+				return s.absent, nil
 			}
 			return pass()
 		}
-		return inner()
+		if result, err := inner(); err == nil {
+			return result, nil
+		}
+		return pass()
 	case KindNullable:
 		if kindOf(n) == 'n' {
 			return pass()
@@ -126,19 +129,22 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		return inner()
 	case KindDefault:
 		if n == nil {
-			return outcome{n: s.valueNode()}, nil
+			return outcome{n: s.value}, nil
 		}
 		return inner()
 	case KindCatch, KindRequiredCatch:
-		if s.Kind == KindRequiredCatch && n == nil {
+		if n == nil && s.Kind == KindRequiredCatch {
 			return fail("required value is missing")
 		}
-		if n == nil && s.Inner.needsValue {
-			return outcome{n: s.valueNode()}, nil
+		if n == nil && s.absentReady {
+			if s.absentOK {
+				return s.absent, nil
+			}
+			return outcome{n: s.value}, nil
 		}
 		value, err := inner()
 		if err != nil {
-			return outcome{n: s.valueNode()}, nil
+			return outcome{n: s.value}, nil
 		}
 		return value, nil
 	case KindUnknown, KindAny:
@@ -147,8 +153,8 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		return fail("value is not permitted")
 	case KindUnion:
 		if s.cases != nil {
-			tag, found := stringMember(n, s.tag)
-			if member := s.cases[tag]; found && member != nil {
+			tag, found := tagOf(n, s.tag)
+			if member := s.cases[string(tag)]; found && member != nil {
 				return r.apply(member, n, path, depth+1)
 			}
 			if s.fallback != nil {
@@ -164,7 +170,7 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			}
 			problems = append(problems, err)
 		}
-		return outcome{}, fmt.Errorf("%s: no union alternative matched: %w", path, errors.Join(problems...))
+		return outcome{}, fmt.Errorf("%s: no union alternative matched: %w", path.String(), errors.Join(problems...))
 	case KindIntersection:
 		if s.flat != nil {
 			return r.apply(s.flat, n, path, depth+1)
@@ -185,71 +191,67 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 			}
 			result.n = merged
 			result.record = result.record || next.record
-			for _, o := range append([]*Rule{next.object}, next.more...) {
-				if o != nil {
-					result.more = append(result.more, o)
-				}
-			}
+			result.more = append(result.more, next.objects()...)
 		}
 		return result, nil
 	case KindOpenTags:
 		// A Go-side extension: objects whose Tag is a string outside Tags skip
 		// the SDK rule and decode into the union's Unknown variant.
-		if tag, found := stringMember(n, s.Tag); found && !slices.Contains(s.Tags, tag) {
+		if tag, found := tagOf(n, s.Tag); found && !hasTag(s.Tags, tag) {
 			return pass()
 		}
 		return inner()
-	case KindExcludeTags, KindPreserve:
+	case KindExcludeTags:
 		result, err := inner()
 		if err != nil {
 			return result, err
 		}
-		tagged := n
-		if s.Kind == KindExcludeTags {
-			tagged = result.n
+		if tag, found := tagOf(result.n, s.Tag); found && hasTag(s.Tags, tag) {
+			return fail(fmt.Sprintf("%s %q is reserved by a known variant", s.Tag, tag))
 		}
-		tag, found := stringMember(tagged, s.Tag)
-		if !found {
-			return result, nil
+		return result, nil
+	case KindPreserve:
+		result, err := inner()
+		if err != nil {
+			return result, err
 		}
-		known := slices.Contains(s.Tags, tag)
-		if s.Kind == KindExcludeTags {
-			if known {
-				return fail(fmt.Sprintf("%s %q is reserved by a known variant", s.Tag, tag))
-			}
-			return result, nil
-		}
-		if known {
+		if tag, found := tagOf(n, s.Tag); !found || hasTag(s.Tags, tag) {
 			return result, nil
 		}
 		if kindOf(result.n) != '{' {
 			return fail("custom payload must be an object")
 		}
 		// Restore the properties no variant evaluated.
-		members := slices.Clone(result.n.members)
+		var members []member // nil until one is restored
 		for _, m := range n.members {
 			if m.name == "__proto__" || result.evaluated(m.name) || result.n.get(m.name) != nil {
 				continue
 			}
+			if members == nil {
+				members = slices.Clone(result.n.members)
+			}
 			members = append(members, m)
 		}
-		if len(members) > len(result.n.members) {
+		if members != nil {
 			result.n = newObject(members)
 		}
 		return result, nil
-	case KindMin, KindMax, KindGte, KindLte, KindRegex:
+	case KindRegex:
 		result, err := inner()
 		if err != nil {
 			return result, err
 		}
-		if s.Kind == KindRegex {
-			if kindOf(result.n) != '"' {
-				return fail("expected string for pattern")
-			}
-			if !s.Regexp.MatchString(result.n.text()) {
-				return fail("string does not match pattern")
-			}
-			return result, nil
+		if kindOf(result.n) != '"' {
+			return fail("expected string for pattern")
+		}
+		if !s.Regexp.MatchString(result.n.text()) {
+			return fail("string does not match pattern")
+		}
+		return result, nil
+	case KindMin, KindMax, KindGte, KindLte:
+		result, err := inner()
+		if err != nil {
+			return result, err
 		}
 		var value float64
 		switch kindOf(result.n) {
@@ -265,19 +267,11 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		default:
 			return fail("bound applied to unsupported value")
 		}
-		bound := s.bound
-		if !s.linked {
-			b, ok := (&node{kind: '0', raw: s.Value}).number()
-			if !ok {
-				return fail("invalid generated bound")
-			}
-			bound = b
+		if (s.Kind == KindMin || s.Kind == KindGte) && value < s.bound {
+			return fail(fmt.Sprintf("value or length must be >= %g", s.bound))
 		}
-		if (s.Kind == KindMin || s.Kind == KindGte) && value < bound {
-			return fail(fmt.Sprintf("value or length must be >= %g", bound))
-		}
-		if (s.Kind == KindMax || s.Kind == KindLte) && value > bound {
-			return fail(fmt.Sprintf("value or length must be <= %g", bound))
+		if (s.Kind == KindMax || s.Kind == KindLte) && value > s.bound {
+			return fail(fmt.Sprintf("value or length must be <= %g", s.bound))
 		}
 		return result, nil
 	case KindInt:
@@ -298,12 +292,12 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		}
 		// JSON numbers such as 1.0 and 1e0 are integers to JavaScript/Zod,
 		// but must be normalized before decoding into a Go integer type.
-		text := strconv.FormatFloat(f, 'f', 0, 64)
-		if f == 0 {
-			text = "0"
-		}
-		if text != string(value.n.raw) {
-			value.n = &node{kind: '0', raw: []byte(text)}
+		if !plainInt(value.n.raw) {
+			text := []byte("0")
+			if f != 0 {
+				text = strconv.AppendFloat(nil, f, 'f', 0, 64)
+			}
+			value.n = &node{kind: '0', raw: text}
 		}
 		return value, nil
 	}
@@ -333,34 +327,35 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		}
 	case KindLiteral:
 		if !s.matches(n) {
-			return outcome{}, &ruleError{path: path, message: "expected literal", value: s.Value}
+			return outcome{}, &ruleError{path: path.clone(), message: "expected literal", value: s.Value}
 		}
-	case KindURL, KindDateTime:
+	case KindURL:
+		if n.kind != '"' {
+			return fail("expected string")
+		}
+		parsed, err := url.Parse(strings.TrimSpace(n.text()))
+		if err != nil || parsed.Scheme == "" {
+			return fail("expected absolute URL")
+		}
+		switch strings.ToLower(parsed.Scheme) {
+		case "http", "https", "ftp", "ws", "wss":
+			if parsed.Hostname() == "" {
+				return fail("URL requires a host")
+			}
+		}
+	case KindDateTime:
 		if n.kind != '"' {
 			return fail("expected string")
 		}
 		text := n.text()
-		if s.Kind == KindURL {
-			parsed, err := url.Parse(strings.TrimSpace(text))
-			if err != nil || parsed.Scheme == "" {
-				return fail("expected absolute URL")
-			}
-			switch strings.ToLower(parsed.Scheme) {
-			case "http", "https", "ftp", "ws", "wss":
-				if parsed.Hostname() == "" {
-					return fail("URL requires a host")
-				}
-			}
-		} else {
-			if !datetimePattern.MatchString(text) {
-				return fail("expected ISO datetime")
-			}
-			if _, err := time.Parse(time.RFC3339Nano, text); err != nil {
-				return fail("invalid datetime")
-			}
-			if !s.Offset && !strings.HasSuffix(text, "Z") {
-				return fail("datetime offset is not allowed")
-			}
+		if !datetimePattern.MatchString(text) {
+			return fail("expected ISO datetime")
+		}
+		if _, err := time.Parse(time.RFC3339Nano, text); err != nil {
+			return fail("invalid datetime")
+		}
+		if !s.Offset && !strings.HasSuffix(text, "Z") {
+			return fail("datetime offset is not allowed")
 		}
 	case KindArray, KindSkipArray:
 		if n.kind != '[' {
@@ -368,7 +363,8 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		}
 		var output []*node // nil while every element is unchanged
 		for i, element := range n.elements {
-			result, err := r.apply(s.Inner, element, &jsonPath{parent: path, index: i, element: true}, depth+1)
+			at := jsonPath{parent: path, index: i, element: true}
+			result, err := r.apply(s.Inner, element, &at, depth+1)
 			if err == nil && result.n == nil {
 				result.n = &node{kind: 'n', raw: []byte("null")}
 			}
@@ -393,23 +389,42 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		if n.kind != '{' {
 			return fail("expected object")
 		}
-		output := make([]member, 0, len(s.Fields))
-		unchanged := len(n.members) <= len(s.Fields)
-		for _, field := range s.Fields {
+		// The output has each field that has a value, and none of the
+		// input's other properties. output stays nil, and the input is the
+		// output, while every field comes back as it was.
+		var output []member
+		kept := 0
+		for i, field := range s.Fields {
 			input := n.get(field.Name)
-			value, err := r.apply(field.Schema, input, &jsonPath{parent: path, name: field.Name}, depth+1)
+			at := jsonPath{parent: path, name: field.Name}
+			value, err := r.apply(field.Schema, input, &at, depth+1)
 			if err != nil {
 				return outcome{}, err
 			}
-			if value.n != nil {
-				output = append(output, member{field.Name, value.n})
+			if output == nil && value.n != input {
+				output = make([]member, 0, len(s.Fields))
+				for _, prev := range s.Fields[:i] {
+					if v := n.get(prev.Name); v != nil {
+						output = append(output, member{prev.Name, v})
+					}
+				}
 			}
-			unchanged = unchanged && value.n == input
+			switch {
+			case output != nil && value.n != nil:
+				output = append(output, member{field.Name, value.n})
+			case output == nil && input != nil:
+				kept++
+			}
 		}
-		// Unchanged means every property of the input is a field whose
-		// value came back as it was, so the input is the output.
-		if unchanged && len(output) == len(n.members) {
+		if output == nil && kept == len(n.members) {
 			return outcome{n: n, object: s}, nil
+		}
+		if output == nil { // only undeclared properties were dropped
+			for _, field := range s.Fields {
+				if v := n.get(field.Name); v != nil {
+					output = append(output, member{field.Name, v})
+				}
+			}
 		}
 		return outcome{n: newObject(output), object: s}, nil
 	case KindRecord:
@@ -418,20 +433,18 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 		}
 		// Keys in sorted order, so the first invalid one reported does not
 		// depend on the input's order.
-		order := make([]int, len(n.members))
-		for i := range order {
-			order[i] = i
-		}
-		slices.SortFunc(order, func(a, b int) int { return strings.Compare(n.members[a].name, n.members[b].name) })
 		output := make([]member, 0, len(n.members))
 		unchanged := true
-		for _, i := range order {
-			m := n.members[i]
-			at := &jsonPath{parent: path, name: m.name}
-			if _, err := r.apply(s.Key, keyNode(m.name), at, depth+1); err != nil {
-				return outcome{}, err
+		for _, m := range slices.SortedFunc(slices.Values(n.members), func(a, b member) int { return strings.Compare(a.name, b.name) }) {
+			at := jsonPath{parent: path, name: m.name}
+			// Every property name is a string, so a string key rule, the
+			// only kind the SDK has, cannot fail.
+			if s.Key.Kind != KindString {
+				if _, err := r.apply(s.Key, keyNode(m.name), &at, depth+1); err != nil {
+					return outcome{}, err
+				}
 			}
-			value, err := r.apply(s.Inner, m.value, at, depth+1)
+			value, err := r.apply(s.Inner, m.value, &at, depth+1)
 			if err != nil {
 				return outcome{}, err
 			}
@@ -450,13 +463,28 @@ func (r Registry) apply(s *Rule, n *node, path *jsonPath, depth int) (outcome, e
 	return pass()
 }
 
+// plainInt reports whether an integer's JSON text is already as Go decodes
+// integers: no fraction, exponent, leading zero or negative zero.
+func plainInt(raw []byte) bool {
+	digits := bytes.TrimPrefix(raw, []byte("-"))
+	if len(digits) == 0 || (digits[0] == '0' && (len(digits) > 1 || len(digits) < len(raw))) {
+		return false
+	}
+	for _, c := range digits {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // matches reports whether n equals the literal s.
 func (s *Rule) matches(n *node) bool {
 	// A string without escapes is already in canonical form.
-	if s.lit != nil && n.kind == '"' && s.lit[0] == '"' && !slices.Contains(n.raw, '\\') {
+	if n.kind == '"' && s.lit[0] == '"' && !slices.Contains(n.raw, '\\') {
 		return string(n.raw) == string(s.lit)
 	}
-	return Equal(encode(nil, n), s.Value)
+	return Equal(encode(nil, n), s.lit)
 }
 
 // keyNode is a record key as a string value for the key rule.
@@ -465,17 +493,26 @@ func keyNode(name string) *node {
 	return &node{kind: '"', raw: raw}
 }
 
-// stringMember returns the string property name of an object, or false when
-// n is not an object or has no such string property.
-func stringMember(n *node, name string) (string, bool) {
+// tagOf returns the decoded string property name of an object, or false when
+// n is not an object or has no such string property. The text is the
+// input's own bytes unless the string has escapes.
+func tagOf(n *node, name string) ([]byte, bool) {
 	if kindOf(n) != '{' {
-		return "", false
+		return nil, false
 	}
 	v := n.get(name)
 	if kindOf(v) != '"' {
-		return "", false
+		return nil, false
 	}
-	return v.text(), true
+	if body := v.raw[1 : len(v.raw)-1]; !slices.Contains(body, '\\') {
+		return body, true
+	}
+	return []byte(v.text()), true
+}
+
+// hasTag reports whether tag is one of tags.
+func hasTag(tags []string, tag []byte) bool {
+	return slices.ContainsFunc(tags, func(t string) bool { return t == string(tag) })
 }
 
 // merge combines the results of an intersection's members.
@@ -492,7 +529,8 @@ func merge(a, b *node, path *jsonPath) (*node, error) {
 				members = append(members, m)
 				continue
 			}
-			merged, err := merge(members[i].value, m.value, &jsonPath{parent: path, name: m.name})
+			at := jsonPath{parent: path, name: m.name}
+			merged, err := merge(members[i].value, m.value, &at)
 			if err != nil {
 				return nil, err
 			}
@@ -502,7 +540,8 @@ func merge(a, b *node, path *jsonPath) (*node, error) {
 	case kindOf(a) == '[' && kindOf(b) == '[' && len(a.elements) == len(b.elements):
 		elements := make([]*node, len(a.elements))
 		for i := range elements {
-			merged, err := merge(a.elements[i], b.elements[i], &jsonPath{parent: path, index: i, element: true})
+			at := jsonPath{parent: path, index: i, element: true}
+			merged, err := merge(a.elements[i], b.elements[i], &at)
 			if err != nil {
 				return nil, err
 			}
@@ -510,5 +549,13 @@ func merge(a, b *node, path *jsonPath) (*node, error) {
 		}
 		return &node{kind: '[', elements: elements}, nil
 	}
-	return nil, fmt.Errorf("%s: incompatible intersection results", path)
+	return nil, fmt.Errorf("%s: incompatible intersection results", path.String())
+}
+
+// same reports whether two values are canonically equal JSON.
+func same(a, b *node) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a == b || Equal(encode(nil, a), encode(nil, b))
 }

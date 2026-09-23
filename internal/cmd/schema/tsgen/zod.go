@@ -167,37 +167,32 @@ type zodRenderer struct {
 	names  map[string]string     // the variable name of each shared form
 }
 
-// count records z and its subtrees, failing on a rule the runtime lacks.
+// count records z and its subtrees, failing on a rule the runtime lacks, so
+// rendering them afterwards cannot fail.
 func (r *zodRenderer) count(z *tsdef.Zod) error {
-	if z == nil {
-		return nil
+	if _, ok := zodKinds[z.Kind]; !ok {
+		return fmt.Errorf("unsupported Zod rule %q", z.Kind)
 	}
-	key, err := r.key(z)
-	if err != nil {
-		return err
-	}
-	r.counts[key]++
-	if r.first[key] == nil {
-		r.first[key] = z
-	}
-	for _, c := range children(z) {
+	for _, c := range z.Children() {
 		if err := r.count(c); err != nil {
 			return err
 		}
 	}
+	key := r.key(z)
+	r.counts[key]++
+	if r.first[key] == nil {
+		r.first[key] = z
+	}
 	return nil
 }
 
-func (r *zodRenderer) key(z *tsdef.Zod) (string, error) {
+func (r *zodRenderer) key(z *tsdef.Zod) string {
 	if key, ok := r.keys[z]; ok {
-		return key, nil
+		return key
 	}
-	key, err := renderZod(z, r.key, false)
-	if err != nil {
-		return "", err
-	}
+	key := renderZod(z, r.key, false)
 	r.keys[z] = key
-	return key, nil
+	return key
 }
 
 // share names every form that occurs more than once and is long enough.
@@ -246,87 +241,51 @@ func (r *zodRenderer) literal(z *tsdef.Zod) string {
 	if name, ok := r.names[r.keys[z]]; ok {
 		return name
 	}
-	s, _ := renderZod(z, func(c *tsdef.Zod) (string, error) { return r.literal(c), nil }, true)
-	return s
+	return renderZod(z, r.literal, true)
 }
 
 // vars renders the shared variables, sorted by name.
 func (r *zodRenderer) vars() string {
 	var b strings.Builder
 	for _, key := range slices.SortedFunc(maps.Keys(r.names), func(a, b string) int { return strings.Compare(r.names[a], r.names[b]) }) {
-		body, _ := renderZod(r.first[key], func(c *tsdef.Zod) (string, error) { return r.literal(c), nil }, true)
-		fmt.Fprintf(&b, "%s = %s\n", r.names[key], body)
+		fmt.Fprintf(&b, "%s = %s\n", r.names[key], renderZod(r.first[key], r.literal, true))
 	}
 	return b.String()
-}
-
-// children returns the rules nested directly in z.
-func children(z *tsdef.Zod) []*tsdef.Zod {
-	out := []*tsdef.Zod{z.Inner, z.Key}
-	out = append(out, z.Members...)
-	for _, f := range z.Fields {
-		out = append(out, f.Schema)
-	}
-	return slices.DeleteFunc(out, func(c *tsdef.Zod) bool { return c == nil })
 }
 
 // renderZod renders one rule as a Go composite literal, its nested rules
 // through child. A multiline rule puts each of two or more members or fields
 // on its own line; the single-line form identifies a subtree.
-func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) (string, error), multiline bool) (string, error) {
-	if z == nil {
-		return "nil", nil
-	}
-	kind, ok := zodKinds[z.Kind]
-	if !ok {
-		return "", fmt.Errorf("unsupported Zod rule %q", z.Kind)
-	}
+func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) string, multiline bool) string {
 	list := func(items []string) string {
 		if !multiline || len(items) < 2 {
 			return strings.Join(items, ", ")
 		}
 		return "\n" + strings.Join(items, ",\n") + ",\n"
 	}
-	var parts []string
-	parts = append(parts, "Kind: zod.Kind"+kind)
+	parts := []string{"Kind: zod.Kind" + zodKinds[z.Kind]}
 	if z.Ref != "" {
 		parts = append(parts, "Ref: "+strconv.Quote(z.Ref))
 	}
 	if z.Inner != nil {
-		inner, err := child(z.Inner)
-		if err != nil {
-			return "", err
-		}
-		parts = append(parts, "Inner: "+inner)
+		parts = append(parts, "Inner: "+child(z.Inner))
 	}
 	if len(z.Members) > 0 {
 		var members []string
 		for _, m := range z.Members {
-			s, err := child(m)
-			if err != nil {
-				return "", err
-			}
-			members = append(members, s)
+			members = append(members, child(m))
 		}
 		parts = append(parts, "Members: []*zod.Rule{"+list(members)+"}")
 	}
 	if len(z.Fields) > 0 {
 		var fields []string
 		for _, f := range z.Fields {
-			s, err := child(f.Schema)
-			if err != nil {
-				return "", err
-			}
-			fields = append(fields, fmt.Sprintf("{Name: %s, Schema: %s}", strconv.Quote(f.Name), s))
+			fields = append(fields, fmt.Sprintf("{Name: %s, Schema: %s}", strconv.Quote(f.Name), child(f.Schema)))
 		}
 		parts = append(parts, "Fields: []zod.Field{"+list(fields)+"}")
 	}
 	if z.Key != nil {
-		key, err := child(z.Key)
-		if err != nil {
-			return "", err
-		}
-		parts = append(parts, "Key: "+key)
+		parts = append(parts, "Key: "+child(z.Key))
 	}
 	if z.Value != nil {
 		parts = append(parts, "Value: jsontext.Value("+goString(string(z.Value))+")")
@@ -347,7 +306,7 @@ func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) (string, error), multiline b
 	if z.Offset {
 		parts = append(parts, "Offset: true")
 	}
-	return "&zod.Rule{" + strings.Join(parts, ", ") + "}", nil
+	return "&zod.Rule{" + strings.Join(parts, ", ") + "}"
 }
 
 // goString prefers raw string literals for readability when the value allows it.
