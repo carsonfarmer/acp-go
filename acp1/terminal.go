@@ -2,14 +2,6 @@ package acp1
 
 import "context"
 
-// terminalCaller is the subset of the client API a [TerminalHandle] needs.
-type terminalCaller interface {
-	TerminalOutput(ctx context.Context, params *TerminalOutputRequest) (*TerminalOutputResponse, error)
-	WaitForTerminalExit(ctx context.Context, params *WaitForTerminalExitRequest) (*WaitForTerminalExitResponse, error)
-	KillTerminal(ctx context.Context, params *KillTerminalRequest) (*KillTerminalResponse, error)
-	ReleaseTerminal(ctx context.Context, params *ReleaseTerminalRequest) (*ReleaseTerminalResponse, error)
-}
-
 // TerminalHandle binds a terminal id to its session so an agent can poll,
 // wait, kill and release without repeating both ids.
 //
@@ -20,12 +12,13 @@ type terminalCaller interface {
 type TerminalHandle struct {
 	ID        TerminalID
 	sessionID SessionID
-	client    terminalCaller
+	client    TerminalHandler
 }
 
-// NewTerminalHandle binds an existing terminal id to the client that owns it.
-// [AgentSideConnection.NewTerminal] creates one directly.
-func NewTerminalHandle(id TerminalID, sessionID SessionID, client terminalCaller) *TerminalHandle {
+// NewTerminalHandle binds an existing terminal id to the client that owns it:
+// an [AgentSideConnection], or any [TerminalHandler], such as a fake in a
+// test. [AgentSideConnection.NewTerminal] creates one directly.
+func NewTerminalHandle(id TerminalID, sessionID SessionID, client TerminalHandler) *TerminalHandle {
 	return &TerminalHandle{ID: id, sessionID: sessionID, client: client}
 }
 

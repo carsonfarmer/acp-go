@@ -24,7 +24,7 @@ type RequestHandler = jsonrpc.RequestHandler
 type NotificationHandler = jsonrpc.NotificationHandler
 
 // NewStdioTransport carries newline-delimited JSON over a reader/writer pair.
-func NewStdioTransport(reader io.Reader, writer io.Writer) *jsonrpc.StdioTransport {
+func NewStdioTransport(reader io.Reader, writer io.Writer) Transport {
 	return jsonrpc.NewStdioTransport(reader, writer)
 }
 
