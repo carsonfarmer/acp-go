@@ -62,8 +62,8 @@ func TestGenerateEmitsInterfacesCallsAndDispatch(t *testing.T) {
 		"acpconn.Call[PingResponse](ctx, c.conn, schema.AgentMethodsPing, params)",
 		"func (c *ClientSideConnection) Bye(",
 		"c.conn.SendNotification(ctx, schema.AgentMethodsSessionBye, params)",
-		"case schema.AgentMethodsPing:\n\t\treturn acpconn.Request(ctx, schema.Validated, params, c.agent.Ping)",
-		"if h, ok := c.agent.(Byer); ok {\n\t\t\treturn acpconn.Notify(ctx, schema.Validated, params, h.Bye)",
+		"case schema.AgentMethodsPing:\n\t\treturn acpconn.Request(ctx, schema.Validated(), params, c.agent.Ping)",
+		"if h, ok := c.agent.(Byer); ok {\n\t\t\treturn acpconn.Notify(ctx, schema.Validated(), params, h.Bye)",
 		"func (c *AgentSideConnection) handleRequest(",
 		"func (c *ClientSideConnection) handleNotification(",
 		"// Bye call.\nfunc (c *ClientSideConnection) Bye(",
@@ -99,7 +99,7 @@ func TestCallViaRoutesTheOutgoingCall(t *testing.T) {
 		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
 	}
 	// The dispatch still reaches the handler.
-	if want := "acpconn.Request(ctx, schema.Validated, params, c.agent.Ping)"; !strings.Contains(methods, want) {
+	if want := "acpconn.Request(ctx, schema.Validated(), params, c.agent.Ping)"; !strings.Contains(methods, want) {
 		t.Errorf("methods.gen.go lacks %q", want)
 	}
 }

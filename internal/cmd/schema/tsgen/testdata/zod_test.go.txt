@@ -94,14 +94,14 @@ func TestValidatedOption(t *testing.T) {
 		Inner Options `json:"inner"`
 		List  []Count `json:"list"`
 	}
-	err := json.Unmarshal([]byte(`{"inner":{"required":[1,"bad"]},"list":[1.0,2]}`), &holder, Validated)
+	err := json.Unmarshal([]byte(`{"inner":{"required":[1,"bad"]},"list":[1.0,2]}`), &holder, Validated())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if holder.Inner.Count != 3 || len(holder.Inner.Required) != 1 || holder.List[0] != 1 {
 		t.Fatalf("nested rules not applied: %+v", holder)
 	}
-	if err := json.Unmarshal([]byte(`{"inner":{"required":[]},"list":[11]}`), &holder, Validated); err == nil {
+	if err := json.Unmarshal([]byte(`{"inner":{"required":[]},"list":[11]}`), &holder, Validated()); err == nil {
 		t.Fatal("nested bound ignored")
 	}
 	if err := json.Unmarshal([]byte(`{"inner":{"required":[]},"list":[11]}`), &holder); err != nil {

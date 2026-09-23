@@ -187,7 +187,7 @@ func generate(schema *tsdef.Schema, pkg string) (*generator, error) {
 	}
 	if len(g.unmarshalers) > 0 {
 		g.use(fileUnions)
-		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
+		g.write("\n// Unmarshalers returns the unmarshalers that decode the tagged-union variant\n// interfaces directly, for callers that declare fields of those interface\n// types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers()))\nfunc Unmarshalers() *json.Unmarshalers { return unmarshalers }\n\nvar unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
 	}
 	g.emitGetters()
 	g.use(fileZod)

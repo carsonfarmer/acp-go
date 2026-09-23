@@ -101,7 +101,7 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 	}
 	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n%s\n}\n\n", strings.Join(registry, "\n"))
 	g.write("// zodTypes maps generated Go types to their Zod rule. Type aliases are not\n// listed; they share a reflect.Type with their underlying type.\nvar zodTypes = map[reflect.Type]string{\n%s,\n}\n\n", strings.Join(types, ",\n"))
-	g.write("// Validated is a json.Options value that applies the SDK Zod validation, default and\n// recovery rules to every generated type encountered while unmarshaling:\n//\n//\tjson.Unmarshal(data, &v, schema.Validated)\n//\n// Type aliases are decoded as their underlying type.\nvar Validated = json.WithUnmarshalers(json.JoinUnmarshalers(\n%s,\n))\n\n", strings.Join(unmarshalers, ",\n"))
+	g.write("// Validated returns the json.Options that apply the SDK Zod validation, default\n// and recovery rules to every generated type encountered while unmarshaling:\n//\n//\tjson.Unmarshal(data, &v, schema.Validated())\n//\n// Type aliases are decoded as their underlying type.\nfunc Validated() json.Options { return validated }\n\nvar validated = json.WithUnmarshalers(json.JoinUnmarshalers(\n%s,\n))\n\n", strings.Join(unmarshalers, ",\n"))
 	g.out.WriteString(`// zodRule returns the Zod rule registered for T.
 func zodRule[T any]() (string, error) {
 	name, ok := zodTypes[reflect.TypeFor[T]()]

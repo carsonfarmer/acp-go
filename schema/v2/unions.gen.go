@@ -5522,11 +5522,14 @@ func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return nil
 }
 
-// Unmarshalers decodes the tagged-union variant interfaces directly, for callers
-// that declare fields of those interface types instead of the wrapper structs:
+// Unmarshalers returns the unmarshalers that decode the tagged-union variant
+// interfaces directly, for callers that declare fields of those interface
+// types instead of the wrapper structs:
 //
-//	json.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))
-var Unmarshalers = json.JoinUnmarshalers(
+//	json.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers()))
+func Unmarshalers() *json.Unmarshalers { return unmarshalers }
+
+var unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalRequestPermissionSubjectVariant),
 	json.UnmarshalFromFunc(unmarshalToolCallContentVariant),
 	json.UnmarshalFromFunc(unmarshalContentBlockVariant),

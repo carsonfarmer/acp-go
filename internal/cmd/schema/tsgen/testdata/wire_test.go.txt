@@ -340,7 +340,7 @@ func TestVariantInterfaceFields(t *testing.T) {
 	if err := json.Unmarshal(data, &direct); err == nil {
 		t.Fatal("interface field decoded without Unmarshalers")
 	}
-	if err := json.Unmarshal(data, &direct, json.WithUnmarshalers(Unmarshalers)); err != nil {
+	if err := json.Unmarshal(data, &direct, json.WithUnmarshalers(Unmarshalers())); err != nil {
 		t.Fatal(err)
 	}
 	if direct.Block.(MessageText).Text != "a" || direct.Many[0].(MessageCustom).Kind != "zzz" {

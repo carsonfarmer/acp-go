@@ -12,7 +12,7 @@ protocol version), `enums.gen.go` (identifier types and literal enums), `types.g
 structs and aliases), `unions.gen.go` (tagged and raw payload unions) and
 `envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …),
 `getters.gen.go` (nil-safe `GetX` methods for the pointer fields of payload structs) —
-and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
+and `zod.gen.go` (Zod rule tables, the `Validated()` options and generic `Decode`/`Validate`).
 The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/internal/zod` and the
 union runtime (alternative matching for raw unions, tag splicing for tagged unions) once in
 `schema/internal/union`; both are shared by the versions as runtime dependencies of the generated
@@ -130,7 +130,7 @@ Missing required members are not rejected by plain decoding; use `Validated` for
 SDK-level validation. The zero wrapper encodes as `null`, `null` decodes to the zero wrapper, and
 wrappers implement `IsZero`, so optional union fields are plain values omitted when unset.
 Callers that prefer interface-typed fields can declare `<Type>Variant` fields directly and decode
-with `json.WithUnmarshalers(acp2.Unmarshalers)`; encoding needs no options.
+with `json.WithUnmarshalers(acp2.Unmarshalers())`; encoding needs no options.
 
 Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
 method `params` unions, ...) preserve their JSON payload and expose a generic method `As[T]`, a
@@ -207,13 +207,13 @@ Doc comments come from the SDK, turned into Go doc comments by rules in
 
 ## Zod-aware decoding
 
-`Validated` is a `json.Options` value that applies the SDK's Zod rules to every generated
+`Validated()` returns the `json.Options` that apply the SDK's Zod rules to every generated
 type met while unmarshaling, at any nesting depth. The generic `Decode` and `Validate`
 functions do the same for one top-level value:
 
 ```go
 var req acp2.PromptRequest
-err := json.Unmarshal(data, &req, acp2.Validated)
+err := json.Unmarshal(data, &req, acp2.Validated())
 req, err = acp2.Decode[acp2.PromptRequest](data)
 err = acp2.Validate[acp2.RequestPermissionRequest](data)
 ```

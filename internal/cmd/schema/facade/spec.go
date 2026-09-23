@@ -384,11 +384,11 @@ func (g *emitter) dispatch(s side) {
 				}
 				g.write("\tcase schema.%s:\n", constant)
 				if m.Via != "" {
-					g.write("\t\t%s%s(ctx, schema.Validated, params, c.%s)\n", ret, helper, m.Via)
+					g.write("\t\t%s%s(ctx, schema.Validated(), params, c.%s)\n", ret, helper, m.Via)
 				} else if group.Required {
-					g.write("\t\t%s%s(ctx, schema.Validated, params, c.%s.%s)\n", ret, helper, s.serverVar, m.Name)
+					g.write("\t\t%s%s(ctx, schema.Validated(), params, c.%s.%s)\n", ret, helper, s.serverVar, m.Name)
 				} else {
-					g.write("\t\tif h, ok := c.%s.(%s); ok {\n\t\t\t%s%s(ctx, schema.Validated, params, h.%s)\n\t\t}\n", s.serverVar, group.Interface, ret, helper, m.Name)
+					g.write("\t\tif h, ok := c.%s.(%s); ok {\n\t\t\t%s%s(ctx, schema.Validated(), params, h.%s)\n\t\t}\n", s.serverVar, group.Interface, ret, helper, m.Name)
 				}
 			}
 		}

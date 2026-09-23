@@ -191,7 +191,7 @@ func protocolVersionOf(params jsontext.Value) (uint64, bool) {
 func rewriteInitializeParams(params jsontext.Value, requested uint64, selected int) (jsontext.Value, error) {
 	if selected == 2 {
 		var req schemav2.InitializeRequest
-		if err := json.Unmarshal(params, &req, schemav2.Validated); err != nil {
+		if err := json.Unmarshal(params, &req, schemav2.Validated()); err != nil {
 			return nil, err
 		}
 		req.ProtocolVersion = 2
@@ -199,7 +199,7 @@ func rewriteInitializeParams(params jsontext.Value, requested uint64, selected i
 	}
 	if requested >= 2 {
 		var req schemav2.InitializeRequest
-		if err := json.Unmarshal(params, &req, schemav2.Validated); err != nil {
+		if err := json.Unmarshal(params, &req, schemav2.Validated()); err != nil {
 			return nil, err
 		}
 		v1, err := v2InitializeToV1(&req)
@@ -209,7 +209,7 @@ func rewriteInitializeParams(params jsontext.Value, requested uint64, selected i
 		return json.Marshal(v1)
 	}
 	var req schemav1.InitializeRequest
-	if err := json.Unmarshal(params, &req, schemav1.Validated); err != nil {
+	if err := json.Unmarshal(params, &req, schemav1.Validated()); err != nil {
 		return nil, err
 	}
 	req.ProtocolVersion = 1

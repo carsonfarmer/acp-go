@@ -584,78 +584,78 @@ func (c *AgentSideConnection) CompleteElicitation(ctx context.Context, params *C
 func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	switch method {
 	case schema.AgentMethodsInitialize:
-		return acpconn.Request(ctx, schema.Validated, params, c.agent.Initialize)
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.Initialize)
 	case schema.AgentMethodsSessionNew:
-		return acpconn.Request(ctx, schema.Validated, params, c.agent.NewSession)
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.NewSession)
 	case schema.AgentMethodsSessionPrompt:
-		return acpconn.Request(ctx, schema.Validated, params, c.agent.Prompt)
+		return acpconn.Request(ctx, schema.Validated(), params, c.agent.Prompt)
 	case schema.AgentMethodsAuthenticate:
 		if h, ok := c.agent.(Authenticator); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.Authenticate)
+			return acpconn.Request(ctx, schema.Validated(), params, h.Authenticate)
 		}
 	case schema.AgentMethodsSessionLoad:
 		if h, ok := c.agent.(SessionLoader); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.LoadSession)
+			return acpconn.Request(ctx, schema.Validated(), params, h.LoadSession)
 		}
 	case schema.AgentMethodsSessionList:
 		if h, ok := c.agent.(SessionLister); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ListSessions)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ListSessions)
 		}
 	case schema.AgentMethodsSessionDelete:
 		if h, ok := c.agent.(SessionDeleter); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.DeleteSession)
+			return acpconn.Request(ctx, schema.Validated(), params, h.DeleteSession)
 		}
 	case schema.AgentMethodsSessionFork:
 		if h, ok := c.agent.(SessionForker); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ForkSession)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ForkSession)
 		}
 	case schema.AgentMethodsSessionResume:
 		if h, ok := c.agent.(SessionResumer); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ResumeSession)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ResumeSession)
 		}
 	case schema.AgentMethodsSessionClose:
 		if h, ok := c.agent.(SessionCloser); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.CloseSession)
+			return acpconn.Request(ctx, schema.Validated(), params, h.CloseSession)
 		}
 	case schema.AgentMethodsSessionSetMode:
 		if h, ok := c.agent.(SessionModeSetter); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.SetSessionMode)
+			return acpconn.Request(ctx, schema.Validated(), params, h.SetSessionMode)
 		}
 	case schema.AgentMethodsSessionSetConfigOption:
 		if h, ok := c.agent.(SessionConfigOptionSetter); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.SetSessionConfigOption)
+			return acpconn.Request(ctx, schema.Validated(), params, h.SetSessionConfigOption)
 		}
 	case schema.AgentMethodsProvidersList:
 		if h, ok := c.agent.(ProviderManager); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ListProviders)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ListProviders)
 		}
 	case schema.AgentMethodsProvidersSet:
 		if h, ok := c.agent.(ProviderManager); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.SetProvider)
+			return acpconn.Request(ctx, schema.Validated(), params, h.SetProvider)
 		}
 	case schema.AgentMethodsProvidersDisable:
 		if h, ok := c.agent.(ProviderManager); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.DisableProvider)
+			return acpconn.Request(ctx, schema.Validated(), params, h.DisableProvider)
 		}
 	case schema.AgentMethodsLogout:
 		if h, ok := c.agent.(LogoutHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.Logout)
+			return acpconn.Request(ctx, schema.Validated(), params, h.Logout)
 		}
 	case schema.AgentMethodsNesStart:
 		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.StartNes)
+			return acpconn.Request(ctx, schema.Validated(), params, h.StartNes)
 		}
 	case schema.AgentMethodsNesSuggest:
 		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.SuggestNes)
+			return acpconn.Request(ctx, schema.Validated(), params, h.SuggestNes)
 		}
 	case schema.AgentMethodsNesClose:
 		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.CloseNes)
+			return acpconn.Request(ctx, schema.Validated(), params, h.CloseNes)
 		}
 	case schema.AgentMethodsMCPMessage:
 		if h, ok := c.agent.(MCPMessageHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.MessageMCP)
+			return acpconn.Request(ctx, schema.Validated(), params, h.MessageMCP)
 		}
 	default:
 		if h, ok := c.agent.(ExtMethodHandler); ok {
@@ -668,38 +668,38 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 func (c *AgentSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
 	switch method {
 	case schema.AgentMethodsSessionCancel:
-		return acpconn.Notify(ctx, schema.Validated, params, c.agent.Cancel)
+		return acpconn.Notify(ctx, schema.Validated(), params, c.agent.Cancel)
 	case schema.AgentMethodsNesAccept:
 		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.AcceptNes)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.AcceptNes)
 		}
 	case schema.AgentMethodsNesReject:
 		if h, ok := c.agent.(NesHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.RejectNes)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.RejectNes)
 		}
 	case schema.AgentMethodsDocumentDidOpen:
 		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.DidOpenDocument)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.DidOpenDocument)
 		}
 	case schema.AgentMethodsDocumentDidChange:
 		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.DidChangeDocument)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.DidChangeDocument)
 		}
 	case schema.AgentMethodsDocumentDidClose:
 		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.DidCloseDocument)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.DidCloseDocument)
 		}
 	case schema.AgentMethodsDocumentDidSave:
 		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.DidSaveDocument)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.DidSaveDocument)
 		}
 	case schema.AgentMethodsDocumentDidFocus:
 		if h, ok := c.agent.(DocumentHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.DidFocusDocument)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.DidFocusDocument)
 		}
 	case schema.AgentMethodsMCPMessage:
 		if h, ok := c.agent.(MCPMessageHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.NotifyMCP)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.NotifyMCP)
 		}
 	default:
 		if h, ok := c.agent.(ExtNotificationHandler); ok {
@@ -712,50 +712,50 @@ func (c *AgentSideConnection) handleNotification(ctx context.Context, method str
 func (c *ClientSideConnection) handleRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	switch method {
 	case schema.ClientMethodsSessionRequestPermission:
-		return acpconn.Request(ctx, schema.Validated, params, c.client.RequestPermission)
+		return acpconn.Request(ctx, schema.Validated(), params, c.client.RequestPermission)
 	case schema.ClientMethodsFSReadTextFile:
 		if h, ok := c.client.(FileReader); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ReadTextFile)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ReadTextFile)
 		}
 	case schema.ClientMethodsFSWriteTextFile:
 		if h, ok := c.client.(FileWriter); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.WriteTextFile)
+			return acpconn.Request(ctx, schema.Validated(), params, h.WriteTextFile)
 		}
 	case schema.ClientMethodsTerminalCreate:
 		if h, ok := c.client.(TerminalHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.CreateTerminal)
+			return acpconn.Request(ctx, schema.Validated(), params, h.CreateTerminal)
 		}
 	case schema.ClientMethodsTerminalOutput:
 		if h, ok := c.client.(TerminalHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.TerminalOutput)
+			return acpconn.Request(ctx, schema.Validated(), params, h.TerminalOutput)
 		}
 	case schema.ClientMethodsTerminalRelease:
 		if h, ok := c.client.(TerminalHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ReleaseTerminal)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ReleaseTerminal)
 		}
 	case schema.ClientMethodsTerminalWaitForExit:
 		if h, ok := c.client.(TerminalHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.WaitForTerminalExit)
+			return acpconn.Request(ctx, schema.Validated(), params, h.WaitForTerminalExit)
 		}
 	case schema.ClientMethodsTerminalKill:
 		if h, ok := c.client.(TerminalHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.KillTerminal)
+			return acpconn.Request(ctx, schema.Validated(), params, h.KillTerminal)
 		}
 	case schema.ClientMethodsMCPConnect:
 		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.ConnectMCP)
+			return acpconn.Request(ctx, schema.Validated(), params, h.ConnectMCP)
 		}
 	case schema.ClientMethodsMCPMessage:
 		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.MessageMCP)
+			return acpconn.Request(ctx, schema.Validated(), params, h.MessageMCP)
 		}
 	case schema.ClientMethodsMCPDisconnect:
 		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.DisconnectMCP)
+			return acpconn.Request(ctx, schema.Validated(), params, h.DisconnectMCP)
 		}
 	case schema.ClientMethodsElicitationCreate:
 		if h, ok := c.client.(ElicitationHandler); ok {
-			return acpconn.Request(ctx, schema.Validated, params, h.CreateElicitation)
+			return acpconn.Request(ctx, schema.Validated(), params, h.CreateElicitation)
 		}
 	default:
 		if h, ok := c.client.(ExtMethodHandler); ok {
@@ -768,14 +768,14 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 func (c *ClientSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
 	switch method {
 	case schema.ClientMethodsSessionUpdate:
-		return acpconn.Notify(ctx, schema.Validated, params, c.sessionUpdate)
+		return acpconn.Notify(ctx, schema.Validated(), params, c.sessionUpdate)
 	case schema.ClientMethodsMCPMessage:
 		if h, ok := c.client.(MCPConnector); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.NotifyMCP)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.NotifyMCP)
 		}
 	case schema.ClientMethodsElicitationComplete:
 		if h, ok := c.client.(ElicitationHandler); ok {
-			return acpconn.Notify(ctx, schema.Validated, params, h.CompleteElicitation)
+			return acpconn.Notify(ctx, schema.Validated(), params, h.CompleteElicitation)
 		}
 	default:
 		if h, ok := c.client.(ExtNotificationHandler); ok {

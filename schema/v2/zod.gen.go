@@ -601,13 +601,15 @@ var zodTypes = map[reflect.Type]string{
 	reflect.TypeFor[SessionUpdateUserMessage]():                 "zUserMessage&sessionUpdate=\"user_message\"",
 }
 
-// Validated is a json.Options value that applies the SDK Zod validation, default and
-// recovery rules to every generated type encountered while unmarshaling:
+// Validated returns the json.Options that apply the SDK Zod validation, default
+// and recovery rules to every generated type encountered while unmarshaling:
 //
-//	json.Unmarshal(data, &v, schema.Validated)
+//	json.Unmarshal(data, &v, schema.Validated())
 //
 // Type aliases are decoded as their underlying type.
-var Validated = json.WithUnmarshalers(json.JoinUnmarshalers(
+func Validated() json.Options { return validated }
+
+var validated = json.WithUnmarshalers(json.JoinUnmarshalers(
 	zod.Unmarshaler[AbsolutePath](zodSchemas, "zAbsolutePath"),
 	zod.Unmarshaler[AcceptNesNotification](zodSchemas, "zAcceptNesNotification"),
 	zod.Unmarshaler[AgentAuthCapabilities](zodSchemas, "zAgentAuthCapabilities"),
