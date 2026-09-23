@@ -1,15 +1,71 @@
 # ACP Go Examples
 
-This directory contains examples using the [ACP Go SDK](https://github.com/ironpark/acp-go):
+Runnable examples for the [ACP Go SDK](https://github.com/ironpark/acp-go), from the smallest agent to a
+different transport. Run each from the repository root.
 
-- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionManager (sessions and turn cancellation), SessionStream, tool calls, and permission requests
-- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent, ClientSession/Turn, and a type switch over session updates
+| Example | Shows | Run |
+|---|---|---|
+| [`echo`](./echo/main.go) | The smallest agent: the four required methods, streaming each prompt back | `go run ./docs/example/echo` |
+| [`agent`](./agent/main.go) | A complete agent: `SessionManager` sessions and cancellation, `SessionStream` tool calls, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./docs/example/agent` |
+| [`client`](./client/main.go) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, Ctrl-C cancellation, permission prompts, file system methods, `CallExt` | `go run ./docs/example/client [agent command...]` |
+| [`http-agent`](./http-agent/main.go) | The echo agent served over HTTP and Server-Sent Events with `WithTransport` | `go run ./docs/example/http-agent` |
+| [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` | `go run ./docs/example/http-client` |
 
-## Running the Agent
+## Agent and client together
 
-### In Zed
+With no arguments, the client builds the `agent` example and talks to it:
 
-While minimal, [`agent/main.go`](./agent/main.go) implements a compliant [ACP](https://agentclientprotocol.com) Agent. This means we can connect to it from an ACP client like [Zed](https://zed.dev)!
+```sh
+go run ./docs/example/client
+```
+
+Type a message to start a turn, answer the permission prompt, press Ctrl-C to cancel a running turn, or send
+`/ping hello` to call the agent's `_example.com/ping` extension method. Ctrl-D quits. Pass `-v` to see the agent's
+logs.
+
+Any other stdio agent works too; give its command after the flags:
+
+```sh
+go build -o /tmp/echo ./docs/example/echo
+go run ./docs/example/client /tmp/echo
+```
+
+## Over HTTP
+
+`acp.HTTPServerTransport` carries one connection, so the agent serves one client at a time. Start the agent, then
+run the client in another terminal:
+
+```sh
+go run ./docs/example/http-agent
+go run ./docs/example/http-client
+```
+
+## Agent by itself
+
+An agent reads JSON-RPC from stdin and writes to stdout, so you can drive one by hand:
+
+```sh
+go run ./docs/example/agent
+```
+
+Paste this and press <kbd>enter</kbd>:
+
+```json
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":1}}
+```
+
+It answers with its capabilities (its request log goes to stderr):
+
+```json
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"sessionCapabilities":{"list":{},"delete":{}}},"agentInfo":{"name":"example-agent","version":"0.1.0"}}}
+```
+
+From there, try [creating a session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session) and
+[sending a prompt](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message).
+
+## In Zed
+
+[`agent/main.go`](./agent/main.go) is a compliant [ACP](https://agentclientprotocol.com) agent, so an ACP client like [Zed](https://zed.dev) can connect to it. The `echo` example works the same way; point the path at `docs/example/echo` instead.
 
 1. Clone this repo
 
@@ -48,24 +104,3 @@ $ git clone https://github.com/ironpark/acp-go.git
 
 ![Final state](../imgs/final.png)
 
-### By itself
-
-You can also run the Agent directly and send messages to it:
-
-```bash
-go run ./docs/example/agent
-```
-
-Paste this into your terminal and press <kbd>enter</kbd>:
-
-```json
-{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":1}}
-```
-
-You should see it respond with something like:
-
-```json
-{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"sessionCapabilities":{"list":{},"delete":{}}},"agentInfo":{"name":"example-agent","version":"0.1.0"}}}
-```
-
-From there, you can try making a [new session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session) and [sending a prompt](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message).

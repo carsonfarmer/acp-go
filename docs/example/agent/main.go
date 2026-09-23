@@ -1,9 +1,10 @@
-// Command agent is a minimal ACP agent over stdio.
+// Command agent is a complete ACP agent over stdio.
 //
-// It shows the pieces an agent implementation needs: the required Agent
-// methods, session state and turn cancellation through an embedded
-// acpv1.SessionManager, streaming updates with acpv1.SessionStream, and a
-// permission request before a destructive tool call.
+// It builds on the echo example with the pieces a real agent needs: session
+// state and turn cancellation through an embedded acpv1.SessionManager,
+// streamed text and tool calls with acpv1.SessionStream, a permission request
+// before a destructive tool call, a typed extension method through
+// acp.ExtRouter, and request logging through middleware.
 package main
 
 import (
@@ -11,6 +12,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	acp "github.com/ironpark/go-acp"
@@ -24,11 +28,28 @@ type session struct {
 }
 
 // exampleAgent embeds a SessionManager, which supplies NewSession and Cancel
-// plus the optional session/load, session/list and session/delete handlers.
+// plus the optional session/load, session/list and session/delete handlers,
+// and an ExtRouter, which serves the extension methods registered on it.
 // It needs no credentials, so it leaves out Authenticate.
 type exampleAgent struct {
 	*acpv1.SessionManager[*session]
+	acp.ExtRouter
 	client acpv1.Client
+}
+
+// Extension methods start with an underscore and a domain the agent owns.
+const pingMethod = "_example.com/ping"
+
+type pingParams struct {
+	Message string `json:"message"`
+}
+
+type pingResult struct {
+	Reply string `json:"reply"`
+}
+
+func (a *exampleAgent) ping(_ context.Context, params *pingParams) (*pingResult, error) {
+	return &pingResult{Reply: "pong: " + params.Message}, nil
 }
 
 func (a *exampleAgent) Initialize(_ context.Context, _ *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
@@ -41,7 +62,8 @@ func (a *exampleAgent) Initialize(_ context.Context, _ *acpv1.InitializeRequest)
 }
 
 func (a *exampleAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
-	if _, ok := a.Session(params.SessionID); !ok {
+	sess, ok := a.Session(params.SessionID)
+	if !ok {
 		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
 	}
 
@@ -52,7 +74,9 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) 
 	}
 	defer done()
 
-	if err := a.runTurn(ctx, params.SessionID); err != nil {
+	// Texts skips images, resources and other non-text blocks.
+	prompt := strings.Join(slices.Collect(acpv1.Texts(params.Prompt)), "")
+	if err := a.runTurn(ctx, params.SessionID, sess, prompt); err != nil {
 		if context.Cause(ctx) == acp.ErrTurnCancelled {
 			return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
 		}
@@ -61,10 +85,10 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) 
 	return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 
-func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID) error {
+func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID, sess *session, prompt string) error {
 	stream := acpv1.NewSessionStream(a.client, sessionID)
 
-	if err := stream.SendText(ctx, "Let me read the project first."); err != nil {
+	if err := stream.SendText(ctx, fmt.Sprintf("You said %q. Let me read the project first.", prompt)); err != nil {
 		return err
 	}
 	if err := pause(ctx); err != nil {
@@ -95,7 +119,7 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID) e
 			Title:      new("Modifying configuration"),
 			Kind:       new(schema.ToolKindEdit),
 			Status:     new(schema.ToolCallStatusPending),
-			Locations:  []acpv1.ToolCallLocation{{Path: "/project/config.json"}},
+			Locations:  []acpv1.ToolCallLocation{{Path: filepath.Join(sess.cwd, "config.json")}},
 		},
 		Options: []schema.PermissionOption{
 			{OptionID: "allow", Name: "Allow this change", Kind: schema.PermissionOptionKindAllowOnce},
@@ -145,8 +169,11 @@ func main() {
 	// Stdout carries the protocol, so logs go to stderr.
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
-		return &exampleAgent{SessionManager: manager, client: c}
+		a := &exampleAgent{SessionManager: manager, client: c}
+		a.HandleExt(pingMethod, a.ping)
+		return a
 	}, os.Stdin, os.Stdout,
+		acp.WithMiddleware(acp.LoggingMiddleware(logger.Printf)),
 		acp.WithErrorHandler(func(err error) { logger.Printf("acp: %v", err) }),
 	)
 

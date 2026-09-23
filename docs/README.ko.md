@@ -349,8 +349,10 @@ v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MC
 
 완전한 작동 예제는 [docs/example](./example/) 디렉토리를 참조하세요:
 
-- **[에이전트 예제](./example/agent/)** - 세션, 스트리밍 업데이트, 권한 요청
-- **[클라이언트 예제](./example/client/)** - 에이전트 프로세스 실행과 프롬프트 턴 진행
+- **[에코 에이전트](./example/echo/)** - 가장 작은 에이전트: 필수 메서드 네 개
+- **[에이전트](./example/agent/)** - 세션, 취소, 도구 호출, 권한 요청, 확장 메서드
+- **[클라이언트](./example/client/)** - 모든 stdio 에이전트용 대화형 클라이언트, Ctrl-C로 턴 취소
+- **[HTTP 에이전트](./example/http-agent/) / [HTTP 클라이언트](./example/http-client/)** - 같은 연결을 HTTP와 Server-Sent Events로
 
 ## 개발
 

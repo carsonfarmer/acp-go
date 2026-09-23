@@ -1,17 +1,25 @@
-// Command client spawns the example agent and drives one prompt turn.
+// Command client is an interactive ACP client for any agent over stdio.
 //
-// It shows the client side of ACP: spawning an agent, driving a turn with
+//	go run ./docs/example/client                          # the sibling agent example
+//	go run ./docs/example/client go run ./docs/example/echo # any agent command
+//
+// It shows the client side of ACP: spawning an agent, driving turns with
 // ClientSession and Turn, rendering updates with a type switch over the
-// SessionUpdate union, answering permission requests, and serving the
-// optional file system methods the agent may call.
+// SessionUpdate union, cancelling a turn on Ctrl-C, answering permission
+// requests, serving the optional file system methods the agent may call, and
+// calling a typed extension method with acp.CallExt.
 package main
 
 import (
 	"bufio"
 	"context"
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -25,7 +33,11 @@ import (
 // exampleClient implements acpv1.Client, plus acpv1.FileReader and
 // acpv1.FileWriter, which ClientCapabilitiesOf turns into the fs capabilities
 // it advertises.
-type exampleClient struct{}
+type exampleClient struct {
+	// input is shared by the prompt loop and permission requests, so input
+	// typed ahead is not lost in a discarded buffer.
+	input *bufio.Reader
+}
 
 // SessionUpdate receives every update the agent sends. This client renders
 // the updates of its own turns from Turn.Updates instead, so it has nothing
@@ -77,10 +89,9 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.Reque
 		fmt.Printf("   %d. %s (%s)\n", i+1, option.Name, option.Kind)
 	}
 
-	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("\nChoose an option: ")
-		answer, err := reader.ReadString('\n')
+		answer, err := c.input.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
@@ -112,22 +123,42 @@ func (c *exampleClient) WriteTextFile(_ context.Context, params *acpv1.WriteText
 	return &acpv1.WriteTextFileResponse{}, nil
 }
 
+// pingResult is the agent example's reply to its _example.com/ping extension.
+type pingResult struct {
+	Reply string `json:"reply"`
+}
+
 func main() {
-	ctx := context.Background()
-	if err := run(ctx); err != nil {
+	verbose := flag.Bool("v", false, "show the agent's stderr")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: client [-v] [agent command...]\n\nWithout a command, it builds and runs the sibling agent example.\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if err := run(context.Background(), flag.Args(), *verbose); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
-	agentBinary, err := buildAgent()
-	if err != nil {
-		return err
+func run(ctx context.Context, command []string, verbose bool) error {
+	if len(command) == 0 {
+		binary, cleanup, err := buildAgent()
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		command = []string{binary}
+	}
+	cmd := exec.Command(command[0], command[1:]...)
+	detach(cmd)
+	if !verbose {
+		cmd.Stderr = io.Discard // agent logs would interleave with the conversation
 	}
 
-	client := &exampleClient{}
-	agent, err := acpv1.SpawnAgent(ctx, exec.Command(agentBinary), func(*acpv1.ClientSideConnection) acpv1.Client {
+	client := &exampleClient{input: bufio.NewReader(os.Stdin)}
+	agent, err := acpv1.SpawnAgent(ctx, cmd, func(*acpv1.ClientSideConnection) acpv1.Client {
 		return client
 	})
 	if err != nil {
@@ -150,12 +181,56 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
-	fmt.Printf("Created session: %s\nUser: Hello, agent!\n\n", session.ID)
+	fmt.Printf("Session %s. Type a message, /ping <text> to call the agent's\nextension method, Ctrl-C to cancel a turn, or Ctrl-D to quit.\n", session.ID)
 
-	turn, err := session.Prompt(ctx, acpv1.TextBlock("Hello, agent!"))
+	for {
+		fmt.Print("\n> ")
+		line, err := client.input.ReadString('\n')
+		if errors.Is(err, io.EOF) {
+			fmt.Println()
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		line = strings.TrimSpace(line)
+		switch message, isPing := strings.CutPrefix(line, "/ping "); {
+		case line == "":
+		case isPing:
+			result, err := acp.CallExt[pingResult](ctx, agent, "_example.com/ping", map[string]string{"message": message})
+			if err != nil {
+				fmt.Printf("ping: %v\n", err) // agents other than the example answer "method not found"
+				continue
+			}
+			fmt.Println(result.Reply)
+		default:
+			if err := prompt(ctx, session, line); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// prompt runs one turn, rendering its updates as they arrive.
+func prompt(ctx context.Context, session *acpv1.ClientSession, text string) error {
+	turn, err := session.Prompt(ctx, acpv1.TextBlock(text))
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
+
+	// While the turn runs, Ctrl-C asks the agent to stop instead of ending
+	// the client; the turn then ends with StopReasonCancelled.
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	defer signal.Stop(interrupt)
+	go func() {
+		select {
+		case <-interrupt:
+			_ = session.Cancel(ctx)
+		case <-turn.Done():
+		}
+	}()
+
 	for update := range turn.Updates() {
 		render(update)
 	}
@@ -163,28 +238,34 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
-	fmt.Printf("\n\nAgent stopped: %s\n", result.StopReason)
+	fmt.Printf("\n[%s]\n", result.StopReason)
 	return nil
 }
 
-// buildAgent compiles the sibling agent example and returns its path.
-func buildAgent() (string, error) {
+// buildAgent compiles the sibling agent example into a temporary directory
+// and returns its path.
+func buildAgent() (binary string, cleanup func(), err error) {
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
-		return "", fmt.Errorf("cannot locate this source file")
+		return "", nil, fmt.Errorf("cannot locate this source file")
 	}
-	agentDir := filepath.Join(filepath.Dir(filepath.Dir(currentFile)), "agent")
-	binary := filepath.Join(agentDir, "agent")
+	dir, err := os.MkdirTemp("", "acp-example-agent")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup = func() { os.RemoveAll(dir) }
+	binary = filepath.Join(dir, "agent")
 	if runtime.GOOS == "windows" {
 		binary += ".exe"
 	}
 
 	fmt.Println("Building agent...")
 	build := exec.Command("go", "build", "-o", binary, ".")
-	build.Dir = agentDir
+	build.Dir = filepath.Join(filepath.Dir(filepath.Dir(currentFile)), "agent")
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
-		return "", fmt.Errorf("build agent: %w", err)
+		cleanup()
+		return "", nil, fmt.Errorf("build agent: %w", err)
 	}
-	return binary, nil
+	return binary, cleanup, nil
 }

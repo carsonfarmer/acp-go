@@ -31,8 +31,10 @@ go get github.com/ironpark/go-acp
 
 See the [docs/example](./docs/example/) directory for complete working examples:
 
-- **[Agent Example](./docs/example/agent/)** — sessions, streamed updates and a permission request
-- **[Client Example](./docs/example/client/)** — spawning an agent and driving one prompt turn
+- **[Echo Agent](./docs/example/echo/)** — the smallest agent: the four required methods
+- **[Agent](./docs/example/agent/)** — sessions, cancellation, tool calls, a permission request, an extension method
+- **[Client](./docs/example/client/)** — an interactive client for any stdio agent, with Ctrl-C cancellation
+- **[HTTP Agent](./docs/example/http-agent/) / [HTTP Client](./docs/example/http-client/)** — the same connection over HTTP and Server-Sent Events
 
 ## Architecture
 
