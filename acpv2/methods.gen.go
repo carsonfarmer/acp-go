@@ -548,7 +548,7 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 func (c *ClientSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
 	switch method {
 	case schema.ClientMethodsSessionUpdate:
-		return acpconn.Notify(ctx, schema.Validated, params, c.client.SessionUpdate)
+		return acpconn.Notify(ctx, schema.Validated, params, c.sessionUpdate)
 	case schema.ClientMethodsMCPMessage:
 		if h, ok := c.client.(MCPConnector); ok {
 			return acpconn.Notify(ctx, schema.Validated, params, h.NotifyMCP)

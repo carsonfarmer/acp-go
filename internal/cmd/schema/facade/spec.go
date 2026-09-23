@@ -53,6 +53,10 @@ type Method struct {
 	// outgoing call on the peer connection and defaults to Doc.
 	Doc     string
 	CallDoc string
+	// Via names a hand-written method on the serving connection, with the
+	// handler's signature, that the dispatch calls instead of the interface.
+	// It lets the connection observe a method before the handler sees it.
+	Via string
 }
 
 func (m Method) notification() bool { return m.Response == "" }
@@ -317,7 +321,9 @@ func (g *emitter) dispatch(s side) {
 					helper = "acpconn.Request"
 				}
 				g.write("\tcase schema.%s:\n", constant)
-				if group.Required {
+				if m.Via != "" {
+					g.write("\t\t%s%s(ctx, schema.Validated, params, c.%s)\n", ret, helper, m.Via)
+				} else if group.Required {
 					g.write("\t\t%s%s(ctx, schema.Validated, params, c.%s.%s)\n", ret, helper, s.serverVar, m.Name)
 				} else {
 					g.write("\t\tif h, ok := c.%s.(%s); ok {\n\t\t\t%s%s(ctx, schema.Validated, params, h.%s)\n\t\t}\n", s.serverVar, group.Interface, ret, helper, m.Name)

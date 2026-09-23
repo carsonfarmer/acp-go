@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv2"
 	schema "github.com/ironpark/go-acp/schema/v2"
 )
@@ -64,5 +65,65 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		} else if _, err := next.Wait(); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// cancellableAgent runs each turn in the background, as v2 allows, and relies
+// on the embedded manager's CancelSession to stop it.
+type cancellableAgent struct {
+	*acpv2.SessionManager[struct{}]
+	client  acpv2.Client
+	started chan struct{}
+}
+
+func (cancellableAgent) Initialize(context.Context, *acpv2.InitializeRequest) (*acpv2.InitializeResponse, error) {
+	return &acpv2.InitializeResponse{ProtocolVersion: acpv2.ProtocolVersion}, nil
+}
+
+func (a *cancellableAgent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
+	turn, done := a.BeginTurn(ctx, params.SessionID)
+	stream := acpv2.NewSessionStream(a.client, params.SessionID)
+	go func() {
+		defer done()
+		_ = stream.Running(turn)
+		close(a.started)
+		<-turn.Done()
+		reason := schema.StopReasonEndTurn
+		if context.Cause(turn) == acp.ErrTurnCancelled {
+			reason = schema.StopReasonCancelled
+		}
+		_ = stream.Idle(context.Background(), reason)
+	}()
+	return &acpv2.PromptResponse{MessageID: "user_1"}, nil
+}
+
+func TestSessionManagerCancelSessionStopsTheTurn(t *testing.T) {
+	agent := &cancellableAgent{
+		SessionManager: acpv2.NewSessionManager(acpv2.NewMemoryStore[struct{}](),
+			func(context.Context, *acpv2.NewSessionRequest) (acpv2.SessionID, struct{}, error) {
+				return acpv2.GenerateSessionID(), struct{}{}, nil
+			}),
+		started: make(chan struct{}),
+	}
+	_, conn := acpv2.Pipe(t.Context(), func(c *acpv2.AgentSideConnection) acpv2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acpv2.ClientSideConnection) acpv2.Client { return newTestClient() })
+
+	session, err := conn.StartSession(t.Context(), &acpv2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, err := session.Prompt(t.Context(), acpv2.TextBlock("work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-agent.started
+	if err := session.Cancel(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	result, err := turn.Wait()
+	if err != nil || result.StopReason == nil || *result.StopReason != schema.StopReasonCancelled {
+		t.Fatalf("got %+v %v", result, err)
 	}
 }

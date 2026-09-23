@@ -92,6 +92,11 @@ func TestExtRouterOverAConnection(t *testing.T) {
 	acp.HandleExt(&agent.ExtRouter, "_test/index", func(_ context.Context, p *extParams) (*extResult, error) {
 		return &extResult{Files: len(p.Path)}, nil
 	})
+	notified := make(chan string, 1)
+	acp.OnExtNotification(&agent.ExtRouter, "_test/progress", func(_ context.Context, p *extParams) error {
+		notified <- p.Path
+		return nil
+	})
 	_, client := acpv1.Pipe(t.Context(), func(*acpv1.AgentSideConnection) acpv1.Agent { return agent },
 		func(*acpv1.ClientSideConnection) acpv1.Client { return newTestClient() })
 
@@ -101,5 +106,11 @@ func TestExtRouterOverAConnection(t *testing.T) {
 	}
 	if _, err := acp.CallExt[extResult](t.Context(), client, "_test/other", nil); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Fatalf("unregistered method: %v", err)
+	}
+	if err := client.ExtNotification(t.Context(), "_test/progress", extParams{Path: "src"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-notified; got != "src" {
+		t.Fatalf("notification carried %q", got)
 	}
 }

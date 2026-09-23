@@ -224,7 +224,7 @@ matching interface and advertise the capability from
 See protocol docs: [Client](https://agentclientprotocol.com/protocol/overview#client)`,
 			Methods: []Method{
 				{
-					Wire: "session/update", Name: "SessionUpdate", Params: "SessionNotification",
+					Wire: "session/update", Name: "SessionUpdate", Params: "SessionNotification", Via: "sessionUpdate",
 					Doc: `SessionUpdate is a notification streaming turn progress to the user.
 
 Notifications are handled one at a time on the connection's read loop, which

@@ -182,7 +182,7 @@ elicitation support are optional; implement the matching interface and
 advertise the capability from ` + "`InitializeRequest.Capabilities`" + `.`,
 			Methods: []Method{
 				{
-					Wire: "session/update", Name: "SessionUpdate", Params: "UpdateSessionNotification",
+					Wire: "session/update", Name: "SessionUpdate", Params: "UpdateSessionNotification", Via: "sessionUpdate",
 					Doc: `SessionUpdate is a notification streaming turn progress to the user.
 
 Notifications are handled one at a time on the connection's read loop, which
