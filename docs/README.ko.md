@@ -116,7 +116,7 @@ response, err := turn.Wait() // 또는: text, err := turn.Text()
 - **`acpv1.TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
 - **`acpv1.CapabilitiesOf`**: 에이전트가 구현한 인터페이스에서 capability 유도
 - **`acpv2`**: 초안 ACP v2(`schema/v2`)용 동일 구조의 파사드
-- **`router.ProtocolRouter`**: v1·v2 에이전트를 한 엔드포인트로 서비스
+- **`router.ProtocolRouter`**: v1·v2 에이전트를 한 엔드포인트로 서비스, **`router.ClientConnector`**: 클라이언트 쪽 v2 우선 연결과 v1 fallback
 - **`schema/v1`, `schema/v2`**: 생성된 와이어 타입, union, Zod 검증
 
 ## 주요 기능
@@ -174,9 +174,24 @@ err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
 
 라우터는 첫 메시지(`initialize`여야 함)를 읽어 요청 버전 이하 중 가장 높은 설정 버전을 고르고,
 initialize 파라미터만 그 버전 모양으로 고칩니다(v1 전용 에이전트에 v2 요청이 오면 `info` → `clientInfo`,
-`fs`/`terminal` 없음으로 다운그레이드). 이후 메시지는 그대로 전달합니다. 클라이언트는 import 하는
-패키지로 버전을 고르며, 에이전트가 더 낮은 `protocolVersion`으로 응답하면 다른 패키지로 재연결합니다.
+`fs`/`terminal` 없음으로 다운그레이드). 이후 메시지는 그대로 전달합니다.
 옵션·transport·미들웨어는 루트 `acp` 패키지에 있어 한 값으로 양쪽 파사드를 설정합니다.
+
+두 버전을 모두 지원하는 클라이언트는 `router.NewClient`를 씁니다. 에이전트를 띄워 v2로 initialize하고,
+에이전트가 `protocolVersion` 1로 응답하거나 v2 요청을 거절하면 v1으로 다시 띄웁니다. 그래서 각 버전은
+자기 모양의 initialize 요청을 보냅니다:
+
+```go
+agent, err := router.NewClient().
+    WithV1(newV1Client, &acpv1.InitializeRequest{ClientCapabilities: v1Caps}).
+    WithV2(newV2Client, &acpv2.InitializeRequest{Info: info}).
+    Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
+if agent.V2 != nil {
+    // agent.V2, agent.V2Init
+} else {
+    // agent.V1, agent.V1Init
+}
+```
 
 ### 세션 관리
 

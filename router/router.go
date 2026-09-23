@@ -10,7 +10,8 @@
 //
 // A v2 client routed to a v1-only agent receives a v1-shaped initialize
 // response carrying protocolVersion 1, exactly as upstream does; the client
-// decides what to do with the downgrade.
+// decides what to do with the downgrade. [ClientConnector] is that client
+// side: it spawns an agent with v2 and restarts it with v1 when needed.
 package router
 
 import (

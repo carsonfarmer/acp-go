@@ -47,7 +47,7 @@ See the [docs/example](./docs/example/) directory for complete working examples:
 - **`acpv1.TerminalHandle`** — terminal id and session id bound together
 - **`acpv1.CapabilitiesOf`** — capabilities derived from the interfaces an agent implements
 - **`acpv2`** — the same façades for the draft ACP v2 (`schema/v2`)
-- **`router.ProtocolRouter`** — one endpoint serving v1 and v2 agents
+- **`router.ProtocolRouter`** — one endpoint serving v1 and v2 agents; **`router.ClientConnector`** — the client side, v2 with v1 fallback
 - **`schema/v1`, `schema/v2`** — generated wire types, unions and Zod-based validation
 
 Incoming parameters are validated with the SDK's own Zod rules before a handler sees them,
@@ -170,9 +170,24 @@ err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
 The router reads the first message, which must be `initialize`, picks the highest configured
 version not above the one requested, rewrites only the initialize params (a v2 request routed to
 a v1-only agent is downgraded: `info` → `clientInfo`, no `fs`/`terminal`), and forwards everything
-after that unchanged. Clients pick a version by which package they import; if the agent answers
-with a lower `protocolVersion`, reconnect with the other package. Options, transports and
-middleware live in the root `acp` package, so one value configures either façade.
+after that unchanged. Options, transports and middleware live in the root `acp` package, so one
+value configures either façade.
+
+A client that supports both versions uses `router.NewClient`. It spawns the agent, initializes
+with v2, and if the agent answers `protocolVersion` 1 (or rejects the v2 request) restarts it
+with v1, so each version sends its own initialize request:
+
+```go
+agent, err := router.NewClient().
+    WithV1(newV1Client, &acpv1.InitializeRequest{ClientCapabilities: v1Caps}).
+    WithV2(newV2Client, &acpv2.InitializeRequest{Info: info}).
+    Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
+if agent.V2 != nil {
+    // agent.V2, agent.V2Init
+} else {
+    // agent.V1, agent.V1Init
+}
+```
 
 ### Transport Layer
 
