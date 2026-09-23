@@ -1,466 +1,132 @@
-![agent client protocol golang banner](./imgs/banner-dark.jpg)
+![Agent Client Protocol Go 배너](./imgs/banner-dark.jpg)
 
-# Agent Client Protocol - Go 구현체
+# Agent Client Protocol for Go
 
 [English](../README.md) | 한국어
 
-Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(소스 코드를 보고 편집하는 대화형 프로그램)와 _코딩 에이전트_(생성형 AI를 사용하여 자율적으로 코드를 수정하는 프로그램) 간의 통신을 표준화합니다.
+Agent Client Protocol(ACP)로 통신하는 코딩 에이전트와 에디터 클라이언트를 만드는 Go SDK입니다.
+타입이 지정된 API, 세션 업데이트 스트리밍, 취소, stdio·HTTP·WebSocket 연결을 제공합니다.
 
-이것은 Go로 작성된 ACP 사양의 **비공식** 구현체입니다. 공식 프로토콜 사양과 참조 구현체는 [공식 저장소](https://github.com/agentclientprotocol/agent-client-protocol)에서 찾을 수 있습니다.
+ACP의 **비공식** 구현체입니다. ACP v1은 안정 버전이며, ACP v2와 HTTP 전송 사양은 초안입니다.
+프로토콜이 계속 바뀌므로 [고정된 업스트림 리비전](../schema/typescript/REVISION)을 기준으로 지원합니다.
+프로토콜 자체는 [공식 ACP 문서](https://agentclientprotocol.com/)를 참고하세요.
 
-> [!NOTE]
-> Agent Client Protocol은 활발히 개발 중입니다. 이 구현체는 최신 사양 변경사항을 따라가지 못할 수 있습니다. 가장 최신의 프로토콜 사양은 [공식 저장소](https://github.com/agentclientprotocol/agent-client-protocol)를 참조해 주세요.
+[빠른 시작](#빠른-시작) · [패키지 선택](#패키지-선택) · [예제](#예제) · [문서](#문서)
 
-프로토콜에 대한 자세한 내용은 [agentclientprotocol.com](https://agentclientprotocol.com/)에서 확인하세요.
+## 요구 사항 및 설치
 
-## 개요
-
-SDK는 Go 1.27+ 를 요구하며 `encoding/json/v2` 기반으로 만들어졌습니다.
-와이어 타입은 공식 TypeScript SDK에서 `go-tree-sitter`로 생성합니다
-([스키마 생성](../schema/README.md) 참고).
-루트 `acp` 패키지는 모든 프로토콜 버전이 공유하는 것 — 옵션, transport, 미들웨어, 에러 타입,
-세션 스토어 — 만 담습니다. 프로토콜 파사드는 버전별 형제 패키지입니다: `schema/v1` 위의
-[`acp1`](../acp1/)(안정)과 `schema/v2` 위의 [`acp2`](../acp2/)(초안, 바뀔 수 있음).
-[`router`](../router/)가 한 엔드포인트에서 두 버전을 함께 서비스합니다.
-
-## 설치
+**Go 1.27+**가 필요하며 `encoding/json/v2`를 사용합니다.
+사용 중인 Go 모듈에서 다음 명령으로 SDK를 추가하세요.
 
 ```bash
 go get github.com/ironpark/acp-go
 ```
 
-## 기능
-
-- **JSON-RPC 2.0** 양방향 통신 (`encoding/json/v2`)
-- **스키마 검증** - 들어오는 파라미터를 SDK의 Zod 규칙으로 검증한 뒤 핸들러에 전달
-- **요청 단위 취소** - 양방향 `$/cancel_request`, `-32800` 응답
-- **플러그형 Transport** - stdio, Streamable HTTP, WebSocket
-- **미들웨어** - 요청/알림 양쪽을 감싸는 조합 가능한 체인
-- **SessionManager** - 세션 생성/삭제/이어 열기/닫기 메서드, 목록 헬퍼, 턴 취소 제공
-- **SessionStream** - 세션 업데이트 전송 편의 API
-- **ClientSession / Turn** - 클라이언트에서 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽는 API
-- **타입 있는 확장 메서드** - `acp.CallExt`, `acp.ExtRouter`, 그리고 `_meta`용 `acp1.Meta`
-- **모르는 union variant 보존** - 새 버전 피어의 variant도 디코드 실패 없이 `…Unknown`으로 보존
-- **선택적 인터페이스** - 구현하지 않은 메서드는 자동으로 `-32601` 응답
-
 ## 빠른 시작
 
-### 에이전트 구현
+API 키나 외부 에이전트 없이, 한 프로세스 안에서 에이전트와 클라이언트를 실행해 보세요.
+
+```bash
+git clone https://github.com/ironpark/acp-go.git
+cd acp-go
+go run ./examples/inprocess
+```
+
+예상 출력:
+
+```text
+>> hello
+<< HELLO
+>> same process, no child
+<< SAME PROCESS, NO CHILD
+```
+
+[전체 예제](../examples/inprocess/main.go)는 `acp1.Pipe`로 양쪽을 연결합니다.
+연결한 클라이언트는 에이전트를 초기화하고, 세션을 만든 뒤 프롬프트를 보냅니다.
+아래는 그 흐름을 발췌한 코드입니다. `agent`와 `ctx`는 전체 예제의 앞부분에서 생성합니다.
 
 ```go
-conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
-    return &MyAgent{client: c} // 연결 자체가 상대편 Client 입니다
-}, acp.NewStdioTransport(os.Stdin, os.Stdout))
-
-if err := conn.Start(context.Background()); err != nil {
+if _, err := agent.Initialize(ctx, &acp1.InitializeRequest{}); err != nil {
     log.Fatal(err)
 }
-```
-
-`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `NewSession`, `Prompt`, `Cancel`
-네 개뿐입니다. 나머지는 선택적 인터페이스(`acp1.Authenticator`, `acp1.SessionLoader`,
-`acp1.SessionLister`, `acp1.SessionModeSetter`, `acp1.NesHandler` 등)로 구현합니다.
-`acp1.CapabilitiesOf(agent)`가 구현된 인터페이스에서 capability를 유도해 주므로, `Initialize`
-응답이 연결이 거부할 메서드를 광고하는 일이 없습니다:
-
-```go
-caps := acp1.CapabilitiesOf(a)
-caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)} // 콘텐츠 capability는 직접 설정
-return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion, AgentCapabilities: caps}, nil
-```
-
-### 클라이언트 구현
-
-```go
-client := &MyClient{}
-agent, err := acp1.SpawnAgent(ctx, exec.Command("my-agent"), func(*acp1.ClientSideConnection) acp1.Client {
-    return client
-})
+session, err := agent.StartSession(ctx, &acp1.NewSessionRequest{Cwd: "/"})
 if err != nil {
     log.Fatal(err)
 }
-defer agent.Close()
-
-agent.Initialize(ctx, &acp1.InitializeRequest{ // ProtocolVersion이 0이면 acp1.ProtocolVersion을 보냄
-    ClientCapabilities: acp1.ClientCapabilitiesOf(client),
-})
-session, _ := agent.StartSession(ctx, &acp1.NewSessionRequest{Cwd: cwd})
-
-turn, _ := session.Prompt(ctx, acp1.TextBlock("README.md를 요약해줘"))
-for update := range turn.Updates() {
-    render(update) // 도구 호출, 계획, 메시지 조각...
+turn, err := session.Prompt(ctx, acp1.TextBlock("hello"))
+if err != nil {
+    log.Fatal(err)
 }
-response, err := turn.Wait() // 또는: text, response, err := turn.Text()
-```
-
-`SpawnAgent`는 읽기 루프를 이미 시작한 상태로 돌려주며, `agent.Wait()`가 프로세스와 연결이 어떻게
-끝났는지 알려 줍니다. `cmd.Stderr`를 지정하지 않으면 에이전트의 stderr는 부모 프로세스로 전달됩니다.
-`acp1.Pipe`는 에이전트와 클라이언트를 메모리에서 연결하므로 테스트에 유용합니다.
-
-`Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다. 에이전트가 권한을
-묻지 않는다면 `acp1.UnimplementedClient`를 임베드해 둘 다 채울 수 있습니다.
-`SessionUpdate`는 `Turn` 밖의 업데이트까지 모두 받습니다. 알림은 읽기 루프에서 순서대로 처리되므로,
-핸들러 안에서 에이전트 호출의 응답을 기다리면 교착 상태가 됩니다.
-파일 시스템·터미널·elicitation 지원은 `acp1.FileReader`, `acp1.FileWriter`,
-`acp1.TerminalHandler`, `acp1.ElicitationHandler`로 추가하며, `acp1.ClientCapabilitiesOf(client)`가
-대응하는 플래그를 유도합니다.
-
-## 아키텍처
-
-- **`acp`** (루트): `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore`,
-  `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`)
-- **`acphttp`**: 초안 RFD를 따르는 Streamable HTTP·WebSocket transport. stdio 프로그램이 링크하지 않도록 루트와 분리
-- **`acp1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
-- **`acp1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
-- **`acp1.SpawnAgent`**, **`acp1.Pipe`**: 자식 프로세스 에이전트, 또는 메모리 내 양쪽 연결
-- **`acp1.ClientSession`**, **`acp1.Turn`**: 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽음
-- **`acp1.SessionManager`**: 스토어 기반 세션 수명주기와 턴 취소
-- **`acp1.SessionStream`**: union을 직접 만들지 않고 세션 업데이트 전송
-- **`acp1.TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
-- **`acp1.CapabilitiesOf`**: 에이전트가 구현한 인터페이스에서 capability 유도
-- **`acp2`**: 초안 ACP v2(`schema/v2`)용 동일 구조의 파사드
-- **`router.ProtocolRouter`**: v1·v2 에이전트를 한 엔드포인트로 서비스, **`router.ClientConnector`**: 클라이언트 쪽 v2 우선 연결과 v1 fallback
-- **`acpmcp`** (별도 모듈, 불안정): MCP Go SDK 기반 MCP-over-ACP. `HostV1`/`HostV2`가 클라이언트의 MCP 서버를 제공하고 `DialerV1`/`DialerV2`가 에이전트를 연결
-- **`schema/v1`, `schema/v2`**: 생성된 와이어 타입, union, Zod 검증
-
-## 주요 기능
-
-### 취소
-
-나가는 호출의 컨텍스트를 취소하면 해당 요청 ID로 `$/cancel_request`를 보냅니다.
-받는 쪽에서는 해당 핸들러의 컨텍스트가 취소되고, 핸들러가 먼저 응답하지 않으면
-`-32800 Request cancelled`가 전달됩니다. 프롬프트 턴 전체를 취소하는
-`session/cancel`과는 별개입니다([세션 관리](#세션-관리) 참고).
-
-### 에러
-
-핸들러에서 `acp.Err…` 생성자를 반환하면 상대에게 갈 코드를 고를 수 있고, 그 외 에러는 `-32603`이 됩니다.
-상대가 보낸 에러는 `*acp.RequestError`로 돌아옵니다:
-
-```go
-if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
-    // 인증 후 재시도
+text, _, err := turn.Text()
+if err != nil {
+    log.Fatal(err)
 }
+fmt.Println(text) // HELLO
 ```
 
-### 확장 메서드와 `_meta`
+**에이전트**를 만들려면 [Echo Agent](../examples/echo/)부터 시작하세요.
+`Initialize`, `NewSession`, `Prompt`, `Cancel`을 구현하고,
+세션 불러오기 같은 기능은 선택적 인터페이스로 추가합니다.
 
-```go
-type MyAgent struct {
-    acp.ExtRouter // ExtMethodHandler와 ExtNotificationHandler를 구현
-    // ...
-}
+**클라이언트**를 만들려면 [Client](../examples/client/)를 참고하세요.
+`acp1.SpawnAgent`로 stdio 에이전트를 실행하고, `SessionUpdate`와 `RequestPermission`을 구현해
+업데이트와 권한 요청을 처리합니다. 연결 설정과 capability 유도는
+[SDK 가이드](guide.ko.md#에이전트와-클라이언트-구현)에서 설명합니다.
 
-a.HandleExt("_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
-    return &IndexResult{Files: 42}, nil
-})
+## 패키지 선택
 
-result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexParams{Path: "."})
-```
+ACP v1용 `acp1`부터 시작하고, 필요한 기능에 따라 패키지를 추가하세요.
 
-파라미터 디코드에 실패하면 `-32602`, 등록되지 않은 메서드는 `-32601`로 응답하고, 등록되지 않은 알림은
-무시합니다. 모든 `_meta` 필드는 값을 원본 JSON 그대로 보관하는 `acp1.Meta` 타입입니다:
-
-```go
-var meta acp1.Meta
-meta.Set("trace", Trace{ID: "abc"})
-trace, ok, err := params.Meta.Get[Trace]("trace")
-```
-
-### v1과 v2 동시 지원
-
-```go
-r := router.New().
-    WithV1(func(c *acp1.AgentSideConnection) acp1.Agent { return &v1Agent{client: c} }).
-    WithV2(func(c *acp2.AgentSideConnection) acp2.Agent { return &v2Agent{client: c} })
-err := r.Serve(ctx, acp.NewStdioTransport(os.Stdin, os.Stdout))
-```
-
-라우터는 첫 메시지(`initialize`여야 함)를 읽어 요청 버전 이하 중 가장 높은 설정 버전을 고르고,
-initialize 파라미터만 그 버전 모양으로 고칩니다(v1 전용 에이전트에 v2 요청이 오면 `info` → `clientInfo`,
-`fs`/`terminal` 없음으로 다운그레이드). 이후 메시지는 그대로 전달합니다.
-옵션·transport·미들웨어는 루트 `acp` 패키지에 있어 한 값으로 양쪽 파사드를 설정합니다.
-
-두 버전을 모두 지원하는 클라이언트는 `router.NewClient`를 씁니다. 에이전트를 띄워 v2로 initialize하고,
-에이전트가 `protocolVersion` 1로 응답하거나 v2 요청을 거절하면 v1으로 다시 띄웁니다. 그래서 각 버전은
-자기 모양의 initialize 요청을 보냅니다:
-
-```go
-agent, err := router.NewClient().
-    WithV1(newV1Client, &acp1.InitializeRequest{ClientCapabilities: v1Caps}).
-    WithV2(newV2Client, &acp2.InitializeRequest{Info: info}).
-    Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
-defer agent.Close() // Close, Wait, Done, 확장 호출은 버전과 상관없이 동작
-if agent.V2 != nil {
-    // agent.V2, agent.V2Init
-} else {
-    // agent.V1, agent.V1Init
-}
-```
-
-원격 에이전트에는 `Connect`에 dial 함수를 넘깁니다. 시도할 때마다 한 번씩 호출됩니다:
-
-```go
-agent, err := router.NewClient().WithV1(…).WithV2(…).
-    Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
-        return acphttp.NewClientTransport("https://host/acp"), nil // 또는 acphttp.DialWebSocket
-    })
-```
-
-재연결은 다른 SDK와 같이 새 연결입니다: 같은 헤더와 `acphttp.WithCookieJar(jar)`로 다시 연결해 로드 밸런서의
-affinity 쿠키가 같은 백엔드로 보내게 하고, `Initialize` 뒤 에이전트가 `loadSession`을 지원하면 저장해 둔
-세션 id로 `LoadSession`합니다. 끊겨 있던 동안의 메시지는 재전송되지 않습니다(프로토콜 v2의 몫).
-`http-client` 예제의 `-reconnect`가 이 흐름을 보여 줍니다.
-
-짧은 끊김은 그 아래에서 처리됩니다. HTTP 클라이언트는 끊긴 이벤트 스트림을 간격을 늘려 가며 다시 열고,
-서버가 연결이 없다고 답하면 멈춥니다. 서버는 스트림을 새 `GET`에 넘기고, 쓰기에 실패한 메시지는 다시
-보냅니다. 서버는 스트림이 5분 동안 열려 있지 않은 연결을 끝내며(`acphttp.WithIdleTimeout`), WebSocket은 양쪽이
-15초마다 ping을 보내 상대가 응답하지 않으면 닫습니다(서버는 `acphttp.WithWebSocketPing`, 클라이언트는
-`acphttp.WithPingInterval`).
-
-### 세션 관리
-
-```go
-manager := acp1.NewSessionManager(
-    acp1.NewMemoryStore[*MySession](),
-    func(ctx context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *MySession, error) {
-        return acp1.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
-    },
-)
-
-type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession 제공
-}
-
-// 선택: session/new와 session/resume 응답에 모드를 싣고, List가 세션을 설명합니다.
-func (s *MySession) SessionModes() *acp1.SessionModeState {
-    return &acp1.SessionModeState{CurrentModeID: s.mode, AvailableModes: myModes}
-}
-func (s *MySession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
-
-func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
-    return a.List(ctx, params) // cwd 필터, 최근에 갱신된 순
-}
-
-func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // 매니저의 Cancel이 ctx를 취소
-    if err != nil {
-        return nil, err // acp.ErrTurnInProgress: v1 세션은 한 번에 한 턴
-    }
-    defer done()
-    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-    } else if err != nil {
-        return nil, err
-    }
-    return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
-}
-```
-
-에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 세션 상태가 `SessionModesReporter`나
-`SessionConfigOptionsReporter`를 구현하면 session/new와 session/resume 응답에 모드와 설정 옵션이 실립니다.
-매니저는 에이전트만 아는 대화를 재생해야 하는 `session/load`와, v1에서는 선택 사항인 `session/list`를 제공하지
-않습니다. 목록을 지원하는 에이전트는 `ListSessions`를 `List`로 넘기고, `List`는 세션 상태의
-`SessionInfoReporter`로 각 세션을 설명합니다. `Lookup(ctx, id)`는 세션 상태를 돌려주거나, 그대로 반환하면 되는
-오류를 돌려줍니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수 있게 남기며, `DeleteSession`은
-세션을 지우고 없는 세션을 지워도 성공합니다. `acp2.SessionManager`는 목록을 포함한 v2 세션 기본 메서드 전체를
-같은 방식으로 제공합니다. 요청의 컨텍스트를 받고 실패할 수 있는 `acp.SessionStore[ID, T]`, `acp.MemoryStore`,
-`acp.TurnTracker`는 버전과 무관한 구성 요소입니다.
-
-### SessionStream
-
-```go
-stream := acp1.NewSessionStream(client, sessionID)
-
-stream.SendText(ctx, "안녕하세요!")
-stream.StartToolCall(ctx, toolID, "파일 읽기", acp1.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
-stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
-stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // conn.NewTerminal로 만든 터미널
-stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
-stream.WithMeta(meta).SendText(ctx, "…")                                    // 모든 알림에 _meta 첨부
-```
-
-흔한 텍스트 콘텐츠는 `acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts`(프롬프트의 텍스트 블록 iterator),
-`acp1.JoinTexts`(그 텍스트를 이어 붙인 문자열),
-`acp1.ToolText`로, 그 밖의 도구 출력은 `acp1.ToolDiff`와 `acp1.ToolTerminal`로 다룹니다. tool call id는 세션
-안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 무작위 id를
-만듭니다. v2 `SessionStream`은
-메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
-
-### 미들웨어
-
-```go
-conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
-    acp.WithMiddleware(
-        acp.LoggingMiddleware(slog.Default()), // 메서드, 소요 시간, 오류를 slog로 기록
-        acp.TimeoutMiddleware(30*time.Second),
-    ),
-)
-```
-
-`LoggingMiddleware`는 요청을 Info, 자주 오는 session update 같은 알림을 Debug 레벨로 `method`,
-`duration` 속성과 함께 기록하고, 실패하면 Warn 레벨로 `error`와 JSON-RPC `code`를 덧붙입니다.
-
-핸들러의 패닉은 연결이 직접 복구해 `-32603`으로 응답하므로 별도의 recovery 미들웨어가 필요하지 않습니다.
-
-### Union 처리
-
-생성된 union은 sealed variant 인터페이스를 감싸므로, 기존 matcher 대신 타입 스위치를 사용합니다:
-
-```go
-switch update := notification.Update.Variant().(type) {
-case acp1.SessionUpdateAgentMessageChunk:
-    if text, ok := acp1.TextOf(update.Content); ok {
-        fmt.Print(text)
-    }
-case acp1.SessionUpdateToolCall:
-    fmt.Println(update.Title)
-}
-
-update := acp1.NewSessionUpdate(acp1.SessionUpdatePlan{Entries: entries})
-```
-
-이 SDK가 모르는 태그가 와도 메시지가 실패하지 않습니다. 스키마가 정의한 `Custom` variant가 있으면 그쪽으로,
-없으면 생성된 `…Unknown` variant(예: `acp1.SessionUpdateUnknown`)로 디코드되며, `Raw` 필드에 받은 객체가
-그대로 담겨 다시 인코딩할 때도 바뀌지 않습니다. `default` 케이스에서 처리하거나, 프로토콜 권고대로 무시하면 됩니다.
-
-### 선택 필드
-
-선택 필드는 포인터(`omitzero`)라서 명시적인 `false`나 `""`도 인코딩에서 살아남습니다. 모든 포인터 필드에는
-protobuf처럼 nil-safe getter도 생성됩니다. 구조체 포인터는 그대로 돌려주므로 없는 객체를 거쳐도 호출을 이어 갈
-수 있고, 그 밖의 포인터는 역참조해 필드나 receiver가 nil이면 zero value를 돌려줍니다:
-
-```go
-if init.GetAgentCapabilities().GetMCPCapabilities().GetACP() { ... }
-title := params.ToolCall.GetTitle() // 없으면 ""
-```
-
-값이 없다는 사실이 zero value와 다른 의미일 때는 필드를 직접 읽으세요. 예를 들어 터미널의 `ExitCode`가 nil이면
-종료 코드 0이 아니라 시그널로 끝났다는 뜻입니다.
-
-### 연결 옵션
-
-```go
-acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
-    acp.WithWriteQueueSize(500),               // 쓰기 큐 크기
-    acp.WithRequestTimeout(30*time.Second),    // 나가는 호출 기본 타임아웃
-    acp.WithShutdownTimeout(10*time.Second),   // 셧다운 대기 한도
-    acp.WithErrorHandler(func(err error) {}),  // 치명적이지 않은 에러 콜백
-)
-```
-
-## 프로토콜 지원
-
-ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/REVISION) 기준).
-
-### 에이전트 메서드 (클라이언트 → 에이전트)
-
-| 메서드 | Go 인터페이스 |
+| 패키지 | 사용하는 경우 |
 | --- | --- |
-| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
-| `authenticate` | `Authenticator` |
-| `session/load` | `SessionLoader` |
-| `session/list` | `SessionLister` |
-| `session/delete` | `SessionDeleter` |
-| `session/fork` | `SessionForker` (unstable) |
-| `session/resume` | `SessionResumer` |
-| `session/close` | `SessionCloser` |
-| `session/set_mode` | `SessionModeSetter` |
-| `session/set_config_option` | `SessionConfigOptionSetter` |
-| `providers/list`, `providers/set`, `providers/disable` | `ProviderManager` (unstable) |
-| `logout` | `LogoutHandler` |
-| `nes/*` | `NesHandler` (unstable) |
-| `document/did*` | `DocumentHandler` (unstable) |
-| `mcp/message` | `MCPMessageHandler` (unstable) |
-
-### 클라이언트 메서드 (에이전트 → 클라이언트)
-
-| 메서드 | Go 인터페이스 |
-| --- | --- |
-| `session/update`, `session/request_permission` | `Client` (필수) |
-| `fs/read_text_file` | `FileReader` |
-| `fs/write_text_file` | `FileWriter` |
-| `terminal/*` | `TerminalHandler` |
-| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
-
-`$/cancel_request`는 연결이 직접 처리합니다.
-
-### ACP v2 (`acp2`, 초안)
-
-| 메서드 | Go 인터페이스 |
-| --- | --- |
-| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
-| `auth/login`, `auth/logout` | `AuthHandler` |
-| `session/list`, `session/delete`, `session/fork`, `session/resume`, `session/close` | `SessionLister`, `SessionDeleter`, `SessionForker`, `SessionResumer`, `SessionCloser` |
-| `session/set_config_option` | `SessionConfigOptionSetter` |
-| `providers/*` | `ProviderManager` (unstable) |
-| `nes/*`, `document/did*` | `NesHandler`, `DocumentHandler` (unstable) |
-| `mcp/message` (에이전트 측) | `MCPMessageHandler` (unstable) |
-| `session/update`, `session/request_permission` | `Client` (필수) |
-| `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
-| `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
-
-v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
-있습니다. v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때 끝납니다.
-
-턴이 겹치는 프롬프트는 버전별 규칙을 양쪽이 똑같이 따릅니다. v1 세션은 한 번에 한 턴만 돌리므로
-`ClientSession.Prompt`와 `SessionManager.BeginTurn` 모두 두 번째 프롬프트를 `acp.ErrTurnInProgress`(`-32600`)로
-거절합니다. v2에서는 프롬프트가 진행 중인 작업에 합류할 수 있습니다. `Prompt`는 메시지가 접수되면
-`(*Turn, MessageID, error)`를 돌려주며 진행 중인 턴에 합류하고, `SessionManager.JoinTurn`은 에이전트에게 진행 중인
-턴의 context를 넘겨줍니다.
-
-프롬프트 뒤에 보낸 `session/cancel`은 항상 그 프롬프트의 턴에 닿습니다. `ClientSession.Prompt`는 프롬프트를
-전송 대기열에 넣은 뒤에야 돌아오므로 그 뒤의 `Cancel`은 프롬프트 다음에 전송되고, 에이전트 핸들러가
-`BeginTurn`이나 `JoinTurn`을 부르기 전에 도착한 cancel도 그 턴을 `acp.ErrTurnCancelled`로 취소된 채 시작하게
-합니다.
+| [`acp1`](../acp1/) | 안정 버전 ACP v1 에이전트나 클라이언트 구현 |
+| [`acp2`](../acp2/) | 초안 ACP v2 사용. API가 바뀔 수 있음 |
+| [`acp`](../) | 공통 transport, 미들웨어, 에러, 스토어, 타입 있는 확장 설정 |
+| [`acphttp`](../acphttp/) | Streamable HTTP·WebSocket으로 원격 에이전트 연결(초안) |
+| [`router`](../router/) | 두 버전을 함께 제공하거나 v2 → v1 폴백으로 연결 |
+| [`acpmcp`](../acpmcp/) | MCP-over-ACP 연결(별도 모듈, 불안정) |
+| [`schema/v1`](../schema/v1/) / [`schema/v2`](../schema/v2/) | 생성된 와이어 타입과 검증 규칙 사용 |
 
 ## 예제
 
-완전한 작동 예제는 [examples](../examples/README.ko.md) 디렉토리를 참조하세요:
+만들려는 기능에 맞춰 예제를 선택하세요. 실행 명령과 준비 사항은 [예제 가이드](../examples/README.ko.md)에 있습니다.
 
-- **[에코 에이전트](../examples/echo/)** - 가장 작은 에이전트: 필수 메서드 네 개
-- **[에이전트](../examples/agent/)** - 세션, 모드, 취소, 계획, 터미널과 diff를 쓰는 도구 호출, 권한 요청, 확장 메서드
-- **[클라이언트](../examples/client/)** - 모든 stdio 에이전트용 대화형 클라이언트: Ctrl-C 취소, 모드 전환, 터미널, 파일 메서드
-- **[오픈 에이전트](../examples/open-agent/)** - OpenRouter 모델이 이끄는 코딩 에이전트: 스트리밍, 클라이언트의 파일과 터미널을 쓰는 도구 호출, 권한 요청
-- **[HTTP 에이전트](../examples/http-agent/) / [HTTP 클라이언트](../examples/http-client/)** - 같은 연결을 Streamable HTTP 또는 WebSocket으로, Bearer 토큰과 세션을 다시 불러오는 재연결
-- **[듀얼 에이전트](../examples/dual-agent/) / [듀얼 클라이언트](../examples/dual-client/)** - 하나의 엔드포인트에서 v1과 v2 제공, v2에서 v1로 폴백하는 클라이언트, 기록을 재생하는 v2 세션 resume
-- **[인프로세스](../examples/inprocess/)** - `acp1.Pipe`로 한 프로세스 안에서 잇는 에이전트와 클라이언트
-- **[MCP over ACP](../acpmcp/)** (불안정) - 클라이언트가 제공하는 MCP 서버를 ACP 연결로 호출, 별도 모듈 `acpmcp`
+| 목적 | 예제 |
+| --- | --- |
+| 한 프로세스에서 에이전트와 클라이언트 실행 | [In-process](../examples/inprocess/) |
+| 가장 작은 에이전트 구현 | [Echo Agent](../examples/echo/) |
+| 세션, 모드, 도구, 권한 요청 추가 | [Agent](../examples/agent/) |
+| stdio 에이전트와 대화 | [Client](../examples/client/) |
+| OpenRouter 모델을 사용하는 코딩 에이전트 구현 | [Open Agent](../examples/open-agent/) |
+| HTTP·WebSocket 연결 및 세션 다시 불러오기 | [HTTP Agent](../examples/http-agent/) / [HTTP Client](../examples/http-client/) |
+| v1·v2 동시 지원 및 폴백 | [Dual Agent](../examples/dual-agent/) / [Dual Client](../examples/dual-client/) |
+| 클라이언트의 MCP 서버를 에이전트에 제공 | [MCP over ACP](../acpmcp/) |
 
-## 개발
+## 문서
 
-### 빌드
-
-```bash
-go build ./...
-```
-
-### 테스트
-
-```bash
-go test ./...
-```
+- [SDK 가이드](guide.ko.md) — 아키텍처, 에이전트·클라이언트 구현, API 사용법
+- [세션과 취소](guide.ko.md#세션-관리) — 세션 상태와 프롬프트 턴 관리
+- [업데이트 스트리밍](guide.ko.md#sessionstream) — 텍스트, 도구 호출, 계획 전송
+- [전송 계층](guide.ko.md#전송-계층) — stdio, HTTP, WebSocket, 재연결
+- [버전 라우팅](guide.ko.md#v1과-v2-동시-지원) — 두 버전 제공 및 폴백 설정
+- [프로토콜 지원](protocol-support.ko.md) — 메서드·인터페이스 표와 v1·v2 동작 차이
+- [스키마 생성](../schema/README.md) — 업스트림 입력, 재생성 방법, 현재 제약
 
 ## 기여하기
 
-이것은 비공식 구현체입니다. 프로토콜 사양 변경사항은 [공식 저장소](https://github.com/agentclientprotocol/agent-client-protocol)에 기여해 주세요.
+Go SDK의 이슈와 풀 리퀘스트를 환영합니다. 프로토콜 사양 변경은
+[공식 ACP 저장소](https://github.com/agentclientprotocol/agent-client-protocol)에 제안해 주세요.
 
-Go 구현체 이슈 및 개선사항은 이슈를 열거나 풀 리퀘스트를 보내주세요.
+저장소 루트에서 메인 모듈을 빌드하고 테스트합니다.
+
+```bash
+go build ./...
+go test ./...
+```
+
+MCP 브리지와 스키마 생성기는 별도 모듈입니다. 각각 `acpmcp/`와 `internal/cmd/schema/`에서 테스트하세요.
+자세한 내용은 [MCP 가이드](../acpmcp/README.md)와 [스키마 가이드](../schema/README.md)를 참고하세요.
 
 ## 라이선스
 
-이 구현체는 공식 ACP 사양과 동일한 라이선스를 따릅니다.
-
-## 관련 프로젝트
-
-- **공식 ACP 저장소**: [agentclientprotocol/agent-client-protocol](https://github.com/agentclientprotocol/agent-client-protocol)
-- **Rust 구현체**: 공식 저장소의 일부
-- **프로토콜 문서**: [agentclientprotocol.com](https://agentclientprotocol.com/)
-
-### ACP를 지원하는 에디터
-
-- [Zed](https://zed.dev/docs/ai/external-agents)
-- [neovim](https://neovim.io) - [CodeCompanion](https://github.com/olimorris/codecompanion.nvim) 플러그인을 통해
-- [yetone/avante.nvim](https://github.com/yetone/avante.nvim): Cursor AI IDE의 동작을 에뮬레이트하도록 설계된 Neovim 플러그인
+라이선스 조건은 [LICENSE](../LICENSE)를 참고하세요.
