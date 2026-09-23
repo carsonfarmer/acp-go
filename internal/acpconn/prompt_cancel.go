@@ -34,9 +34,7 @@ func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.Not
 		}
 		return notification(ctx, method, params)
 	}
-	opts = append(slices.Clone(opts), func(o *Options) {
-		o.JSONRPC = append(o.JSONRPC, jsonrpc.WithRequestContext(prompts.accept))
-	})
+	opts = append(slices.Clone(opts), jsonrpc.WithRequestContext(prompts.accept))
 	return NewConnection(request, notify, transport, opts)
 }
 

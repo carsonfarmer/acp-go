@@ -2,7 +2,6 @@ package acp2
 
 import (
 	"context"
-	"io"
 	"os/exec"
 
 	acp "github.com/ironpark/acp-go"
@@ -28,8 +27,8 @@ import (
 // exit error if it failed, or the connection's read error.
 func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*RemoteAgent, error) {
 	var conn *ClientSideConnection
-	wait, err := acpconn.Spawn(ctx, cmd, func(r io.Reader, w io.Writer) acpconn.Conn {
-		conn = NewClientSideConnection(newClient, acp.NewStdioTransport(r, w), opts...)
+	wait, err := acpconn.Spawn(ctx, cmd, func(t acp.Transport) acpconn.Conn {
+		conn = NewClientSideConnection(newClient, t, opts...)
 		return conn
 	})
 	if err != nil {
@@ -46,11 +45,11 @@ func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideCo
 func Pipe(ctx context.Context, newAgent func(*AgentSideConnection) Agent, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*AgentSideConnection, *ClientSideConnection) {
 	var agent *AgentSideConnection
 	var client *ClientSideConnection
-	acpconn.Pipe(ctx, func(r io.Reader, w io.Writer) acpconn.Conn {
-		agent = NewAgentSideConnection(newAgent, acp.NewStdioTransport(r, w), opts...)
+	acpconn.Pipe(ctx, func(t acp.Transport) acpconn.Conn {
+		agent = NewAgentSideConnection(newAgent, t, opts...)
 		return agent
-	}, func(r io.Reader, w io.Writer) acpconn.Conn {
-		client = NewClientSideConnection(newClient, acp.NewStdioTransport(r, w), opts...)
+	}, func(t acp.Transport) acpconn.Conn {
+		client = NewClientSideConnection(newClient, t, opts...)
 		return client
 	})
 	return agent, client

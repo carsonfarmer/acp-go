@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // Conn is the lifecycle surface both façades' connections share.
@@ -25,7 +27,7 @@ type Conn interface {
 // The returned wait blocks until both have stopped. It reports ctx's error if
 // ctx ended the process, otherwise the process's exit error, otherwise the
 // read loop's error.
-func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(r io.Reader, w io.Writer) Conn) (wait func() error, err error) {
+func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) Conn) (wait func() error, err error) {
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("agent stdin pipe: %w", err)
@@ -44,7 +46,7 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(r io.Reader, w io.Wr
 		return nil, fmt.Errorf("start agent process: %w", err)
 	}
 
-	conn := connect(stdout, stdin)
+	conn := connect(jsonrpc.NewStdioTransport(stdout, stdin))
 	stopKill := context.AfterFunc(ctx, func() { _ = cmd.Process.Kill() })
 	// Closing the agent's stdin is how a stdio agent learns the client is
 	// gone; it exits, and the read loop then sees EOF on its stdout.
@@ -78,11 +80,11 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(r io.Reader, w io.Wr
 
 // Pipe connects two connections in memory and starts both read loops. When
 // either side stops, both pipes close, so the other side reads EOF and stops.
-func Pipe(ctx context.Context, agent, client func(r io.Reader, w io.Writer) Conn) {
+func Pipe(ctx context.Context, agent, client func(jsonrpc.Transport) Conn) {
 	toAgentR, toAgentW := io.Pipe()
 	toClientR, toClientW := io.Pipe()
-	a := agent(toAgentR, toClientW)
-	c := client(toClientR, toAgentW)
+	a := agent(jsonrpc.NewStdioTransport(toAgentR, toClientW))
+	c := client(jsonrpc.NewStdioTransport(toClientR, toAgentW))
 	closeAll := sync.OnceFunc(func() {
 		for _, p := range []io.Closer{toAgentR, toAgentW, toClientR, toClientW} {
 			_ = p.Close()

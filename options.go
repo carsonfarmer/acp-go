@@ -4,7 +4,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/ironpark/acp-go/internal/acpconn"
 	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
@@ -29,23 +28,23 @@ func NewStdioTransport(reader io.Reader, writer io.Writer) Transport {
 }
 
 // Option configures a connection. The same option values configure the v2
-// façade, so a transport or middleware set up once serves either version.
-type Option = acpconn.Option
+// façade, so middleware or timeouts set up once serve either version.
+type Option = jsonrpc.Option
 
 // WithErrorHandler sets a callback for non-fatal errors: undecodable messages,
 // write failures and errors returned by notification handlers.
-func WithErrorHandler(h func(error)) Option { return acpconn.WithErrorHandler(h) }
+func WithErrorHandler(h func(error)) Option { return jsonrpc.WithErrorHandler(h) }
 
 // WithMiddleware adds middleware to the incoming handler chain.
-func WithMiddleware(mw ...Middleware) Option { return acpconn.WithMiddleware(mw...) }
+func WithMiddleware(mw ...Middleware) Option { return jsonrpc.WithMiddleware(mw...) }
 
 // WithWriteQueueSize sets the outgoing queue depth. Default: 100.
-func WithWriteQueueSize(size int) Option { return acpconn.WithWriteQueueSize(size) }
+func WithWriteQueueSize(size int) Option { return jsonrpc.WithWriteQueueSize(size) }
 
 // WithRequestTimeout bounds outgoing requests whose caller context carries no
 // deadline of its own. Default: none.
-func WithRequestTimeout(d time.Duration) Option { return acpconn.WithRequestTimeout(d) }
+func WithRequestTimeout(d time.Duration) Option { return jsonrpc.WithRequestTimeout(d) }
 
 // WithShutdownTimeout bounds how long Close waits for in-flight handlers.
 // Default: wait indefinitely.
-func WithShutdownTimeout(d time.Duration) Option { return acpconn.WithShutdownTimeout(d) }
+func WithShutdownTimeout(d time.Duration) Option { return jsonrpc.WithShutdownTimeout(d) }
