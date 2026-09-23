@@ -62,6 +62,26 @@ func run(args []string) error {
 			results = append(results, result{filepath.Join(*facadeRoot, spec.Dir, name), facadeFiles[name]})
 		}
 	}
+	// Every *.gen.go in an output directory is ours: one the generator no
+	// longer produces is stale, so -check reports it and a write removes it.
+	produced := map[string]bool{}
+	dirs := map[string]bool{}
+	for _, r := range results {
+		produced[r.path] = true
+		dirs[filepath.Dir(r.path)] = true
+	}
+	var orphans []string
+	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
+		matches, err := filepath.Glob(filepath.Join(dir, "*.gen.go"))
+		if err != nil {
+			return err
+		}
+		for _, path := range matches {
+			if !produced[path] {
+				orphans = append(orphans, path)
+			}
+		}
+	}
 	for _, r := range results {
 		if *check {
 			existing, err := os.ReadFile(r.path)
@@ -78,6 +98,14 @@ func run(args []string) error {
 			if err := os.WriteFile(r.path, r.data, 0644); err != nil {
 				return err
 			}
+		}
+	}
+	for _, path := range orphans {
+		if *check {
+			return fmt.Errorf("%s is no longer generated; run go generate ./...", path)
+		}
+		if err := os.Remove(path); err != nil {
+			return err
 		}
 	}
 	return nil

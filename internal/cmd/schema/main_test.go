@@ -48,6 +48,19 @@ func TestPinnedSDKGeneration(t *testing.T) {
 	if err := run(append(args, "-facade", "../../..", "-check")); err != nil {
 		t.Fatal(err)
 	}
+	orphan := filepath.Join(output, "v1", "removed.gen.go")
+	if err := os.WriteFile(orphan, []byte("package schema\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(append(args, "-check")); err == nil {
+		t.Fatal("check accepted a generated file the generator no longer produces")
+	}
+	if err := run(args); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
+		t.Fatalf("generation kept %s: %v", orphan, err)
+	}
 	stale := filepath.Join(output, "v1", "types.gen.go")
 	if err := os.WriteFile(stale, []byte("stale"), 0644); err != nil {
 		t.Fatal(err)
