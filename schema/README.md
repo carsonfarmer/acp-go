@@ -231,7 +231,10 @@ regular expressions are compiled once at package init, when `zod.Link` also prep
 for evaluation without changing what they accept: it resolves references, reads bounds and
 literals once, merges an intersection of objects with distinct properties into one object, and
 indexes a tagged union by its tag, so a value is checked against the variant its tag names (or
-the custom catch-all) instead of against each variant in turn. Plain `json.Unmarshal` without
+the custom catch-all) instead of against each variant in turn. Evaluation parses the input once into a tree
+that shares the input's bytes, applies the rules to the tree, and encodes the result once;
+a part no rule changed is copied as the input wrote it, so the normalized JSON keeps the
+input's property order and spacing there. Plain `json.Unmarshal` without
 `Validated` and raw-union `As[T]` stay lenient.
 
 Identifier and other scalar SDK types are distinct Go types (`type SessionID string`), so they
