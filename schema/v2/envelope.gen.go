@@ -4,13 +4,11 @@ package schema
 
 import (
 	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"fmt"
 
 	"github.com/ironpark/go-acp/schema/union"
 )
 
-// A JSON-RPC request object.
+// AgentRequest is a JSON-RPC request object.
 type AgentRequest struct {
 	// The request id used to correlate the matching response.
 	ID RequestID `json:"id"`
@@ -20,20 +18,21 @@ type AgentRequest struct {
 	Params AgentRequestParams `json:"params,omitzero"`
 }
 
-// JSON RPC Request Id
+// RequestID preserves the complete JSON payload, including future variants.
+// Use [RequestID.As] to read one alternative and [NewRequestID] to build one.
 //
-// An identifier established by the Client that MUST contain a String, Number, or NULL value if included. If it is not included it is assumed to be a notification. The value SHOULD normally not be Null \[1\] and Numbers SHOULD NOT contain fractional parts \[2\]
+// # JSON RPC Request Id
+//
+// An identifier established by the Client that MUST contain a String, Number, or NULL value if included. If it is not included it is assumed to be a notification. The value SHOULD normally not be Null [1] and Numbers SHOULD NOT contain fractional parts [2]
 //
 // The Server MUST reply with the same value in the Response object if included. This member is used to correlate the context between the two objects.
 //
-// \[1\] The use of Null as a value for the id member in a Request object is discouraged, because this specification uses a value of Null for Responses with an unknown id. Also, because JSON-RPC 1.0 uses an id value of Null for Notifications this could cause confusion in handling.
+// [1] The use of Null as a value for the id member in a Request object is discouraged, because this specification uses a value of Null for Responses with an unknown id. Also, because JSON-RPC 1.0 uses an id value of Null for Notifications this could cause confusion in handling.
 //
-// \[2\] Fractional parts may be problematic, since many decimal fractions cannot be represented exactly as binary fractions.
-// RequestID preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewRequestID to build one.
+// [2] Fractional parts may be problematic, since many decimal fractions cannot be represented exactly as binary fractions.
 type RequestID struct{ raw jsontext.Value }
 
-// RequestIDAlternative is the set of Go types a RequestID can hold.
+// RequestIDAlternative is the set of Go types RequestID can hold.
 type RequestIDAlternative interface {
 	jsontext.Value | float64 | string
 }
@@ -44,8 +43,8 @@ var requestIDAlternatives = union.Table(
 	union.Alt[string](union.Rule{NonNull: true}),
 )
 
-// NewRequestID encodes value as a RequestID, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewRequestID encodes value, one of the RequestIDAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewRequestID[T RequestIDAlternative](value T) (RequestID, error) {
 	raw, err := union.New("RequestID", requestIDAlternatives, value)
 	return RequestID{raw: raw}, err
@@ -55,29 +54,22 @@ func NewRequestID[T RequestIDAlternative](value T) (RequestID, error) {
 func (v RequestID) As[T RequestIDAlternative]() (T, error) {
 	return union.As[T]("RequestID", requestIDAlternatives, v.raw)
 }
-func (v RequestID) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *RequestID) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid RequestID JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v RequestID) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v RequestID) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -86,18 +78,14 @@ func (v *RequestID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseRequestID(b []byte) (RequestID, error) {
-	var v RequestID
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
-// A JSON-RPC response object.
+// AgentResponse is a JSON-RPC response object.
+//
 // AgentResponse preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewAgentResponse to build one.
+// Use [AgentResponse.As] to read one alternative and [NewAgentResponse] to build one.
 type AgentResponse struct{ raw jsontext.Value }
 
-// AgentResponseAlternative is the set of Go types a AgentResponse can hold.
+// AgentResponseAlternative is the set of Go types AgentResponse can hold.
 type AgentResponseAlternative interface {
 	AgentResponseResult | AgentResponseError
 }
@@ -107,8 +95,8 @@ var agentResponseAlternatives = union.Table(
 	union.Alt[AgentResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
 )
 
-// NewAgentResponse encodes value as a AgentResponse, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewAgentResponse encodes value, one of the AgentResponseAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewAgentResponse[T AgentResponseAlternative](value T) (AgentResponse, error) {
 	raw, err := union.New("AgentResponse", agentResponseAlternatives, value)
 	return AgentResponse{raw: raw}, err
@@ -118,29 +106,22 @@ func NewAgentResponse[T AgentResponseAlternative](value T) (AgentResponse, error
 func (v AgentResponse) As[T AgentResponseAlternative]() (T, error) {
 	return union.As[T]("AgentResponse", agentResponseAlternatives, v.raw)
 }
-func (v AgentResponse) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *AgentResponse) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid AgentResponse JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v AgentResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v AgentResponse) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AgentResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -149,18 +130,15 @@ func (v *AgentResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseAgentResponse(b []byte) (AgentResponse, error) {
-	var v AgentResponse
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
 // JSON-RPC error object.
 //
 // Represents an error that occurred during method execution, following the
 // JSON-RPC 2.0 error object specification with optional additional data.
 //
-// See protocol docs: [JSON-RPC Error Object](https://www.jsonrpc.org/specification#error_object)
+// See protocol docs: [JSON-RPC Error Object]
+//
+// [JSON-RPC Error Object]: https://www.jsonrpc.org/specification#error_object
 type Error struct {
 	// A number indicating the error type that occurred.
 	// This must be an integer as defined in the JSON-RPC specification.
@@ -173,7 +151,7 @@ type Error struct {
 	Data jsontext.Value `json:"data,omitzero"`
 }
 
-// A JSON-RPC notification object.
+// AgentNotification is a JSON-RPC notification object.
 type AgentNotification struct {
 	// The notification method name.
 	Method string `json:"method"`
@@ -181,7 +159,7 @@ type AgentNotification struct {
 	Params AgentNotificationParams `json:"params,omitzero"`
 }
 
-// A JSON-RPC request object.
+// ClientRequest is a JSON-RPC request object.
 type ClientRequest struct {
 	// The request id used to correlate the matching response.
 	ID RequestID `json:"id"`
@@ -191,12 +169,13 @@ type ClientRequest struct {
 	Params ClientRequestParams `json:"params,omitzero"`
 }
 
-// A JSON-RPC response object.
+// ClientResponse is a JSON-RPC response object.
+//
 // ClientResponse preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewClientResponse to build one.
+// Use [ClientResponse.As] to read one alternative and [NewClientResponse] to build one.
 type ClientResponse struct{ raw jsontext.Value }
 
-// ClientResponseAlternative is the set of Go types a ClientResponse can hold.
+// ClientResponseAlternative is the set of Go types ClientResponse can hold.
 type ClientResponseAlternative interface {
 	ClientResponseResult | ClientResponseError
 }
@@ -206,8 +185,8 @@ var clientResponseAlternatives = union.Table(
 	union.Alt[ClientResponseError](union.Rule{NonNull: true, Required: []string{"id", "error"}, NotNull: []string{"error"}}),
 )
 
-// NewClientResponse encodes value as a ClientResponse, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewClientResponse encodes value, one of the ClientResponseAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewClientResponse[T ClientResponseAlternative](value T) (ClientResponse, error) {
 	raw, err := union.New("ClientResponse", clientResponseAlternatives, value)
 	return ClientResponse{raw: raw}, err
@@ -217,29 +196,22 @@ func NewClientResponse[T ClientResponseAlternative](value T) (ClientResponse, er
 func (v ClientResponse) As[T ClientResponseAlternative]() (T, error) {
 	return union.As[T]("ClientResponse", clientResponseAlternatives, v.raw)
 }
-func (v ClientResponse) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ClientResponse) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ClientResponse JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ClientResponse) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ClientResponse) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ClientResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -248,13 +220,8 @@ func (v *ClientResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseClientResponse(b []byte) (ClientResponse, error) {
-	var v ClientResponse
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
-// A JSON-RPC notification object.
+// ClientNotification is a JSON-RPC notification object.
 type ClientNotification struct {
 	// The notification method name.
 	Method string `json:"method"`
@@ -262,7 +229,7 @@ type ClientNotification struct {
 	Params ClientNotificationParams `json:"params,omitzero"`
 }
 
-// A JSON-RPC notification object.
+// ProtocolLevelNotification is a JSON-RPC notification object.
 type ProtocolLevelNotification struct {
 	// The notification method name.
 	Method string `json:"method"`
@@ -271,10 +238,10 @@ type ProtocolLevelNotification struct {
 }
 
 // AgentRequestParams preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewAgentRequestParams to build one.
+// Use [AgentRequestParams.As] to read one alternative and [NewAgentRequestParams] to build one.
 type AgentRequestParams struct{ raw jsontext.Value }
 
-// AgentRequestParamsAlternative is the set of Go types a AgentRequestParams can hold.
+// AgentRequestParamsAlternative is the set of Go types AgentRequestParams can hold.
 type AgentRequestParamsAlternative interface {
 	RequestPermissionRequest | CreateElicitationRequest | ConnectMCPRequest | MessageMCPRequest | DisconnectMCPRequest | jsontext.Value
 }
@@ -288,8 +255,8 @@ var agentRequestParamsAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewAgentRequestParams encodes value as a AgentRequestParams, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewAgentRequestParams encodes value, one of the AgentRequestParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewAgentRequestParams[T AgentRequestParamsAlternative](value T) (AgentRequestParams, error) {
 	raw, err := union.New("AgentRequestParams", agentRequestParamsAlternatives, value)
 	return AgentRequestParams{raw: raw}, err
@@ -299,29 +266,22 @@ func NewAgentRequestParams[T AgentRequestParamsAlternative](value T) (AgentReque
 func (v AgentRequestParams) As[T AgentRequestParamsAlternative]() (T, error) {
 	return union.As[T]("AgentRequestParams", agentRequestParamsAlternatives, v.raw)
 }
-func (v AgentRequestParams) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *AgentRequestParams) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid AgentRequestParams JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v AgentRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v AgentRequestParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AgentRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -329,11 +289,6 @@ func (v *AgentRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	v.raw = raw.Clone()
 	return nil
-}
-func ParseAgentRequestParams(b []byte) (AgentRequestParams, error) {
-	var v AgentRequestParams
-	err := json.Unmarshal(b, &v)
-	return v, err
 }
 
 type AgentResponseResult struct {
@@ -351,10 +306,10 @@ type AgentResponseError struct {
 }
 
 // AgentNotificationParams preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewAgentNotificationParams to build one.
+// Use [AgentNotificationParams.As] to read one alternative and [NewAgentNotificationParams] to build one.
 type AgentNotificationParams struct{ raw jsontext.Value }
 
-// AgentNotificationParamsAlternative is the set of Go types a AgentNotificationParams can hold.
+// AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
 type AgentNotificationParamsAlternative interface {
 	UpdateSessionNotification | CompleteElicitationNotification | MessageMCPNotification | jsontext.Value
 }
@@ -366,8 +321,8 @@ var agentNotificationParamsAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewAgentNotificationParams encodes value as a AgentNotificationParams, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewAgentNotificationParams encodes value, one of the AgentNotificationParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewAgentNotificationParams[T AgentNotificationParamsAlternative](value T) (AgentNotificationParams, error) {
 	raw, err := union.New("AgentNotificationParams", agentNotificationParamsAlternatives, value)
 	return AgentNotificationParams{raw: raw}, err
@@ -377,29 +332,22 @@ func NewAgentNotificationParams[T AgentNotificationParamsAlternative](value T) (
 func (v AgentNotificationParams) As[T AgentNotificationParamsAlternative]() (T, error) {
 	return union.As[T]("AgentNotificationParams", agentNotificationParamsAlternatives, v.raw)
 }
-func (v AgentNotificationParams) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *AgentNotificationParams) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid AgentNotificationParams JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v AgentNotificationParams) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v AgentNotificationParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AgentNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -408,17 +356,12 @@ func (v *AgentNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseAgentNotificationParams(b []byte) (AgentNotificationParams, error) {
-	var v AgentNotificationParams
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
 // ClientRequestParams preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewClientRequestParams to build one.
+// Use [ClientRequestParams.As] to read one alternative and [NewClientRequestParams] to build one.
 type ClientRequestParams struct{ raw jsontext.Value }
 
-// ClientRequestParamsAlternative is the set of Go types a ClientRequestParams can hold.
+// ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
 type ClientRequestParamsAlternative interface {
 	InitializeRequest | LoginAuthRequest | ListProvidersRequest | SetProviderRequest | DisableProviderRequest | LogoutAuthRequest | NewSessionRequest | ListSessionsRequest | DeleteSessionRequest | ForkSessionRequest | ResumeSessionRequest | CloseSessionRequest | SetSessionConfigOptionRequest | PromptRequest | StartNesRequest | SuggestNesRequest | CloseNesRequest | MessageMCPRequest | jsontext.Value
 }
@@ -445,8 +388,8 @@ var clientRequestParamsAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewClientRequestParams encodes value as a ClientRequestParams, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewClientRequestParams encodes value, one of the ClientRequestParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewClientRequestParams[T ClientRequestParamsAlternative](value T) (ClientRequestParams, error) {
 	raw, err := union.New("ClientRequestParams", clientRequestParamsAlternatives, value)
 	return ClientRequestParams{raw: raw}, err
@@ -456,29 +399,22 @@ func NewClientRequestParams[T ClientRequestParamsAlternative](value T) (ClientRe
 func (v ClientRequestParams) As[T ClientRequestParamsAlternative]() (T, error) {
 	return union.As[T]("ClientRequestParams", clientRequestParamsAlternatives, v.raw)
 }
-func (v ClientRequestParams) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ClientRequestParams) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ClientRequestParams JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ClientRequestParams) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ClientRequestParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ClientRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -486,11 +422,6 @@ func (v *ClientRequestParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	v.raw = raw.Clone()
 	return nil
-}
-func ParseClientRequestParams(b []byte) (ClientRequestParams, error) {
-	var v ClientRequestParams
-	err := json.Unmarshal(b, &v)
-	return v, err
 }
 
 type ClientResponseResult struct {
@@ -508,10 +439,10 @@ type ClientResponseError struct {
 }
 
 // ClientNotificationParams preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewClientNotificationParams to build one.
+// Use [ClientNotificationParams.As] to read one alternative and [NewClientNotificationParams] to build one.
 type ClientNotificationParams struct{ raw jsontext.Value }
 
-// ClientNotificationParamsAlternative is the set of Go types a ClientNotificationParams can hold.
+// ClientNotificationParamsAlternative is the set of Go types ClientNotificationParams can hold.
 type ClientNotificationParamsAlternative interface {
 	CancelSessionNotification | DidOpenDocumentNotification | DidChangeDocumentNotification | DidCloseDocumentNotification | DidSaveDocumentNotification | DidFocusDocumentNotification | AcceptNesNotification | RejectNesNotification | MessageMCPNotification | jsontext.Value
 }
@@ -529,8 +460,8 @@ var clientNotificationParamsAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewClientNotificationParams encodes value as a ClientNotificationParams, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewClientNotificationParams encodes value, one of the ClientNotificationParamsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewClientNotificationParams[T ClientNotificationParamsAlternative](value T) (ClientNotificationParams, error) {
 	raw, err := union.New("ClientNotificationParams", clientNotificationParamsAlternatives, value)
 	return ClientNotificationParams{raw: raw}, err
@@ -540,29 +471,22 @@ func NewClientNotificationParams[T ClientNotificationParamsAlternative](value T)
 func (v ClientNotificationParams) As[T ClientNotificationParamsAlternative]() (T, error) {
 	return union.As[T]("ClientNotificationParams", clientNotificationParamsAlternatives, v.raw)
 }
-func (v ClientNotificationParams) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ClientNotificationParams) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ClientNotificationParams JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ClientNotificationParams) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ClientNotificationParams) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ClientNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -571,17 +495,12 @@ func (v *ClientNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseClientNotificationParams(b []byte) (ClientNotificationParams, error) {
-	var v ClientNotificationParams
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
 // AgentResponseResultResult preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewAgentResponseResultResult to build one.
+// Use [AgentResponseResultResult.As] to read one alternative and [NewAgentResponseResultResult] to build one.
 type AgentResponseResultResult struct{ raw jsontext.Value }
 
-// AgentResponseResultResultAlternative is the set of Go types a AgentResponseResultResult can hold.
+// AgentResponseResultResultAlternative is the set of Go types AgentResponseResultResult can hold.
 type AgentResponseResultResultAlternative interface {
 	InitializeResponse | LoginAuthResponse | ListProvidersResponse | SetProviderResponse | DisableProviderResponse | LogoutAuthResponse | NewSessionResponse | ListSessionsResponse | DeleteSessionResponse | ForkSessionResponse | ResumeSessionResponse | CloseSessionResponse | SetSessionConfigOptionResponse | PromptResponse | StartNesResponse | SuggestNesResponse | CloseNesResponse | jsontext.Value
 }
@@ -607,8 +526,8 @@ var agentResponseResultResultAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewAgentResponseResultResult encodes value as a AgentResponseResultResult, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewAgentResponseResultResult encodes value, one of the AgentResponseResultResultAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewAgentResponseResultResult[T AgentResponseResultResultAlternative](value T) (AgentResponseResultResult, error) {
 	raw, err := union.New("AgentResponseResultResult", agentResponseResultResultAlternatives, value)
 	return AgentResponseResultResult{raw: raw}, err
@@ -618,29 +537,22 @@ func NewAgentResponseResultResult[T AgentResponseResultResultAlternative](value 
 func (v AgentResponseResultResult) As[T AgentResponseResultResultAlternative]() (T, error) {
 	return union.As[T]("AgentResponseResultResult", agentResponseResultResultAlternatives, v.raw)
 }
-func (v AgentResponseResultResult) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *AgentResponseResultResult) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid AgentResponseResultResult JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v AgentResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v AgentResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AgentResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -649,17 +561,12 @@ func (v *AgentResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseAgentResponseResultResult(b []byte) (AgentResponseResultResult, error) {
-	var v AgentResponseResultResult
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
 // ClientResponseResultResult preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewClientResponseResultResult to build one.
+// Use [ClientResponseResultResult.As] to read one alternative and [NewClientResponseResultResult] to build one.
 type ClientResponseResultResult struct{ raw jsontext.Value }
 
-// ClientResponseResultResultAlternative is the set of Go types a ClientResponseResultResult can hold.
+// ClientResponseResultResultAlternative is the set of Go types ClientResponseResultResult can hold.
 type ClientResponseResultResultAlternative interface {
 	RequestPermissionResponse | CreateElicitationResponse | ConnectMCPResponse | DisconnectMCPResponse | jsontext.Value
 }
@@ -672,8 +579,8 @@ var clientResponseResultResultAlternatives = union.Table(
 	union.Alt[jsontext.Value](union.Rule{}),
 )
 
-// NewClientResponseResultResult encodes value as a ClientResponseResultResult, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewClientResponseResultResult encodes value, one of the ClientResponseResultResultAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewClientResponseResultResult[T ClientResponseResultResultAlternative](value T) (ClientResponseResultResult, error) {
 	raw, err := union.New("ClientResponseResultResult", clientResponseResultResultAlternatives, value)
 	return ClientResponseResultResult{raw: raw}, err
@@ -683,29 +590,22 @@ func NewClientResponseResultResult[T ClientResponseResultResultAlternative](valu
 func (v ClientResponseResultResult) As[T ClientResponseResultResultAlternative]() (T, error) {
 	return union.As[T]("ClientResponseResultResult", clientResponseResultResultAlternatives, v.raw)
 }
-func (v ClientResponseResultResult) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ClientResponseResultResult) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ClientResponseResultResult JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ClientResponseResultResult) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ClientResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ClientResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -713,9 +613,4 @@ func (v *ClientResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	}
 	v.raw = raw.Clone()
 	return nil
-}
-func ParseClientResponseResultResult(b []byte) (ClientResponseResultResult, error) {
-	var v ClientResponseResultResult
-	err := json.Unmarshal(b, &v)
-	return v, err
 }

@@ -2,28 +2,29 @@
 
 package schema
 
-import (
-	"slices"
-)
-
-// A unique identifier for a conversation session between a client and agent.
+// SessionID is a unique identifier for a conversation session between a client and agent.
 //
 // Sessions maintain their own context, conversation history, and state,
 // allowing multiple independent interactions with the same agent.
 //
-// See protocol docs: [Session ID](https://agentclientprotocol.com/protocol/v2/draft/session-setup#session-id)
+// See protocol docs: [Session ID]
+//
+// [Session ID]: https://agentclientprotocol.com/protocol/v2/draft/session-setup#session-id
 type SessionID string
 
-// Unique identifier for a tool call within a session.
+// ToolCallID is a unique identifier for a tool call within a session.
 type ToolCallID string
 
+// ToolKind also accepts values outside the listed constants; use [ToolKind.Known] to check.
+//
 // Categories of tools that can be invoked.
 //
 // Tool kinds help clients choose appropriate icons and optimize how they
 // display tool execution progress.
 //
-// See protocol docs: [Creating](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#creating)
-// ToolKind also accepts values outside the listed constants; use Known to check.
+// See protocol docs: [Creating]
+//
+// [Creating]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#creating
 type ToolKind string
 
 const (
@@ -39,18 +40,24 @@ const (
 	ToolKindOther      ToolKind = "other"
 )
 
-// ToolKindValues lists the constants defined by the protocol.
-var ToolKindValues = []ToolKind{ToolKindRead, ToolKindEdit, ToolKindDelete, ToolKindMove, ToolKindSearch, ToolKindExecute, ToolKindThink, ToolKindFetch, ToolKindSwitchMode, ToolKindOther}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v ToolKind) Known() bool { return slices.Contains(ToolKindValues, v) }
+func (v ToolKind) Known() bool {
+	switch v {
+	case ToolKindRead, ToolKindEdit, ToolKindDelete, ToolKindMove, ToolKindSearch, ToolKindExecute, ToolKindThink, ToolKindFetch, ToolKindSwitchMode, ToolKindOther:
+		return true
+	}
+	return false
+}
 
+// ToolCallStatus also accepts values outside the listed constants; use [ToolCallStatus.Known] to check.
+//
 // Execution status of a tool call.
 //
 // Tool calls progress through different statuses during their lifecycle.
 //
-// See protocol docs: [Status](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#status)
-// ToolCallStatus also accepts values outside the listed constants; use Known to check.
+// See protocol docs: [Status]
+//
+// [Status]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#status
 type ToolCallStatus string
 
 const (
@@ -61,14 +68,18 @@ const (
 	ToolCallStatusCancelled  ToolCallStatus = "cancelled"
 )
 
-// ToolCallStatusValues lists the constants defined by the protocol.
-var ToolCallStatusValues = []ToolCallStatus{ToolCallStatusPending, ToolCallStatusInProgress, ToolCallStatusCompleted, ToolCallStatusFailed, ToolCallStatusCancelled}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v ToolCallStatus) Known() bool { return slices.Contains(ToolCallStatusValues, v) }
+func (v ToolCallStatus) Known() bool {
+	switch v {
+	case ToolCallStatusPending, ToolCallStatusInProgress, ToolCallStatusCompleted, ToolCallStatusFailed, ToolCallStatusCancelled:
+		return true
+	}
+	return false
+}
 
-// The sender or recipient of messages and data in a conversation.
-// Role also accepts values outside the listed constants; use Known to check.
+// Role is the sender or recipient of messages and data in a conversation.
+//
+// Role also accepts values outside the listed constants; use [Role.Known] to check.
 type Role string
 
 const (
@@ -76,17 +87,21 @@ const (
 	RoleUser      Role = "user"
 )
 
-// RoleValues lists the constants defined by the protocol.
-var RoleValues = []Role{RoleAssistant, RoleUser}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v Role) Known() bool { return slices.Contains(RoleValues, v) }
+func (v Role) Known() bool {
+	switch v {
+	case RoleAssistant, RoleUser:
+		return true
+	}
+	return false
+}
 
-// An Internet media type identifying the format of protocol content.
+// MediaType is an Internet media type identifying the format of protocol content.
 type MediaType string
 
+// IconTheme also accepts values outside the listed constants; use [IconTheme.Known] to check.
+//
 // Theme an icon is designed for.
-// IconTheme also accepts values outside the listed constants; use Known to check.
 type IconTheme string
 
 const (
@@ -94,14 +109,18 @@ const (
 	IconThemeDark  IconTheme = "dark"
 )
 
-// IconThemeValues lists the constants defined by the protocol.
-var IconThemeValues = []IconTheme{IconThemeLight, IconThemeDark}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v IconTheme) Known() bool { return slices.Contains(IconThemeValues, v) }
+func (v IconTheme) Known() bool {
+	switch v {
+	case IconThemeLight, IconThemeDark:
+		return true
+	}
+	return false
+}
 
+// DiffFileType also accepts values outside the listed constants; use [DiffFileType.Known] to check.
+//
 // Kind of file content represented by a diff change.
-// DiffFileType also accepts values outside the listed constants; use Known to check.
 type DiffFileType string
 
 const (
@@ -111,39 +130,47 @@ const (
 	DiffFileTypeSymlink   DiffFileType = "symlink"
 )
 
-// DiffFileTypeValues lists the constants defined by the protocol.
-var DiffFileTypeValues = []DiffFileType{DiffFileTypeText, DiffFileTypeBinary, DiffFileTypeDirectory, DiffFileTypeSymlink}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v DiffFileType) Known() bool { return slices.Contains(DiffFileTypeValues, v) }
+func (v DiffFileType) Known() bool {
+	switch v {
+	case DiffFileTypeText, DiffFileTypeBinary, DiffFileTypeDirectory, DiffFileTypeSymlink:
+		return true
+	}
+	return false
+}
 
-// An absolute filesystem path used by the protocol.
+// AbsolutePath is an absolute filesystem path used by the protocol.
 type AbsolutePath string
 
-// Text patch format used by [`DiffPatch`].
-// DiffPatchFormat also accepts values outside the listed constants; use Known to check.
+// DiffPatchFormat also accepts values outside the listed constants; use [DiffPatchFormat.Known] to check.
+//
+// Text patch format used by [DiffPatch].
 type DiffPatchFormat string
 
 const (
 	DiffPatchFormatGitPatch DiffPatchFormat = "git_patch"
 )
 
-// DiffPatchFormatValues lists the constants defined by the protocol.
-var DiffPatchFormatValues = []DiffPatchFormat{DiffPatchFormatGitPatch}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v DiffPatchFormat) Known() bool { return slices.Contains(DiffPatchFormatValues, v) }
+func (v DiffPatchFormat) Known() bool {
+	switch v {
+	case DiffPatchFormatGitPatch:
+		return true
+	}
+	return false
+}
 
-// Unique identifier for an agent-owned terminal within a session.
+// TerminalID is a unique identifier for an agent-owned terminal within a session.
 type TerminalID string
 
-// Unique identifier for a permission option.
+// PermissionOptionID is a unique identifier for a permission option.
 type PermissionOptionID string
 
-// The type of permission option being presented to the user.
+// PermissionOptionKind is the type of permission option being presented to the user.
 //
 // Helps clients choose appropriate icons and UI treatment.
-// PermissionOptionKind also accepts values outside the listed constants; use Known to check.
+//
+// PermissionOptionKind also accepts values outside the listed constants; use [PermissionOptionKind.Known] to check.
 type PermissionOptionKind string
 
 const (
@@ -153,11 +180,14 @@ const (
 	PermissionOptionKindRejectAlways PermissionOptionKind = "reject_always"
 )
 
-// PermissionOptionKindValues lists the constants defined by the protocol.
-var PermissionOptionKindValues = []PermissionOptionKind{PermissionOptionKindAllowOnce, PermissionOptionKindAllowAlways, PermissionOptionKindRejectOnce, PermissionOptionKindRejectAlways}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v PermissionOptionKind) Known() bool { return slices.Contains(PermissionOptionKindValues, v) }
+func (v PermissionOptionKind) Known() bool {
+	switch v {
+	case PermissionOptionKindAllowOnce, PermissionOptionKindAllowAlways, PermissionOptionKindRejectOnce, PermissionOptionKindRejectAlways:
+		return true
+	}
+	return false
+}
 
 // Object schema type.
 type ElicitationSchemaType string
@@ -166,8 +196,9 @@ const (
 	ElicitationSchemaTypeObject ElicitationSchemaType = "object"
 )
 
+// StringFormat also accepts values outside the listed constants; use [StringFormat.Known] to check.
+//
 // String format types for string properties in elicitation schemas.
-// StringFormat also accepts values outside the listed constants; use Known to check.
 type StringFormat string
 
 const (
@@ -177,35 +208,30 @@ const (
 	StringFormatDateTime StringFormat = "date-time"
 )
 
-// StringFormatValues lists the constants defined by the protocol.
-var StringFormatValues = []StringFormat{StringFormatEmail, StringFormatURI, StringFormatDate, StringFormatDateTime}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v StringFormat) Known() bool { return slices.Contains(StringFormatValues, v) }
+func (v StringFormat) Known() bool {
+	switch v {
+	case StringFormatEmail, StringFormatURI, StringFormatDate, StringFormatDateTime:
+		return true
+	}
+	return false
+}
 
-// Unique identifier for an elicitation.
+// ElicitationID is a unique identifier for an elicitation.
 type ElicitationID string
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Unique identifier for an MCP server using the ACP transport.
+// MCPServerACPID is a unique identifier for an MCP server using the ACP transport.
 //
 // The value is opaque and generated by the ACP component providing the MCP server. It is
 // used by `mcp/connect` to route connection requests back to the component that declared the
 // server.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type MCPServerACPID string
 
-// **UNSTABLE**
+// MCPConnectionID is a unique identifier for an active MCP-over-ACP connection.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A unique identifier for an active MCP-over-ACP connection.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type MCPConnectionID string
 
 // Protocol version identifier.
@@ -222,32 +248,26 @@ const (
 	TextDocumentSyncKindIncremental TextDocumentSyncKind = "incremental"
 )
 
-// The encoding used for character offsets in positions.
+// PositionEncodingKind is the encoding used for character offsets in positions.
 //
 // Follows the same conventions as LSP 3.17. The default is UTF-16.
 type PositionEncodingKind string
 
 const (
-	PositionEncodingKindUtf16 PositionEncodingKind = "utf-16"
-	PositionEncodingKindUtf32 PositionEncodingKind = "utf-32"
-	PositionEncodingKindUtf8  PositionEncodingKind = "utf-8"
+	PositionEncodingKindUTF16 PositionEncodingKind = "utf-16"
+	PositionEncodingKindUTF32 PositionEncodingKind = "utf-32"
+	PositionEncodingKindUTF8  PositionEncodingKind = "utf-8"
 )
 
 // Typed identifier used for auth method values on the wire.
 type AuthMethodID string
 
-// **UNSTABLE**
+// ProviderID is a unique identifier for a configurable LLM provider.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Unique identifier for a configurable LLM provider.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ProviderID string
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
+// LLMProtocol also accepts values outside the listed constants; use [LLMProtocol.Known] to check.
 //
 // Well-known API protocol identifiers for LLM providers.
 //
@@ -256,27 +276,31 @@ type ProviderID string
 // Protocol names beginning with `_` are free for custom use, like other ACP extension methods.
 // Protocol names that do not begin with `_` are reserved for the ACP spec.
 //
-// @experimental
-// LlmProtocol also accepts values outside the listed constants; use Known to check.
-type LlmProtocol string
+// Experimental: not part of the spec yet; it may change or be removed.
+type LLMProtocol string
 
 const (
-	LlmProtocolAnthropic LlmProtocol = "anthropic"
-	LlmProtocolOpenai    LlmProtocol = "openai"
-	LlmProtocolAzure     LlmProtocol = "azure"
-	LlmProtocolVertex    LlmProtocol = "vertex"
-	LlmProtocolBedrock   LlmProtocol = "bedrock"
+	LLMProtocolAnthropic LLMProtocol = "anthropic"
+	LLMProtocolOpenAI    LLMProtocol = "openai"
+	LLMProtocolAzure     LLMProtocol = "azure"
+	LLMProtocolVertex    LLMProtocol = "vertex"
+	LLMProtocolBedrock   LLMProtocol = "bedrock"
 )
 
-// LlmProtocolValues lists the constants defined by the protocol.
-var LlmProtocolValues = []LlmProtocol{LlmProtocolAnthropic, LlmProtocolOpenai, LlmProtocolAzure, LlmProtocolVertex, LlmProtocolBedrock}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v LlmProtocol) Known() bool { return slices.Contains(LlmProtocolValues, v) }
+func (v LLMProtocol) Known() bool {
+	switch v {
+	case LLMProtocolAnthropic, LLMProtocolOpenAI, LLMProtocolAzure, LLMProtocolVertex, LLMProtocolBedrock:
+		return true
+	}
+	return false
+}
 
-// Unique identifier for a session configuration option.
+// SessionConfigID is a unique identifier for a session configuration option.
 type SessionConfigID string
 
+// SessionConfigOptionCategory also accepts values outside the listed constants; use [SessionConfigOptionCategory.Known] to check.
+//
 // Semantic category for a session configuration option.
 //
 // This is intended to help Clients distinguish broadly common selectors (e.g. model selector vs
@@ -286,7 +310,6 @@ type SessionConfigID string
 //
 // Category names beginning with `_` are free for custom use, like other ACP extension methods.
 // Category names that do not begin with `_` are reserved for the ACP spec.
-// SessionConfigOptionCategory also accepts values outside the listed constants; use Known to check.
 type SessionConfigOptionCategory string
 
 const (
@@ -296,40 +319,38 @@ const (
 	SessionConfigOptionCategoryThoughtLevel SessionConfigOptionCategory = "thought_level"
 )
 
-// SessionConfigOptionCategoryValues lists the constants defined by the protocol.
-var SessionConfigOptionCategoryValues = []SessionConfigOptionCategory{SessionConfigOptionCategoryMode, SessionConfigOptionCategoryModel, SessionConfigOptionCategoryModelConfig, SessionConfigOptionCategoryThoughtLevel}
-
 // Known reports whether v is one of the protocol-defined constants.
 func (v SessionConfigOptionCategory) Known() bool {
-	return slices.Contains(SessionConfigOptionCategoryValues, v)
+	switch v {
+	case SessionConfigOptionCategoryMode, SessionConfigOptionCategoryModel, SessionConfigOptionCategoryModelConfig, SessionConfigOptionCategoryThoughtLevel:
+		return true
+	}
+	return false
 }
 
-// Unique identifier for a session configuration option value.
+// SessionConfigValueID is a unique identifier for a session configuration option value.
 type SessionConfigValueID string
 
-// Unique identifier for a session configuration option value group.
+// SessionConfigGroupID is a unique identifier for a session configuration option value group.
 type SessionConfigGroupID string
 
-// An opaque cursor used to paginate `session/list` results.
+// SessionListCursor is an opaque cursor used to paginate `session/list` results.
 type SessionListCursor string
 
-// Unique identifier for a message within a session.
+// MessageID is a unique identifier for a message within a session.
 type MessageID string
 
-// **UNSTABLE**
+// NesSuggestionID is a unique identifier for an NES suggestion.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Unique identifier for an NES suggestion.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type NesSuggestionID string
 
+// ErrorCode also accepts values outside the listed constants; use [ErrorCode.Known] to check.
+//
 // Predefined error codes for common JSON-RPC and ACP-specific errors.
 //
 // These codes follow the JSON-RPC 2.0 specification for standard errors
 // and use the reserved range (-32000 to -32099) for protocol-specific errors.
-// ErrorCode also accepts values outside the listed constants; use Known to check.
 type ErrorCode int64
 
 const (
@@ -343,16 +364,22 @@ const (
 	ErrorCodeResourceNotFound       ErrorCode = -32002
 )
 
-// ErrorCodeValues lists the constants defined by the protocol.
-var ErrorCodeValues = []ErrorCode{ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v ErrorCode) Known() bool { return slices.Contains(ErrorCodeValues, v) }
+func (v ErrorCode) Known() bool {
+	switch v {
+	case ErrorCodeParseError, ErrorCodeInvalidRequest, ErrorCodeMethodNotFound, ErrorCodeInvalidParams, ErrorCodeInternalError, ErrorCodeRequestCancelled, ErrorCodeAuthenticationRequired, ErrorCodeResourceNotFound:
+		return true
+	}
+	return false
+}
 
+// StopReason also accepts values outside the listed constants; use [StopReason.Known] to check.
+//
 // Reasons why an agent stops active session work.
 //
-// See protocol docs: [Stop Reasons](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons)
-// StopReason also accepts values outside the listed constants; use Known to check.
+// See protocol docs: [Stop Reasons]
+//
+// [Stop Reasons]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#stop-reasons
 type StopReason string
 
 const (
@@ -363,21 +390,27 @@ const (
 	StopReasonCancelled       StopReason = "cancelled"
 )
 
-// StopReasonValues lists the constants defined by the protocol.
-var StopReasonValues = []StopReason{StopReasonEndTurn, StopReasonMaxTokens, StopReasonMaxTurnRequests, StopReasonRefusal, StopReasonCancelled}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v StopReason) Known() bool { return slices.Contains(StopReasonValues, v) }
+func (v StopReason) Known() bool {
+	switch v {
+	case StopReasonEndTurn, StopReasonMaxTokens, StopReasonMaxTurnRequests, StopReasonRefusal, StopReasonCancelled:
+		return true
+	}
+	return false
+}
 
-// Unique identifier for a plan within a session.
+// PlanID is a unique identifier for a plan within a session.
 type PlanID string
 
+// PlanEntryPriority also accepts values outside the listed constants; use [PlanEntryPriority.Known] to check.
+//
 // Priority levels for plan entries.
 //
 // Used to indicate the relative importance or urgency of different
 // tasks in the execution plan.
-// See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/v2/draft/agent-plan#plan-entries)
-// PlanEntryPriority also accepts values outside the listed constants; use Known to check.
+// See protocol docs: [Plan Entries]
+//
+// [Plan Entries]: https://agentclientprotocol.com/protocol/v2/draft/agent-plan#plan-entries
 type PlanEntryPriority string
 
 const (
@@ -386,17 +419,23 @@ const (
 	PlanEntryPriorityLow    PlanEntryPriority = "low"
 )
 
-// PlanEntryPriorityValues lists the constants defined by the protocol.
-var PlanEntryPriorityValues = []PlanEntryPriority{PlanEntryPriorityHigh, PlanEntryPriorityMedium, PlanEntryPriorityLow}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v PlanEntryPriority) Known() bool { return slices.Contains(PlanEntryPriorityValues, v) }
+func (v PlanEntryPriority) Known() bool {
+	switch v {
+	case PlanEntryPriorityHigh, PlanEntryPriorityMedium, PlanEntryPriorityLow:
+		return true
+	}
+	return false
+}
 
+// PlanEntryStatus also accepts values outside the listed constants; use [PlanEntryStatus.Known] to check.
+//
 // Status of a plan entry in the execution flow.
 //
 // Tracks the lifecycle of each task from planning through completion.
-// See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/v2/draft/agent-plan#plan-entries)
-// PlanEntryStatus also accepts values outside the listed constants; use Known to check.
+// See protocol docs: [Plan Entries]
+//
+// [Plan Entries]: https://agentclientprotocol.com/protocol/v2/draft/agent-plan#plan-entries
 type PlanEntryStatus string
 
 const (
@@ -406,20 +445,20 @@ const (
 	PlanEntryStatusCancelled  PlanEntryStatus = "cancelled"
 )
 
-// PlanEntryStatusValues lists the constants defined by the protocol.
-var PlanEntryStatusValues = []PlanEntryStatus{PlanEntryStatusPending, PlanEntryStatusInProgress, PlanEntryStatusCompleted, PlanEntryStatusCancelled}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v PlanEntryStatus) Known() bool { return slices.Contains(PlanEntryStatusValues, v) }
+func (v PlanEntryStatus) Known() bool {
+	switch v {
+	case PlanEntryStatusPending, PlanEntryStatusInProgress, PlanEntryStatusCompleted, PlanEntryStatusCancelled:
+		return true
+	}
+	return false
+}
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
+// NoticeSeverity also accepts values outside the listed constants; use [NoticeSeverity.Known] to check.
 //
 // Severity hint for a session notice.
 //
-// @experimental
-// NoticeSeverity also accepts values outside the listed constants; use Known to check.
+// Experimental: not part of the spec yet; it may change or be removed.
 type NoticeSeverity string
 
 const (
@@ -428,29 +467,25 @@ const (
 	NoticeSeverityError   NoticeSeverity = "error"
 )
 
-// NoticeSeverityValues lists the constants defined by the protocol.
-var NoticeSeverityValues = []NoticeSeverity{NoticeSeverityInfo, NoticeSeverityWarning, NoticeSeverityError}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v NoticeSeverity) Known() bool { return slices.Contains(NoticeSeverityValues, v) }
+func (v NoticeSeverity) Known() bool {
+	switch v {
+	case NoticeSeverityInfo, NoticeSeverityWarning, NoticeSeverityError:
+		return true
+	}
+	return false
+}
 
-// **UNSTABLE**
+// CompactionID is a unique identifier for a context compaction within a session.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Unique identifier for a context compaction within a session.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionID string
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
+// CompactionStatus also accepts values outside the listed constants; use [CompactionStatus.Known] to check.
 //
 // Lifecycle state of a context compaction.
 //
-// @experimental
-// CompactionStatus also accepts values outside the listed constants; use Known to check.
+// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionStatus string
 
 const (
@@ -460,14 +495,18 @@ const (
 	CompactionStatusCancelled  CompactionStatus = "cancelled"
 )
 
-// CompactionStatusValues lists the constants defined by the protocol.
-var CompactionStatusValues = []CompactionStatus{CompactionStatusInProgress, CompactionStatusCompleted, CompactionStatusFailed, CompactionStatusCancelled}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v CompactionStatus) Known() bool { return slices.Contains(CompactionStatusValues, v) }
+func (v CompactionStatus) Known() bool {
+	switch v {
+	case CompactionStatusInProgress, CompactionStatusCompleted, CompactionStatusFailed, CompactionStatusCancelled:
+		return true
+	}
+	return false
+}
 
+// NesTriggerKind also accepts values outside the listed constants; use [NesTriggerKind.Known] to check.
+//
 // What triggered the suggestion request.
-// NesTriggerKind also accepts values outside the listed constants; use Known to check.
 type NesTriggerKind string
 
 const (
@@ -476,14 +515,18 @@ const (
 	NesTriggerKindManual     NesTriggerKind = "manual"
 )
 
-// NesTriggerKindValues lists the constants defined by the protocol.
-var NesTriggerKindValues = []NesTriggerKind{NesTriggerKindAutomatic, NesTriggerKindDiagnostic, NesTriggerKindManual}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v NesTriggerKind) Known() bool { return slices.Contains(NesTriggerKindValues, v) }
+func (v NesTriggerKind) Known() bool {
+	switch v {
+	case NesTriggerKindAutomatic, NesTriggerKindDiagnostic, NesTriggerKindManual:
+		return true
+	}
+	return false
+}
 
+// NesDiagnosticSeverity also accepts values outside the listed constants; use [NesDiagnosticSeverity.Known] to check.
+//
 // Severity of a diagnostic.
-// NesDiagnosticSeverity also accepts values outside the listed constants; use Known to check.
 type NesDiagnosticSeverity string
 
 const (
@@ -493,14 +536,18 @@ const (
 	NesDiagnosticSeverityHint        NesDiagnosticSeverity = "hint"
 )
 
-// NesDiagnosticSeverityValues lists the constants defined by the protocol.
-var NesDiagnosticSeverityValues = []NesDiagnosticSeverity{NesDiagnosticSeverityError, NesDiagnosticSeverityWarning, NesDiagnosticSeverityInformation, NesDiagnosticSeverityHint}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v NesDiagnosticSeverity) Known() bool { return slices.Contains(NesDiagnosticSeverityValues, v) }
+func (v NesDiagnosticSeverity) Known() bool {
+	switch v {
+	case NesDiagnosticSeverityError, NesDiagnosticSeverityWarning, NesDiagnosticSeverityInformation, NesDiagnosticSeverityHint:
+		return true
+	}
+	return false
+}
 
+// NesRejectReason also accepts values outside the listed constants; use [NesRejectReason.Known] to check.
+//
 // The reason a suggestion was rejected.
-// NesRejectReason also accepts values outside the listed constants; use Known to check.
 type NesRejectReason string
 
 const (
@@ -510,8 +557,11 @@ const (
 	NesRejectReasonCancelled NesRejectReason = "cancelled"
 )
 
-// NesRejectReasonValues lists the constants defined by the protocol.
-var NesRejectReasonValues = []NesRejectReason{NesRejectReasonRejected, NesRejectReasonIgnored, NesRejectReasonReplaced, NesRejectReasonCancelled}
-
 // Known reports whether v is one of the protocol-defined constants.
-func (v NesRejectReason) Known() bool { return slices.Contains(NesRejectReasonValues, v) }
+func (v NesRejectReason) Known() bool {
+	switch v {
+	case NesRejectReasonRejected, NesRejectReasonIgnored, NesRejectReasonReplaced, NesRejectReasonCancelled:
+		return true
+	}
+	return false
+}

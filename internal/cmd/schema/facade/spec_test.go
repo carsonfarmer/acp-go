@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/go-acp/internal/cmd/schema/tsgen"
 )
 
 const fixture = `
@@ -128,6 +129,26 @@ func TestPinnedTablesMatchPinnedSchemas(t *testing.T) {
 		}
 		if _, err := Generate(s, schema); err != nil {
 			t.Fatalf("%s: %v", version, err)
+		}
+	}
+}
+
+// TestTableNamesFollowGoNaming keeps the hand-written names in the method
+// tables in line with the generator's initialisms, so a façade method never
+// spells a word differently from the types it takes.
+func TestTableNamesFollowGoNaming(t *testing.T) {
+	for version, s := range map[string]*Spec{"v1": V1, "v2": V2} {
+		for _, groups := range [][]Group{s.Agent, s.Client} {
+			for _, g := range groups {
+				if g.Interface != "" && tsgen.Name(g.Interface) != g.Interface {
+					t.Errorf("%s: interface %s should be %s", version, g.Interface, tsgen.Name(g.Interface))
+				}
+				for _, m := range g.Methods {
+					if tsgen.Name(m.Name) != m.Name {
+						t.Errorf("%s: method %s should be %s", version, m.Name, tsgen.Name(m.Name))
+					}
+				}
+			}
 		}
 	}
 }

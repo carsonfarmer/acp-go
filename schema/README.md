@@ -71,7 +71,7 @@ Optional scalar fields use pointers with `omitzero`, retaining explicit false, z
 Optional slices and maps are plain values: nil is omitted and an empty non-nil value encodes as `[]` or `{}`.
 Nullable fields use pointers; optional null and absence share the nil representation.
 Literal unions that also admit the underlying primitive, such as `"a" | "b" | string`, produce a
-named scalar type with constants, a `<Type>Values` list and a `Known` method.
+named scalar type with constants and a `Known` method.
 Unconstrained TypeScript numbers use `float64`; unknown payloads use `jsontext.Value` to preserve
 large numbers and extension data. Object index signatures use JSON v2's `embed` fallback:
 additional properties retain their declared value type, and duplicate keys that collide with
@@ -107,10 +107,25 @@ tags round-trip unchanged including large numbers. A tagged union without one ge
 `<Type>Unknown{Raw jsontext.Value}` variant instead: unknown tags decode into it and `Raw` is
 encoded unchanged, so a peer on a newer schema never fails the whole message. Its `Validated`
 rule is wrapped in a Go-only `OpenTags` rule that lets unknown tags through while known tags are
-still validated in full; this is deliberately more lenient than the TypeScript SDK. Members of the form `Inner & { tag: "x" }`
-where `Inner` is itself a union (for example `StateUpdate` inside `SessionUpdate`) become
-`struct { Value Inner }`; the outer tag is spliced into the inner object on encode and removed
-on decode. Missing required members are not rejected by plain decoding; use `Validated` for
+still validated in full; this is deliberately more lenient than the TypeScript SDK. A catch-all
+that is not a single object (`(A | B) & { tag: string; … }`) is also represented by `Unknown`.
+Members of the form `Inner & { tag: "x" }` where `Inner` is, or expands to, a union (for example
+`StateUpdate` inside `SessionUpdate`) become `struct { Value Inner }`; the outer tag is spliced
+into the inner object on encode and removed on decode.
+
+One member may leave the tag out entirely, as v1 `McpServer`'s stdio transport does. It is the
+default variant: a payload without the tag decodes into it, it encodes without one, and, as in the
+SDK, a payload with a tag this SDK does not know falls back to it too (such unions need no
+`Unknown` variant). When that member is a schema type nothing else refers to (`MCPServerStdio`),
+the type itself is the variant.
+
+A member `Base & { tag: "x" }` whose `Base` nothing else refers to takes `Base` over: `Base` is not
+declared on its own, and the variant, under its usual name, keeps `Base`'s comment and gets a Zod
+rule that is `Base`'s rule plus the tag, so `Decode`/`Validate` work on it. The variant's name is
+often `Base`'s own (`MCPServer` + `"http"` = `MCPServerHTTP`); otherwise the duplicate goes away
+(v2 `IdleStateUpdate` is `StateUpdateIdle`, v1 `TextContent` is `ContentBlockText`).
+
+Missing required members are not rejected by plain decoding; use `Validated` for
 SDK-level validation. The zero wrapper encodes as `null`, `null` decodes to the zero wrapper, and
 wrappers implement `IsZero`, so optional union fields are plain values omitted when unset.
 Callers that prefer interface-typed fields can declare `<Type>Variant` fields directly and decode
@@ -118,7 +133,7 @@ with `json.WithUnmarshalers(acpv2.Unmarshalers)`; encoding needs no options.
 
 Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
 method `params` unions, ...) preserve their JSON payload and expose a generic method `As[T]`, a
-generic constructor `New<Union>[T]`, plus `Parse…` and `RawJSON`. Both are constrained by the
+generic constructor `New<Union>[T]`, plus `RawJSON`. Both are constrained by the
 generated type set `<Union>Alternative`, so asking for a type the union cannot hold is a compile
 error (generic methods require Go 1.27):
 
@@ -132,9 +147,17 @@ Alternatives that name the same Go type (`ExtResponse` and `MessageMCPResponse` 
 the schema, so declaration order does not matter. Each alternative contributes a `union.Rule` —
 required and non-nullable members, literal tags, scalar literal, null — kept in a per-union
 `union.Table`; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
-not, and `New<Union>` rejects values that match no rule. Object types with required literal
-members (`CreateElicitationRequestForm.Mode`) fix those members in their own `MarshalJSON` /
-`MarshalJSONTo`, so a zero value encodes as its alternative with or without the constructor. Tagged unions offer `As[T]` over their `<Type>Variant` types
+not, and `New<Union>` rejects values that match no rule. Alternatives are named after their
+literal members, `Custom` for a catch-all with an index signature, or else the required members
+no sibling has; alternatives that would share a name get the members that set them apart within
+that group appended (`CreateElicitationRequestFormSession`, `…FormRequest`). An id member names
+what it identifies (`sessionId` gives `Session`), since `…SessionID` would read as an identifier
+type. Object types with required literal members (`CreateElicitationRequestFormSession.Mode`) fix
+those members in their own `MarshalJSONTo`, so a zero value encodes as its alternative with or
+without the constructor.
+Generated types implement only the JSON v2 method pair; `encoding/json` honors it as well.
+
+Tagged unions offer `As[T]` over their `<Type>Variant` types
 alongside the `Variant()` type switch; there it returns `(T, bool)` like a type assertion, since
 the variant is already decoded:
 
@@ -154,12 +177,32 @@ resolution, alternative rules, import detection), plus both pinned SDK versions.
 ## Generated API naming
 
 Method constants use Go-style names such as `AgentMethodsSessionNew` and
-`ClientMethodsSessionUpdate`. `CurrentProtocolVersion` is the numeric version constant;
-`ProtocolVersion` is the wire type. Type names retain common initialisms, such as
-`RequestID` and `MCPServerHTTP`. Tagged-union variants are named `<Union><TagValue>`; when
-the SDK already uses that name for the payload type (`AuthMethodTerminal`), the variant gets a
-`Variant` suffix. Collisions involving enum constants, constructors and parse functions fail
-generation rather than producing Go code that cannot compile.
+`ClientMethodsSessionUpdate`, grouped in one `const` block per SDK table. `CurrentProtocolVersion`
+is the numeric version constant; `ProtocolVersion` is the wire type. Names keep Go's
+initialisms in one case, such as `RequestID`, `MCPServerHTTP`, `LLMProtocol` and
+`PositionEncodingKindUTF16`; the list lives in `initialisms` in `internal/cmd/schema/tsgen`, and
+`spellings` fixes words like `OpenAI`; `literalNames` names constants whose value says nothing
+about their meaning (`ErrorCodeParseError` for `-32700`).
+Tagged-union variants are named `<Union><TagValue>`; when an unrelated schema type already has
+that name, the variant gets a `Variant` suffix (a generator test fails if that happens in the
+pinned schemas).
+Open enums report protocol-defined values with `Known`. Collisions involving enum constants and
+constructors fail generation rather than producing Go code that cannot compile.
+
+Doc comments come from the SDK, turned into Go doc comments by rules in
+`internal/cmd/schema/tsgen/doc.go` that apply to every declaration:
+
+- An opening that takes it is led by the declared name (`SessionID is a unique identifier…`,
+  `X is a request to…`); an opening that is already a sentence is kept, and the generated
+  paragraph naming the declaration goes first instead.
+- `**UNSTABLE**` paragraphs and `@experimental` tags become one closing
+  `Experimental: not part of the spec yet; it may change or be removed.` paragraph, the wording
+  the façade tables use too.
+- Markdown links become Go doc links with their definitions at the end, Rust intra-doc links
+  (``[`ContentBlock::Text`]``) become links to the Go declaration (`[ContentBlockText]`), and
+  list items are indented so godoc renders them as lists.
+- The extensibility sentences the SDK repeats on every `_meta` member are dropped; `Meta`
+  documents them once.
 
 ## Zod-aware decoding
 
@@ -178,10 +221,10 @@ err = acpv2.Validate[acpv2.RequestPermissionRequest](data)
 into the generated Go type. `Validate` reports whether that same Zod parser accepts the
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
 The one intended difference from the SDK is `OpenTags`: unknown tags of tagged unions without a
-catch-all are accepted (see above).
+catch-all or default variant are accepted (see above).
 Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time;
 regular expressions are compiled once at package init. Plain `json.Unmarshal` without
-`Validated`, union `Parse…` and `As[T]` stay lenient.
+`Validated` and raw-union `As[T]` stay lenient.
 
 Identifier and other scalar SDK types are distinct Go types (`type SessionID string`), so they
 carry their own rule and cannot be mixed up. Types that are Go aliases (`ExtRequest` and the other `jsontext.Value`

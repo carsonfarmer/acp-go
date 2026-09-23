@@ -11,7 +11,7 @@ import (
 func TestTexts(t *testing.T) {
 	blocks := []acpv1.ContentBlock{
 		acpv1.TextBlock("a"),
-		schema.NewContentBlock(schema.ContentBlockImage{Data: "…", MimeType: "image/png"}),
+		schema.NewContentBlock(schema.ContentBlockImage{Data: "…", MIMEType: "image/png"}),
 		acpv1.TextBlock("b"),
 		acpv1.TextBlock("c"),
 	}

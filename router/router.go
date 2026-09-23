@@ -240,7 +240,7 @@ func v2InitializeToV1(req *schemav2.InitializeRequest) (*schemav1.InitializeRequ
 func v2ClientCapabilitiesToV1(capabilities *schemav2.ClientCapabilities) (*schemav1.ClientCapabilities, error) {
 	no := false
 	result := &schemav1.ClientCapabilities{
-		Fs:       &schemav1.FileSystemCapabilities{ReadTextFile: &no, WriteTextFile: &no},
+		FS:       &schemav1.FileSystemCapabilities{ReadTextFile: &no, WriteTextFile: &no},
 		Terminal: &no,
 		Session: &schemav1.ClientSessionCapabilities{
 			ConfigOptions: &schemav1.SessionConfigOptionsCapabilities{

@@ -8,6 +8,13 @@ import (
 	"testing"
 )
 
+// parse decodes b as a T, the way callers decode a raw union.
+func parse[T any](b []byte) (T, error) {
+	var v T
+	err := json.Unmarshal(b, &v)
+	return v, err
+}
+
 func TestTaggedUnionRoundTrip(t *testing.T) {
 	v := NewMessage(MessageText{Text: "hello"})
 	b, err := json.Marshal(v)
@@ -187,7 +194,7 @@ func TestRawUnions(t *testing.T) {
 		t.Fatal("null constructor accepted number")
 	}
 	for _, source := range []string{`"no"`, `null`, `42`} {
-		v, err := ParseLiteralChoice([]byte(source))
+		v, err := parse[LiteralChoice]([]byte(source))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -195,7 +202,7 @@ func TestRawUnions(t *testing.T) {
 			t.Fatalf("%s matched literal yes", source)
 		}
 	}
-	yes, err := ParseLiteralChoice([]byte(`"yes"`))
+	yes, err := parse[LiteralChoice]([]byte(`"yes"`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +213,7 @@ func TestRawUnions(t *testing.T) {
 		t.Fatal("string matched number")
 	}
 	var nullable NullableChoice
-	if err := nullable.UnmarshalJSON([]byte(" \n null \t")); err != nil {
+	if err := json.Unmarshal([]byte(" \n null \t"), &nullable); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := nullable.As[jsontext.Value](); err != nil {
@@ -215,7 +222,7 @@ func TestRawUnions(t *testing.T) {
 	if _, err := nullable.As[string](); err == nil {
 		t.Fatal("null matched string")
 	}
-	v, err := ParseWithNullable([]byte(`{"value":null}`))
+	v, err := parse[WithNullable]([]byte(`{"value":null}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +240,7 @@ func TestRawUnions(t *testing.T) {
 		t.Fatalf("constructor did not splice the literal member: %s", got)
 	}
 	// Two aliases of one Go type collapse into a single type-set term.
-	either, err := ParseEither([]byte(`null`))
+	either, err := parse[Either]([]byte(`null`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +257,7 @@ func TestRawUnions(t *testing.T) {
 	}
 	// Two literal alternatives sharing a Go type are an OR group.
 	for source, want := range map[string]bool{`"yes"`: true, `"no"`: true, `"maybe"`: false} {
-		answer, err := ParseAnswer([]byte(source))
+		answer, err := parse[Answer]([]byte(source))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -264,26 +271,26 @@ func TestRawUnions(t *testing.T) {
 	if _, err := NewAnswer("maybe"); err == nil {
 		t.Fatal("constructor accepted a value matching no literal")
 	}
-	original, err := ParseLiteralChoice([]byte(`"yes"`))
+	original, err := parse[LiteralChoice]([]byte(`"yes"`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	copied := original
-	if err := copied.UnmarshalJSON([]byte(`7`)); err != nil {
+	if err := json.Unmarshal([]byte(`7`), &copied); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := original.As[string](); err != nil {
 		t.Fatal("decoding a copy changed the original")
 	}
-	encoded, err := original.MarshalJSON()
+	encoded, err := json.Marshal(original)
 	if err != nil {
 		t.Fatal(err)
 	}
 	encoded[0] = '['
 	if original.RawJSON()[0] != '"' {
-		t.Fatal("MarshalJSON exposed mutable storage")
+		t.Fatal("marshaling exposed mutable storage")
 	}
-	if _, err := ParseLiteralChoice([]byte{'"', 0xff, '"'}); err == nil {
+	if _, err := parse[LiteralChoice]([]byte{'"', 0xff, '"'}); err == nil {
 		t.Fatal("accepted invalid UTF-8")
 	}
 }
@@ -319,8 +326,8 @@ func TestOpenEnum(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"kind":"future"}`), &v); err != nil || v.Kind != "future" {
 		t.Fatalf("open enum rejected unknown value: %v", err)
 	}
-	if len(KindValues) != 2 || KindValues[1] != KindWrite {
-		t.Fatal("wrong enum value list")
+	if !KindWrite.Known() {
+		t.Fatal("Known missed a listed constant")
 	}
 }
 
@@ -382,5 +389,67 @@ func TestUnionIsZero(t *testing.T) {
 	var ids struct{ ID Ident }
 	if err := json.Unmarshal([]byte(`{"ID":"x"}`), &ids); err != nil || ids.ID != "x" {
 		t.Fatal("defined identifier type failed to decode")
+	}
+}
+
+// A member without the tag is the default variant, and a tagged member whose
+// base type is named like the variant is that type.
+func TestDefaultVariant(t *testing.T) {
+	var s Server
+	if err := json.Unmarshal([]byte(`{"command":"run"}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := s.As[ServerStdio](); !ok || v.Command != "run" || s.Tag() != "" {
+		t.Fatalf("untagged payload: %#v", s.Variant())
+	}
+	if b, err := json.Marshal(s); err != nil || string(b) != `{"command":"run"}` {
+		t.Fatalf("default variant encoded as %s %v", b, err)
+	}
+	if err := json.Unmarshal([]byte(`{"type":"http","url":"u"}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := s.As[ServerHTTP](); !ok || v.URL != "u" {
+		t.Fatalf("tagged payload: %#v", s.Variant())
+	}
+	if b, err := json.Marshal(s); err != nil || string(b) != `{"type":"http","url":"u"}` {
+		t.Fatalf("tagged variant encoded as %s %v", b, err)
+	}
+	// As in the SDK, an unknown tag does not stop a payload that fits the
+	// default variant.
+	if err := json.Unmarshal([]byte(`{"type":"ws","command":"run"}`), &s); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := s.As[ServerStdio](); !ok || v.Command != "run" {
+		t.Fatalf("unknown tag: %#v", s.Variant())
+	}
+}
+
+// A tagged member whose payload expands to a union wraps that union.
+func TestNestedIntersectionVariant(t *testing.T) {
+	input := `{"kind":"scoped","a":"s","x":1}`
+	var j Job
+	if err := json.Unmarshal([]byte(input), &j); err != nil {
+		t.Fatal(err)
+	}
+	v, ok := j.As[JobScoped]()
+	if !ok {
+		t.Fatalf("got %#v", j.Variant())
+	}
+	if scoped, err := v.Value.As[ScopedA](); err != nil || scoped.A != "s" || scoped.X != 1 {
+		t.Fatalf("payload: %+v %v", scoped, err)
+	}
+	if b, err := json.Marshal(j); err != nil || string(b) != input {
+		t.Fatalf("encoded as %s %v", b, err)
+	}
+}
+
+// Raw-union alternatives that share a label are told apart by their members.
+func TestDistinguishedLabels(t *testing.T) {
+	ask, err := NewAsk(AskFormB{B: "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ask.As[AskFormA](); err == nil {
+		t.Fatal("FormB payload read as FormA")
 	}
 }

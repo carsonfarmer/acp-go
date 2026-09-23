@@ -116,3 +116,36 @@ func f() { s := strings.ToUpper("x"); _ = s }
 		t.Fatal("invalid body accepted")
 	}
 }
+
+func TestLowerFirst(t *testing.T) {
+	for input, want := range map[string]string{
+		"MCPServer": "mcpServer", "HTTPHeader": "httpHeader", "ID": "id", "Session": "session", "URL": "url", "X": "x",
+	} {
+		if got := lowerFirst(input); got != want {
+			t.Errorf("lowerFirst(%q) = %q; want %q", input, got, want)
+		}
+	}
+}
+
+func TestLeadWithName(t *testing.T) {
+	for sdk, want := range map[string]string{
+		"A unique identifier for a session.":          "X is a unique identifier for a session.",
+		"The sender of messages.":                     "X is the sender of messages.",
+		"Request to start a session.":                 "X is a request to start a session.",
+		"Request parameters for `mcp/connect`.":       "Request parameters for `mcp/connect`.",
+		"The agent is ready to process a prompt.":     "The agent is ready to process a prompt.",
+		"The current mode of the session has changed": "The current mode of the session has changed",
+		"HTTP transport configuration for MCP.":       "HTTP transport configuration for MCP.",
+	} {
+		if got, _ := leadWithName("X", sdk); got != want {
+			t.Errorf("leadWithName(%q) = %q; want %q", sdk, got, want)
+		}
+	}
+}
+
+func TestMetaDoc(t *testing.T) {
+	sdk := "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys. Omitted and `null` are equivalent.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)"
+	if got := metaDoc(sdk); got != "Omitted and `null` are equivalent." {
+		t.Errorf("metaDoc kept %q", got)
+	}
+}

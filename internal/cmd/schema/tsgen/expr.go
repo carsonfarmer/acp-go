@@ -88,8 +88,9 @@ func openEnum(t *tsdef.Type) (base *tsdef.Type, members []*tsdef.Type, ok bool) 
 	return base, members, true
 }
 
-// literalNames overrides constant names for literals that cannot be derived
-// from their value, keyed by TypeScript type name.
+// literalNames names the constants of literals whose value says nothing
+// about their meaning, keyed by Go type name and then by the literal as
+// written in the schema.
 var literalNames = map[string]map[string]string{
 	"ErrorCode": {
 		"-32700": "ParseError",

@@ -10,14 +10,15 @@ import (
 	"github.com/ironpark/go-acp/schema/union"
 )
 
-// The operation requiring permission.
+// RequestPermissionSubject is the operation requiring permission.
+//
 // RequestPermissionSubject is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewRequestPermissionSubject or a type switch on Variant to work with it.
+// encodes as null; use [NewRequestPermissionSubject] or a type switch on [RequestPermissionSubject.Variant] to work with it.
 type RequestPermissionSubject struct {
 	value RequestPermissionSubjectVariant
 }
 
-// RequestPermissionSubjectVariant is implemented by RequestPermissionSubjectToolCall, RequestPermissionSubjectCommand, RequestPermissionSubjectCustom.
+// RequestPermissionSubjectVariant is implemented by [RequestPermissionSubjectToolCall], [RequestPermissionSubjectCommand], [RequestPermissionSubjectCustom].
 type RequestPermissionSubjectVariant interface {
 	requestPermissionSubjectVariant()
 	Tag() string
@@ -48,12 +49,16 @@ func (u RequestPermissionSubject) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u RequestPermissionSubject) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u RequestPermissionSubject) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *RequestPermissionSubject) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalRequestPermissionSubjectVariant(dec, &u.value)
 }
@@ -101,6 +106,8 @@ func unmarshalRequestPermissionSubjectVariant(dec *jsontext.Decoder, out *Reques
 }
 
 // RequestPermissionSubjectToolCall is the RequestPermissionSubject variant with type "tool_call".
+//
+// Permission request details for a tool call.
 type RequestPermissionSubjectToolCall struct {
 	// Details about the tool call requiring permission.
 	ToolCall ToolCallUpdate `json:"toolCall"`
@@ -117,9 +124,12 @@ type requestPermissionSubjectToolCallWire struct {
 	requestPermissionSubjectToolCallFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionSubjectToolCall) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, requestPermissionSubjectToolCallWire{"tool_call", requestPermissionSubjectToolCallFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionSubjectToolCall) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w requestPermissionSubjectToolCallWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -133,6 +143,8 @@ func (v *RequestPermissionSubjectToolCall) UnmarshalJSONFrom(dec *jsontext.Decod
 }
 
 // RequestPermissionSubjectCommand is the RequestPermissionSubject variant with type "command".
+//
+// Permission request details for a command.
 type RequestPermissionSubjectCommand struct {
 	// The command that would be run if permission is granted.
 	Command string `json:"command"`
@@ -142,11 +154,7 @@ type RequestPermissionSubjectCommand struct {
 	ToolCallID *ToolCallID `json:"toolCallId,omitzero"`
 	// The associated terminal, when already known. Omitted and `null` are equivalent.
 	TerminalID *TerminalID `json:"terminalId,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. Omitted and `null` are equivalent and mean no subject metadata was provided.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted and `null` are equivalent and mean no subject metadata was provided.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -161,9 +169,12 @@ type requestPermissionSubjectCommandWire struct {
 	requestPermissionSubjectCommandFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionSubjectCommand) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, requestPermissionSubjectCommandWire{"command", requestPermissionSubjectCommandFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionSubjectCommand) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w requestPermissionSubjectCommandWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -176,7 +187,7 @@ func (v *RequestPermissionSubjectCommand) UnmarshalJSONFrom(dec *jsontext.Decode
 	return nil
 }
 
-// RequestPermissionSubjectCustom carries a RequestPermissionSubject value with an unrecognized "type", keeping every member.
+// RequestPermissionSubjectCustom holds RequestPermissionSubject values with an unrecognized "type", keeping every member.
 type RequestPermissionSubjectCustom struct {
 	// Custom or future permission subject type.
 	//
@@ -188,19 +199,24 @@ type RequestPermissionSubjectCustom struct {
 }
 
 func (RequestPermissionSubjectCustom) requestPermissionSubjectVariant() {}
-func (v RequestPermissionSubjectCustom) Tag() string                    { return v.Type }
 
+// Tag returns the "type" member.
+func (v RequestPermissionSubjectCustom) Tag() string { return v.Type }
+
+// ToolCallContent is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewToolCallContent] or a type switch on [ToolCallContent.Variant] to work with it.
+//
 // Content produced by a tool call.
 //
 // Tool calls can produce different types of content including standard
 // content blocks (text, images), file diffs, or display-only terminals.
 //
-// See protocol docs: [Content](https://agentclientprotocol.com/protocol/v2/draft/tool-calls#content)
-// ToolCallContent is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewToolCallContent or a type switch on Variant to work with it.
+// See protocol docs: [Content]
+//
+// [Content]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#content
 type ToolCallContent struct{ value ToolCallContentVariant }
 
-// ToolCallContentVariant is implemented by ToolCallContentContent, ToolCallContentDiff, ToolCallContentTerminal, ToolCallContentCustom.
+// ToolCallContentVariant is implemented by [ToolCallContentContent], [ToolCallContentDiff], [ToolCallContentTerminal], [ToolCallContentCustom].
 type ToolCallContentVariant interface {
 	toolCallContentVariant()
 	Tag() string
@@ -226,12 +242,16 @@ func (u ToolCallContent) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u ToolCallContent) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u ToolCallContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *ToolCallContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalToolCallContentVariant(dec, &u.value)
 }
@@ -285,15 +305,12 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 }
 
 // ToolCallContentContent is the ToolCallContent variant with type "content".
+//
+// Standard content block (text, images, resources).
 type ToolCallContentContent struct {
 	// The actual content block.
 	Content ContentBlock `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta         `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentContent) toolCallContentVariant() {}
@@ -307,9 +324,12 @@ type toolCallContentContentWire struct {
 	toolCallContentContentFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, toolCallContentContentWire{"content", toolCallContentContentFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w toolCallContentContentWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -323,6 +343,17 @@ func (v *ToolCallContentContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 }
 
 // ToolCallContentDiff is the ToolCallContent variant with type "diff".
+//
+// File changes produced by a tool call.
+//
+// `changes` is authoritative for affected absolute paths and operations.
+// `patch` optionally carries renderable text for some or all of those changes
+// and MUST be consistent with `changes`. Agents SHOULD provide `patch` whenever
+// feasible. Clients MUST handle diffs where `patch` is omitted or `null`.
+//
+// See protocol docs: [Content]
+//
+// [Content]: https://agentclientprotocol.com/protocol/v2/draft/tool-calls#content
 type ToolCallContentDiff struct {
 	// Structured file changes described by this diff.
 	//
@@ -333,12 +364,7 @@ type ToolCallContentDiff struct {
 	// Agents SHOULD provide patch text whenever feasible. Omitted or `null`
 	// means no renderable patch text was provided.
 	Patch *DiffPatch `json:"patch,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta       `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentDiff) toolCallContentVariant() {}
@@ -352,9 +378,12 @@ type toolCallContentDiffWire struct {
 	toolCallContentDiffFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentDiff) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, toolCallContentDiffWire{"diff", toolCallContentDiffFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentDiff) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w toolCallContentDiffWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -367,16 +396,16 @@ func (v *ToolCallContentDiff) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// ToolCallContentTerminal is a display-only reference to an agent-owned terminal.
+//
+// Terminal state and output are delivered separately through
+// [SessionUpdateTerminalUpdate] and [SessionUpdateTerminalOutputChunk].
+//
 // ToolCallContentTerminal is the ToolCallContent variant with type "terminal".
 type ToolCallContentTerminal struct {
 	// The ID of the terminal to display.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This metadata is scoped to the content reference. Omitted
-	// and `null` are equivalent and mean no item metadata was provided.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This metadata is scoped to the content reference. Omitted and `null` are equivalent and mean no item metadata was provided.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -391,9 +420,12 @@ type toolCallContentTerminalWire struct {
 	toolCallContentTerminalFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, toolCallContentTerminalWire{"terminal", toolCallContentTerminalFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w toolCallContentTerminalWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -406,7 +438,7 @@ func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return nil
 }
 
-// ToolCallContentCustom carries a ToolCallContent value with an unrecognized "type", keeping every member.
+// ToolCallContentCustom holds ToolCallContent values with an unrecognized "type", keeping every member.
 type ToolCallContentCustom struct {
 	// Custom or future tool call content type.
 	//
@@ -418,28 +450,33 @@ type ToolCallContentCustom struct {
 }
 
 func (ToolCallContentCustom) toolCallContentVariant() {}
-func (v ToolCallContentCustom) Tag() string           { return v.Type }
 
+// Tag returns the "type" member.
+func (v ToolCallContentCustom) Tag() string { return v.Type }
+
+// ContentBlock is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewContentBlock] or a type switch on [ContentBlock.Variant] to work with it.
+//
 // Content blocks represent displayable information in the Agent Client Protocol.
 //
 // They provide a structured way to handle various types of user-facing content—whether
 // it's text from language models, images for analysis, or embedded resources for context.
 //
 // Content blocks appear in:
-// - User prompts sent via `session/prompt`
-// - Language model output reported through `session/update` notifications as
-// message updates or streamed chunks
-// - Progress updates and results from tool calls
+//   - User prompts sent via `session/prompt`
+//   - Language model output reported through `session/update` notifications as
+//     message updates or streamed chunks
+//   - Progress updates and results from tool calls
 //
 // This structure is compatible with the Model Context Protocol (MCP), enabling
 // agents to seamlessly forward content from MCP tool outputs without transformation.
 //
-// See protocol docs: [Content](https://agentclientprotocol.com/protocol/v2/draft/content)
-// ContentBlock is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewContentBlock or a type switch on Variant to work with it.
+// See protocol docs: [Content]
+//
+// [Content]: https://agentclientprotocol.com/protocol/v2/draft/content
 type ContentBlock struct{ value ContentBlockVariant }
 
-// ContentBlockVariant is implemented by ContentBlockText, ContentBlockImage, ContentBlockAudio, ContentBlockResourceLink, ContentBlockResource, ContentBlockCustom.
+// ContentBlockVariant is implemented by [ContentBlockText], [ContentBlockImage], [ContentBlockAudio], [ContentBlockResourceLink], [ContentBlockResource], [ContentBlockCustom].
 type ContentBlockVariant interface {
 	contentBlockVariant()
 	Tag() string
@@ -465,12 +502,16 @@ func (u ContentBlock) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u ContentBlock) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u ContentBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *ContentBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalContentBlockVariant(dec, &u.value)
 }
@@ -536,17 +577,14 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 }
 
 // ContentBlockText is the ContentBlock variant with type "text".
+//
+// Text provided to or from an LLM.
 type ContentBlockText struct {
 	// Text payload carried by this content block.
 	Text string `json:"text"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta         `json:"_meta,omitzero"`
 }
 
 func (ContentBlockText) contentBlockVariant() {}
@@ -560,9 +598,12 @@ type contentBlockTextWire struct {
 	contentBlockTextFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockText) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, contentBlockTextWire{"text", contentBlockTextFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w contentBlockTextWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -575,22 +616,19 @@ func (v *ContentBlockText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// ContentBlockImage is an image provided to or from an LLM.
+//
 // ContentBlockImage is the ContentBlock variant with type "image".
 type ContentBlockImage struct {
 	// Base64-encoded media payload.
 	Data string `json:"data"`
 	// MIME type describing the encoded media payload.
-	MimeType MediaType `json:"mimeType"`
+	MIMEType MediaType `json:"mimeType"`
 	// URI associated with this resource or media payload.
 	URI *string `json:"uri,omitzero"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta         `json:"_meta,omitzero"`
 }
 
 func (ContentBlockImage) contentBlockVariant() {}
@@ -604,9 +642,12 @@ type contentBlockImageWire struct {
 	contentBlockImageFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockImage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, contentBlockImageWire{"image", contentBlockImageFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockImage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w contentBlockImageWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -620,19 +661,16 @@ func (v *ContentBlockImage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // ContentBlockAudio is the ContentBlock variant with type "audio".
+//
+// Audio provided to or from an LLM.
 type ContentBlockAudio struct {
 	// Base64-encoded media payload.
 	Data string `json:"data"`
 	// MIME type describing the encoded media payload.
-	MimeType MediaType `json:"mimeType"`
+	MIMEType MediaType `json:"mimeType"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta         `json:"_meta,omitzero"`
 }
 
 func (ContentBlockAudio) contentBlockVariant() {}
@@ -646,9 +684,12 @@ type contentBlockAudioWire struct {
 	contentBlockAudioFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockAudio) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, contentBlockAudioWire{"audio", contentBlockAudioFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockAudio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w contentBlockAudioWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -662,6 +703,8 @@ func (v *ContentBlockAudio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // ContentBlockResourceLink is the ContentBlock variant with type "resource_link".
+//
+// A resource that the server is capable of reading, included in a prompt or tool call result.
 type ContentBlockResourceLink struct {
 	// Human-readable name shown for this protocol object.
 	Name string `json:"name"`
@@ -674,17 +717,12 @@ type ContentBlockResourceLink struct {
 	// Optional set of sized icons that the client can display in a user interface.
 	Icons []Icon `json:"icons,omitzero"`
 	// MIME type describing the encoded media payload.
-	MimeType *MediaType `json:"mimeType,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
 	// Optional size of the linked resource in bytes, if known.
 	Size *float64 `json:"size,omitzero"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta         `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResourceLink) contentBlockVariant() {}
@@ -698,9 +736,12 @@ type contentBlockResourceLinkWire struct {
 	contentBlockResourceLinkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockResourceLink) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, contentBlockResourceLinkWire{"resource_link", contentBlockResourceLinkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockResourceLink) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w contentBlockResourceLinkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -713,18 +754,15 @@ func (v *ContentBlockResourceLink) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	return nil
 }
 
+// ContentBlockResource is the contents of a resource, embedded into a prompt or tool call result.
+//
 // ContentBlockResource is the ContentBlock variant with type "resource".
 type ContentBlockResource struct {
 	// Embedded resource payload, either text or binary data.
 	Resource EmbeddedResourceResource `json:"resource"`
 	// Optional annotations that help clients decide how to display or route this content.
 	Annotations *Annotations `json:"annotations,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta         `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResource) contentBlockVariant() {}
@@ -738,9 +776,12 @@ type contentBlockResourceWire struct {
 	contentBlockResourceFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, contentBlockResourceWire{"resource", contentBlockResourceFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ContentBlockResource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w contentBlockResourceWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -753,7 +794,7 @@ func (v *ContentBlockResource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// ContentBlockCustom carries a ContentBlock value with an unrecognized "type", keeping every member.
+// ContentBlockCustom holds ContentBlock values with an unrecognized "type", keeping every member.
 type ContentBlockCustom struct {
 	// Custom or future content block type.
 	//
@@ -765,14 +806,17 @@ type ContentBlockCustom struct {
 }
 
 func (ContentBlockCustom) contentBlockVariant() {}
-func (v ContentBlockCustom) Tag() string        { return v.Type }
 
-// Resource content that can be embedded in a message.
+// Tag returns the "type" member.
+func (v ContentBlockCustom) Tag() string { return v.Type }
+
 // EmbeddedResourceResource preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewEmbeddedResourceResource to build one.
+// Use [EmbeddedResourceResource.As] to read one alternative and [NewEmbeddedResourceResource] to build one.
+//
+// Resource content that can be embedded in a message.
 type EmbeddedResourceResource struct{ raw jsontext.Value }
 
-// EmbeddedResourceResourceAlternative is the set of Go types a EmbeddedResourceResource can hold.
+// EmbeddedResourceResourceAlternative is the set of Go types EmbeddedResourceResource can hold.
 type EmbeddedResourceResourceAlternative interface {
 	TextResourceContents | BlobResourceContents
 }
@@ -782,8 +826,8 @@ var embeddedResourceResourceAlternatives = union.Table(
 	union.Alt[BlobResourceContents](union.Rule{NonNull: true, Required: []string{"blob", "uri"}, NotNull: []string{"blob", "uri"}}),
 )
 
-// NewEmbeddedResourceResource encodes value as a EmbeddedResourceResource, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewEmbeddedResourceResource encodes value, one of the EmbeddedResourceResourceAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T) (EmbeddedResourceResource, error) {
 	raw, err := union.New("EmbeddedResourceResource", embeddedResourceResourceAlternatives, value)
 	return EmbeddedResourceResource{raw: raw}, err
@@ -793,29 +837,22 @@ func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T)
 func (v EmbeddedResourceResource) As[T EmbeddedResourceResourceAlternative]() (T, error) {
 	return union.As[T]("EmbeddedResourceResource", embeddedResourceResourceAlternatives, v.raw)
 }
-func (v EmbeddedResourceResource) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *EmbeddedResourceResource) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid EmbeddedResourceResource JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v EmbeddedResourceResource) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v EmbeddedResourceResource) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v EmbeddedResourceResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *EmbeddedResourceResource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -824,21 +861,17 @@ func (v *EmbeddedResourceResource) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseEmbeddedResourceResource(b []byte) (EmbeddedResourceResource, error) {
-	var v EmbeddedResourceResource
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
-// One file-level change described by a [`Diff`].
+// DiffChange is a tagged union discriminated by the "operation" member. The zero value
+// encodes as null; use [NewDiffChange] or a type switch on [DiffChange.Variant] to work with it.
+//
+// One file-level change described by a [ToolCallContentDiff].
 //
 // Structured change metadata lets clients identify affected files and
 // operations without parsing the text patch.
-// DiffChange is a tagged union discriminated by the "operation" member. The zero value
-// encodes as null; use NewDiffChange or a type switch on Variant to work with it.
 type DiffChange struct{ value DiffChangeVariant }
 
-// DiffChangeVariant is implemented by DiffChangeAdd, DiffChangeDelete, DiffChangeModify, DiffChangeMove, DiffChangeCopy, DiffChangeCustom.
+// DiffChangeVariant is implemented by [DiffChangeAdd], [DiffChangeDelete], [DiffChangeModify], [DiffChangeMove], [DiffChangeCopy], [DiffChangeCustom].
 type DiffChangeVariant interface {
 	diffChangeVariant()
 	Tag() string
@@ -864,12 +897,16 @@ func (u DiffChange) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u DiffChange) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u DiffChange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *DiffChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalDiffChangeVariant(dec, &u.value)
 }
@@ -945,13 +982,8 @@ type DiffChangeAdd struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	Meta     Meta       `json:"_meta,omitzero"`
 }
 
 func (DiffChangeAdd) diffChangeVariant() {}
@@ -965,9 +997,12 @@ type diffChangeAddWire struct {
 	diffChangeAddFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeAdd) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, diffChangeAddWire{"add", diffChangeAddFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeAdd) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w diffChangeAddWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -991,13 +1026,8 @@ type DiffChangeDelete struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	Meta     Meta       `json:"_meta,omitzero"`
 }
 
 func (DiffChangeDelete) diffChangeVariant() {}
@@ -1011,9 +1041,12 @@ type diffChangeDeleteWire struct {
 	diffChangeDeleteFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeDelete) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, diffChangeDeleteWire{"delete", diffChangeDeleteFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeDelete) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w diffChangeDeleteWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1037,13 +1070,8 @@ type DiffChangeModify struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	Meta     Meta       `json:"_meta,omitzero"`
 }
 
 func (DiffChangeModify) diffChangeVariant() {}
@@ -1057,9 +1085,12 @@ type diffChangeModifyWire struct {
 	diffChangeModifyFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeModify) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, diffChangeModifyWire{"modify", diffChangeModifyFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeModify) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w diffChangeModifyWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1085,13 +1116,8 @@ type DiffChangeMove struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	Meta     Meta       `json:"_meta,omitzero"`
 }
 
 func (DiffChangeMove) diffChangeVariant() {}
@@ -1105,9 +1131,12 @@ type diffChangeMoveWire struct {
 	diffChangeMoveFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeMove) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, diffChangeMoveWire{"move", diffChangeMoveFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeMove) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w diffChangeMoveWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1133,13 +1162,8 @@ type DiffChangeCopy struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	MIMEType *MediaType `json:"mimeType,omitzero"`
+	Meta     Meta       `json:"_meta,omitzero"`
 }
 
 func (DiffChangeCopy) diffChangeVariant() {}
@@ -1153,9 +1177,12 @@ type diffChangeCopyWire struct {
 	diffChangeCopyFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v DiffChangeCopy) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, diffChangeCopyWire{"copy", diffChangeCopyFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *DiffChangeCopy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w diffChangeCopyWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1168,7 +1195,7 @@ func (v *DiffChangeCopy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// DiffChangeCustom carries a DiffChange value with an unrecognized "operation", keeping every member.
+// DiffChangeCustom holds DiffChange values with an unrecognized "operation", keeping every member.
 type DiffChangeCustom struct {
 	// Custom or future file operation.
 	//
@@ -1183,44 +1210,42 @@ type DiffChangeCustom struct {
 	// MIME type of the file contents.
 	//
 	// Omitted or `null` means the MIME type is unknown.
-	MimeType *MediaType `json:"mimeType,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	MIMEType             *MediaType                `json:"mimeType,omitzero"`
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (DiffChangeCustom) diffChangeVariant() {}
-func (v DiffChangeCustom) Tag() string      { return v.Operation }
 
-// Request from the agent to elicit structured user input.
+// Tag returns the "operation" member.
+func (v DiffChangeCustom) Tag() string { return v.Operation }
+
+// CreateElicitationRequest is a request from the agent to elicit structured user input.
 //
 // The agent sends this to the client to request information from the user,
 // either via a form or by directing them to a URL.
 // Elicitations are tied to a session (optionally a tool call) or a request.
+//
 // CreateElicitationRequest preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewCreateElicitationRequest to build one.
+// Use [CreateElicitationRequest.As] to read one alternative and [NewCreateElicitationRequest] to build one.
 type CreateElicitationRequest struct{ raw jsontext.Value }
 
-// CreateElicitationRequestAlternative is the set of Go types a CreateElicitationRequest can hold.
+// CreateElicitationRequestAlternative is the set of Go types CreateElicitationRequest can hold.
 type CreateElicitationRequestAlternative interface {
-	CreateElicitationRequestForm | CreateElicitationRequestForm2 | CreateElicitationRequestURL | CreateElicitationRequestURL4 | CreateElicitationRequestObject | CreateElicitationRequestObject6
+	CreateElicitationRequestFormSession | CreateElicitationRequestFormRequest | CreateElicitationRequestURLSession | CreateElicitationRequestURLRequest | CreateElicitationRequestCustomSession | CreateElicitationRequestCustomRequest
 }
 
 var createElicitationRequestAlternatives = union.Table(
-	union.Alt[CreateElicitationRequestForm](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema", "mode", "message"}, NotNull: []string{"sessionId", "requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
-	union.Alt[CreateElicitationRequestForm2](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema", "mode", "message"}, NotNull: []string{"requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
-	union.Alt[CreateElicitationRequestURL](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
-	union.Alt[CreateElicitationRequestURL4](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
-	union.Alt[CreateElicitationRequestObject](union.Rule{NonNull: true, Required: []string{"sessionId", "mode", "message"}, NotNull: []string{"sessionId", "mode", "message"}}),
-	union.Alt[CreateElicitationRequestObject6](union.Rule{NonNull: true, Required: []string{"requestId", "mode", "message"}, NotNull: []string{"mode", "message"}}),
+	union.Alt[CreateElicitationRequestFormSession](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema", "mode", "message"}, NotNull: []string{"sessionId", "requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
+	union.Alt[CreateElicitationRequestFormRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema", "mode", "message"}, NotNull: []string{"requestedSchema", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"form\"")}}}),
+	union.Alt[CreateElicitationRequestURLSession](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"sessionId", "elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
+	union.Alt[CreateElicitationRequestURLRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url", "mode", "message"}, NotNull: []string{"elicitationId", "url", "mode", "message"}, Tags: []union.Tag{{Name: "mode", Value: jsontext.Value("\"url\"")}}}),
+	union.Alt[CreateElicitationRequestCustomSession](union.Rule{NonNull: true, Required: []string{"sessionId", "mode", "message"}, NotNull: []string{"sessionId", "mode", "message"}}),
+	union.Alt[CreateElicitationRequestCustomRequest](union.Rule{NonNull: true, Required: []string{"requestId", "mode", "message"}, NotNull: []string{"mode", "message"}}),
 )
 
-// NewCreateElicitationRequest encodes value as a CreateElicitationRequest, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewCreateElicitationRequest encodes value, one of the CreateElicitationRequestAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T) (CreateElicitationRequest, error) {
 	raw, err := union.New("CreateElicitationRequest", createElicitationRequestAlternatives, value)
 	return CreateElicitationRequest{raw: raw}, err
@@ -1230,29 +1255,22 @@ func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T)
 func (v CreateElicitationRequest) As[T CreateElicitationRequestAlternative]() (T, error) {
 	return union.As[T]("CreateElicitationRequest", createElicitationRequestAlternatives, v.raw)
 }
-func (v CreateElicitationRequest) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *CreateElicitationRequest) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid CreateElicitationRequest JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v CreateElicitationRequest) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v CreateElicitationRequest) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -1261,24 +1279,20 @@ func (v *CreateElicitationRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseCreateElicitationRequest(b []byte) (CreateElicitationRequest, error) {
-	var v CreateElicitationRequest
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
+// ElicitationPropertySchema is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewElicitationPropertySchema] or a type switch on [ElicitationPropertySchema.Variant] to work with it.
+//
 // Property schema for elicitation form fields.
 //
 // Each variant corresponds to a JSON Schema `"type"` value.
 // Single-select enums use the `String` variant with `enum` or `oneOf` set.
 // Multi-select enums use the `Array` variant.
-// ElicitationPropertySchema is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewElicitationPropertySchema or a type switch on Variant to work with it.
 type ElicitationPropertySchema struct {
 	value ElicitationPropertySchemaVariant
 }
 
-// ElicitationPropertySchemaVariant is implemented by ElicitationPropertySchemaString, ElicitationPropertySchemaNumber, ElicitationPropertySchemaInteger, ElicitationPropertySchemaBoolean, ElicitationPropertySchemaArray, ElicitationPropertySchemaCustom.
+// ElicitationPropertySchemaVariant is implemented by [ElicitationPropertySchemaString], [ElicitationPropertySchemaNumber], [ElicitationPropertySchemaInteger], [ElicitationPropertySchemaBoolean], [ElicitationPropertySchemaArray], [ElicitationPropertySchemaCustom].
 type ElicitationPropertySchemaVariant interface {
 	elicitationPropertySchemaVariant()
 	Tag() string
@@ -1309,12 +1323,16 @@ func (u ElicitationPropertySchema) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u ElicitationPropertySchema) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u ElicitationPropertySchema) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *ElicitationPropertySchema) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalElicitationPropertySchemaVariant(dec, &u.value)
 }
@@ -1380,6 +1398,11 @@ func unmarshalElicitationPropertySchemaVariant(dec *jsontext.Decoder, out *Elici
 }
 
 // ElicitationPropertySchemaString is the ElicitationPropertySchema variant with type "string".
+//
+// Schema for string properties in an elicitation form.
+//
+// When `enum` or `oneOf` is set, this represents a single-select enum
+// with `"type": "string"`.
 type ElicitationPropertySchemaString struct {
 	// Optional title for the property.
 	//
@@ -1419,13 +1442,7 @@ type ElicitationPropertySchemaString struct {
 	// Optional. Omitted and `null` are equivalent and mean no titled single-select choices are
 	// declared by `oneOf`.
 	OneOf []EnumOption `json:"oneOf,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1440,9 +1457,12 @@ type elicitationPropertySchemaStringWire struct {
 	elicitationPropertySchemaStringFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaString) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, elicitationPropertySchemaStringWire{"string", elicitationPropertySchemaStringFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaString) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w elicitationPropertySchemaStringWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1456,6 +1476,8 @@ func (v *ElicitationPropertySchemaString) UnmarshalJSONFrom(dec *jsontext.Decode
 }
 
 // ElicitationPropertySchemaNumber is the ElicitationPropertySchema variant with type "number".
+//
+// Schema for number (floating-point) properties in an elicitation form.
 type ElicitationPropertySchemaNumber struct {
 	// Optional title for the property.
 	//
@@ -1477,13 +1499,7 @@ type ElicitationPropertySchemaNumber struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *float64 `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1498,9 +1514,12 @@ type elicitationPropertySchemaNumberWire struct {
 	elicitationPropertySchemaNumberFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaNumber) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, elicitationPropertySchemaNumberWire{"number", elicitationPropertySchemaNumberFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaNumber) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w elicitationPropertySchemaNumberWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1514,6 +1533,8 @@ func (v *ElicitationPropertySchemaNumber) UnmarshalJSONFrom(dec *jsontext.Decode
 }
 
 // ElicitationPropertySchemaInteger is the ElicitationPropertySchema variant with type "integer".
+//
+// Schema for integer properties in an elicitation form.
 type ElicitationPropertySchemaInteger struct {
 	// Optional title for the property.
 	//
@@ -1535,13 +1556,7 @@ type ElicitationPropertySchemaInteger struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *float64 `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1556,9 +1571,12 @@ type elicitationPropertySchemaIntegerWire struct {
 	elicitationPropertySchemaIntegerFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaInteger) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, elicitationPropertySchemaIntegerWire{"integer", elicitationPropertySchemaIntegerFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaInteger) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w elicitationPropertySchemaIntegerWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1572,6 +1590,8 @@ func (v *ElicitationPropertySchemaInteger) UnmarshalJSONFrom(dec *jsontext.Decod
 }
 
 // ElicitationPropertySchemaBoolean is the ElicitationPropertySchema variant with type "boolean".
+//
+// Schema for boolean properties in an elicitation form.
 type ElicitationPropertySchemaBoolean struct {
 	// Optional title for the property.
 	//
@@ -1585,13 +1605,7 @@ type ElicitationPropertySchemaBoolean struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
 	Default *bool `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1606,9 +1620,12 @@ type elicitationPropertySchemaBooleanWire struct {
 	elicitationPropertySchemaBooleanFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, elicitationPropertySchemaBooleanWire{"boolean", elicitationPropertySchemaBooleanFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w elicitationPropertySchemaBooleanWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1622,6 +1639,8 @@ func (v *ElicitationPropertySchemaBoolean) UnmarshalJSONFrom(dec *jsontext.Decod
 }
 
 // ElicitationPropertySchemaArray is the ElicitationPropertySchema variant with type "array".
+//
+// Schema for multi-select (array) properties in an elicitation form.
 type ElicitationPropertySchemaArray struct {
 	// Optional title for the property.
 	//
@@ -1645,13 +1664,7 @@ type ElicitationPropertySchemaArray struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no default selections are provided.
 	Default []string `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1666,9 +1679,12 @@ type elicitationPropertySchemaArrayWire struct {
 	elicitationPropertySchemaArrayFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationPropertySchemaArray) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, elicitationPropertySchemaArrayWire{"array", elicitationPropertySchemaArrayFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationPropertySchemaArray) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w elicitationPropertySchemaArrayWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -1681,7 +1697,7 @@ func (v *ElicitationPropertySchemaArray) UnmarshalJSONFrom(dec *jsontext.Decoder
 	return nil
 }
 
-// ElicitationPropertySchemaCustom carries a ElicitationPropertySchema value with an unrecognized "type", keeping every member.
+// ElicitationPropertySchemaCustom holds ElicitationPropertySchema values with an unrecognized "type", keeping every member.
 type ElicitationPropertySchemaCustom struct {
 	// Custom or future elicitation property schema type.
 	//
@@ -1693,89 +1709,183 @@ type ElicitationPropertySchemaCustom struct {
 }
 
 func (ElicitationPropertySchemaCustom) elicitationPropertySchemaVariant() {}
-func (v ElicitationPropertySchemaCustom) Tag() string                     { return v.Type }
 
+// Tag returns the "type" member.
+func (v ElicitationPropertySchemaCustom) Tag() string { return v.Type }
+
+// MultiSelectItems is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewMultiSelectItems] or a type switch on [MultiSelectItems.Variant] to work with it.
+//
 // Items for a multi-select (array) property schema.
-// MultiSelectItems preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewMultiSelectItems to build one.
-type MultiSelectItems struct{ raw jsontext.Value }
+type MultiSelectItems struct{ value MultiSelectItemsVariant }
 
-// MultiSelectItemsAlternative is the set of Go types a MultiSelectItems can hold.
-type MultiSelectItemsAlternative interface {
-	MultiSelectItemsString | MultiSelectItemsObject | TitledMultiSelectItems
+// MultiSelectItemsVariant is implemented by [MultiSelectItemsString], [MultiSelectItemsCustom], [TitledMultiSelectItems].
+type MultiSelectItemsVariant interface {
+	multiSelectItemsVariant()
+	Tag() string
 }
 
-var multiSelectItemsAlternatives = union.Table(
-	union.Alt[MultiSelectItemsString](union.Rule{NonNull: true, Required: []string{"enum", "type"}, NotNull: []string{"enum", "type"}, Tags: []union.Tag{{Name: "type", Value: jsontext.Value("\"string\"")}}}),
-	union.Alt[MultiSelectItemsObject](union.Rule{NonNull: true, Required: []string{"type"}, NotNull: []string{"type"}}),
-	union.Alt[TitledMultiSelectItems](union.Rule{NonNull: true, Required: []string{"anyOf"}, NotNull: []string{"anyOf"}}),
-)
-
-// NewMultiSelectItems encodes value as a MultiSelectItems, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
-func NewMultiSelectItems[T MultiSelectItemsAlternative](value T) (MultiSelectItems, error) {
-	raw, err := union.New("MultiSelectItems", multiSelectItemsAlternatives, value)
-	return MultiSelectItems{raw: raw}, err
+// NewMultiSelectItems wraps a variant; a nil variant yields the zero value.
+func NewMultiSelectItems(v MultiSelectItemsVariant) MultiSelectItems {
+	return MultiSelectItems{value: v}
 }
 
-// As decodes the payload as the alternative T, or reports why it is not one.
-func (v MultiSelectItems) As[T MultiSelectItemsAlternative]() (T, error) {
-	return union.As[T]("MultiSelectItems", multiSelectItemsAlternatives, v.raw)
+// Variant returns the wrapped variant, or nil for the zero value.
+func (u MultiSelectItems) Variant() MultiSelectItemsVariant { return u.value }
+
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u MultiSelectItems) As[T MultiSelectItemsVariant]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
 }
-func (v MultiSelectItems) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
+
+// Tag returns the "type" discriminator, or "" for the zero value.
+func (u MultiSelectItems) Tag() string {
+	if u.value == nil {
+		return ""
 	}
-	return v.raw.Clone(), nil
+	return u.value.Tag()
 }
-func (v *MultiSelectItems) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid MultiSelectItems JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
-func (v MultiSelectItems) RawJSON() jsontext.Value { return v.raw.Clone() }
 
-// IsZero reports whether no payload is stored, so omitzero omits the field.
-func (v MultiSelectItems) IsZero() bool { return len(v.raw) == 0 }
-func (v MultiSelectItems) MarshalJSONTo(enc *jsontext.Encoder) error {
-	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+// IsZero reports whether no variant is set, so omitzero omits the field.
+func (u MultiSelectItems) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (u MultiSelectItems) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if u.value == nil {
+		return enc.WriteToken(jsontext.Null)
 	}
-	return enc.WriteValue(v.raw)
+	return json.MarshalEncode(enc, u.value)
 }
-func (v *MultiSelectItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (u *MultiSelectItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return unmarshalMultiSelectItemsVariant(dec, &u.value)
+}
+
+// unmarshalMultiSelectItemsVariant decodes a MultiSelectItemsVariant by its "type" member; it backs Unmarshalers.
+func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectItemsVariant) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
 		return err
 	}
-	v.raw = raw.Clone()
+	if raw.Kind() == 'n' {
+		*out = nil
+		return nil
+	}
+	if raw.Kind() != '{' {
+		return fmt.Errorf("MultiSelectItems: expected object, got %s", raw.Kind())
+	}
+	var probe struct {
+		Tag *string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+		return fmt.Errorf("MultiSelectItems: %w", err)
+	}
+	if probe.Tag == nil {
+		var v TitledMultiSelectItems
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+		return nil
+	}
+	switch *probe.Tag {
+	case "string":
+		var v MultiSelectItemsString
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	default:
+		var v MultiSelectItemsCustom
+		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
+			return err
+		}
+		*out = v
+	}
 	return nil
 }
-func ParseMultiSelectItems(b []byte) (MultiSelectItems, error) {
-	var v MultiSelectItems
-	err := json.Unmarshal(b, &v)
-	return v, err
+
+// MultiSelectItemsString is the MultiSelectItems variant with type "string".
+//
+// String item schema for multi-select enum properties.
+type MultiSelectItemsString struct {
+	// Allowed enum values. Must contain at least one value.
+	Enum []string `json:"enum"`
+	// Optional. Omitted and `null` are equivalent and mean no metadata.
+	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Form-based elicitation mode where the client renders a form from the provided schema.
+func (MultiSelectItemsString) multiSelectItemsVariant() {}
+
+// Tag returns "string".
+func (MultiSelectItemsString) Tag() string { return "string" }
+
+type multiSelectItemsStringFields MultiSelectItemsString
+type multiSelectItemsStringWire struct {
+	Tag                          string `json:"type"`
+	multiSelectItemsStringFields `json:",inline"`
+}
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v MultiSelectItemsString) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, multiSelectItemsStringWire{"string", multiSelectItemsStringFields(v)})
+}
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *MultiSelectItemsString) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w multiSelectItemsStringWire
+	if err := json.UnmarshalDecode(dec, &w); err != nil {
+		return err
+	}
+	if w.Tag != "string" {
+		return fmt.Errorf("MultiSelectItemsString: expected type \"string\", got %q", w.Tag)
+	}
+	*v = MultiSelectItemsString(w.multiSelectItemsStringFields)
+	return nil
+}
+
+// MultiSelectItemsCustom holds MultiSelectItems values with an unrecognized "type", keeping every member.
+type MultiSelectItemsCustom struct {
+	// Custom or future multi-select item type.
+	//
+	// Values beginning with `_` are reserved for implementation-specific
+	// extensions. Unknown values that do not begin with `_` are reserved for
+	// future ACP variants.
+	Type                 string                    `json:"type"`
+	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+}
+
+func (MultiSelectItemsCustom) multiSelectItemsVariant() {}
+
+// Tag returns the "type" member.
+func (v MultiSelectItemsCustom) Tag() string { return v.Type }
+
+func (TitledMultiSelectItems) multiSelectItemsVariant() {}
+
+// Tag returns "": TitledMultiSelectItems is the MultiSelectItems variant without a "type" member.
+func (TitledMultiSelectItems) Tag() string { return "" }
+
 // ElicitationFormMode preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewElicitationFormMode to build one.
+// Use [ElicitationFormMode.As] to read one alternative and [NewElicitationFormMode] to build one.
+//
+// Form-based elicitation mode where the client renders a form from the provided schema.
 type ElicitationFormMode struct{ raw jsontext.Value }
 
-// ElicitationFormModeAlternative is the set of Go types a ElicitationFormMode can hold.
+// ElicitationFormModeAlternative is the set of Go types ElicitationFormMode can hold.
 type ElicitationFormModeAlternative interface {
-	ElicitationFormModeSessionID | ElicitationFormModeRequestID
+	ElicitationFormModeSession | ElicitationFormModeRequest
 }
 
 var elicitationFormModeAlternatives = union.Table(
-	union.Alt[ElicitationFormModeSessionID](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema"}, NotNull: []string{"sessionId", "requestedSchema"}}),
-	union.Alt[ElicitationFormModeRequestID](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema"}, NotNull: []string{"requestedSchema"}}),
+	union.Alt[ElicitationFormModeSession](union.Rule{NonNull: true, Required: []string{"sessionId", "requestedSchema"}, NotNull: []string{"sessionId", "requestedSchema"}}),
+	union.Alt[ElicitationFormModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "requestedSchema"}, NotNull: []string{"requestedSchema"}}),
 )
 
-// NewElicitationFormMode encodes value as a ElicitationFormMode, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewElicitationFormMode encodes value, one of the ElicitationFormModeAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewElicitationFormMode[T ElicitationFormModeAlternative](value T) (ElicitationFormMode, error) {
 	raw, err := union.New("ElicitationFormMode", elicitationFormModeAlternatives, value)
 	return ElicitationFormMode{raw: raw}, err
@@ -1785,29 +1895,22 @@ func NewElicitationFormMode[T ElicitationFormModeAlternative](value T) (Elicitat
 func (v ElicitationFormMode) As[T ElicitationFormModeAlternative]() (T, error) {
 	return union.As[T]("ElicitationFormMode", elicitationFormModeAlternatives, v.raw)
 }
-func (v ElicitationFormMode) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ElicitationFormMode) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ElicitationFormMode JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ElicitationFormMode) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ElicitationFormMode) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationFormMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationFormMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -1816,29 +1919,25 @@ func (v *ElicitationFormMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseElicitationFormMode(b []byte) (ElicitationFormMode, error) {
-	var v ElicitationFormMode
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
-// URL-based elicitation mode where the client directs the user to a URL.
 // ElicitationURLMode preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewElicitationURLMode to build one.
+// Use [ElicitationURLMode.As] to read one alternative and [NewElicitationURLMode] to build one.
+//
+// URL-based elicitation mode where the client directs the user to a URL.
 type ElicitationURLMode struct{ raw jsontext.Value }
 
-// ElicitationURLModeAlternative is the set of Go types a ElicitationURLMode can hold.
+// ElicitationURLModeAlternative is the set of Go types ElicitationURLMode can hold.
 type ElicitationURLModeAlternative interface {
-	ElicitationURLModeSessionID | ElicitationURLModeRequestID
+	ElicitationURLModeSession | ElicitationURLModeRequest
 }
 
 var elicitationURLModeAlternatives = union.Table(
-	union.Alt[ElicitationURLModeSessionID](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url"}, NotNull: []string{"sessionId", "elicitationId", "url"}}),
-	union.Alt[ElicitationURLModeRequestID](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url"}, NotNull: []string{"elicitationId", "url"}}),
+	union.Alt[ElicitationURLModeSession](union.Rule{NonNull: true, Required: []string{"sessionId", "elicitationId", "url"}, NotNull: []string{"sessionId", "elicitationId", "url"}}),
+	union.Alt[ElicitationURLModeRequest](union.Rule{NonNull: true, Required: []string{"requestId", "elicitationId", "url"}, NotNull: []string{"elicitationId", "url"}}),
 )
 
-// NewElicitationURLMode encodes value as a ElicitationURLMode, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewElicitationURLMode encodes value, one of the ElicitationURLModeAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewElicitationURLMode[T ElicitationURLModeAlternative](value T) (ElicitationURLMode, error) {
 	raw, err := union.New("ElicitationURLMode", elicitationURLModeAlternatives, value)
 	return ElicitationURLMode{raw: raw}, err
@@ -1848,29 +1947,22 @@ func NewElicitationURLMode[T ElicitationURLModeAlternative](value T) (Elicitatio
 func (v ElicitationURLMode) As[T ElicitationURLModeAlternative]() (T, error) {
 	return union.As[T]("ElicitationURLMode", elicitationURLModeAlternatives, v.raw)
 }
-func (v ElicitationURLMode) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ElicitationURLMode) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ElicitationURLMode JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ElicitationURLMode) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ElicitationURLMode) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationURLMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationURLMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -1879,20 +1971,16 @@ func (v *ElicitationURLMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseElicitationURLMode(b []byte) (ElicitationURLMode, error) {
-	var v ElicitationURLMode
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
+// AuthMethod is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewAuthMethod] or a type switch on [AuthMethod.Variant] to work with it.
+//
 // Describes an available authentication method.
 //
 // The `type` field acts as the discriminator in the serialized JSON form.
-// AuthMethod is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewAuthMethod or a type switch on Variant to work with it.
 type AuthMethod struct{ value AuthMethodVariant }
 
-// AuthMethodVariant is implemented by AuthMethodTerminalVariant, AuthMethodAgentVariant, AuthMethodCustom.
+// AuthMethodVariant is implemented by [AuthMethodTerminal], [AuthMethodAgent], [AuthMethodCustom].
 type AuthMethodVariant interface {
 	authMethodVariant()
 	Tag() string
@@ -1918,12 +2006,16 @@ func (u AuthMethod) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u AuthMethod) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u AuthMethod) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *AuthMethod) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalAuthMethodVariant(dec, &u.value)
 }
@@ -1949,13 +2041,13 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 	}
 	switch probe.Tag {
 	case "terminal":
-		var v AuthMethodTerminalVariant
+		var v AuthMethodTerminal
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
 		*out = v
 	case "agent":
-		var v AuthMethodAgentVariant
+		var v AuthMethodAgent
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -1970,8 +2062,16 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 	return nil
 }
 
-// AuthMethodTerminalVariant is the AuthMethod variant with type "terminal".
-type AuthMethodTerminalVariant struct {
+// AuthMethodTerminal is the AuthMethod variant with type "terminal".
+//
+// Terminal-based authentication method.
+//
+// The client runs the configured agent program as a separate interactive
+// process for the user to authenticate via a TUI. Agents MUST advertise this
+// method only when the client enabled its terminal authentication capability.
+// A zero exit status signals success; any other termination signals failure.
+// The client MUST NOT pass this method to `auth/login`.
+type AuthMethodTerminal struct {
 	// Unique identifier for this authentication method.
 	MethodID AuthMethodID `json:"methodId"`
 	// Human-readable name of the authentication method.
@@ -1983,84 +2083,84 @@ type AuthMethodTerminalVariant struct {
 	// Additional environment variables to set on the configured agent invocation for terminal auth.
 	// Names MUST be unique. These values override same-named variables in the
 	// base launch configuration.
-	Env []EnvVariable `json:"env,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Env  []EnvVariable `json:"env,omitzero"`
+	Meta Meta          `json:"_meta,omitzero"`
 }
 
-func (AuthMethodTerminalVariant) authMethodVariant() {}
+func (AuthMethodTerminal) authMethodVariant() {}
 
 // Tag returns "terminal".
-func (AuthMethodTerminalVariant) Tag() string { return "terminal" }
+func (AuthMethodTerminal) Tag() string { return "terminal" }
 
-type authMethodTerminalVariantFields AuthMethodTerminalVariant
-type authMethodTerminalVariantWire struct {
-	Tag                             string `json:"type"`
-	authMethodTerminalVariantFields `json:",inline"`
+type authMethodTerminalFields AuthMethodTerminal
+type authMethodTerminalWire struct {
+	Tag                      string `json:"type"`
+	authMethodTerminalFields `json:",inline"`
 }
 
-func (v AuthMethodTerminalVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, authMethodTerminalVariantWire{"terminal", authMethodTerminalVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AuthMethodTerminal) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, authMethodTerminalWire{"terminal", authMethodTerminalFields(v)})
 }
-func (v *AuthMethodTerminalVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w authMethodTerminalVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AuthMethodTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w authMethodTerminalWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "terminal" {
-		return fmt.Errorf("AuthMethodTerminalVariant: expected type \"terminal\", got %q", w.Tag)
+		return fmt.Errorf("AuthMethodTerminal: expected type \"terminal\", got %q", w.Tag)
 	}
-	*v = AuthMethodTerminalVariant(w.authMethodTerminalVariantFields)
+	*v = AuthMethodTerminal(w.authMethodTerminalFields)
 	return nil
 }
 
-// AuthMethodAgentVariant is the AuthMethod variant with type "agent".
-type AuthMethodAgentVariant struct {
+// AuthMethodAgent is the AuthMethod variant with type "agent".
+//
+// Agent handles authentication itself through `auth/login`.
+//
+// The `type` discriminator value is `agent`.
+type AuthMethodAgent struct {
 	// Unique identifier for this authentication method.
 	MethodID AuthMethodID `json:"methodId"`
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
 	// Optional description providing more details about this authentication method.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta    `json:"_meta,omitzero"`
 }
 
-func (AuthMethodAgentVariant) authMethodVariant() {}
+func (AuthMethodAgent) authMethodVariant() {}
 
 // Tag returns "agent".
-func (AuthMethodAgentVariant) Tag() string { return "agent" }
+func (AuthMethodAgent) Tag() string { return "agent" }
 
-type authMethodAgentVariantFields AuthMethodAgentVariant
-type authMethodAgentVariantWire struct {
-	Tag                          string `json:"type"`
-	authMethodAgentVariantFields `json:",inline"`
+type authMethodAgentFields AuthMethodAgent
+type authMethodAgentWire struct {
+	Tag                   string `json:"type"`
+	authMethodAgentFields `json:",inline"`
 }
 
-func (v AuthMethodAgentVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, authMethodAgentVariantWire{"agent", authMethodAgentVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v AuthMethodAgent) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, authMethodAgentWire{"agent", authMethodAgentFields(v)})
 }
-func (v *AuthMethodAgentVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w authMethodAgentVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *AuthMethodAgent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w authMethodAgentWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "agent" {
-		return fmt.Errorf("AuthMethodAgentVariant: expected type \"agent\", got %q", w.Tag)
+		return fmt.Errorf("AuthMethodAgent: expected type \"agent\", got %q", w.Tag)
 	}
-	*v = AuthMethodAgentVariant(w.authMethodAgentVariantFields)
+	*v = AuthMethodAgent(w.authMethodAgentFields)
 	return nil
 }
 
-// AuthMethodCustom carries a AuthMethod value with an unrecognized "type", keeping every member.
+// AuthMethodCustom holds AuthMethod values with an unrecognized "type", keeping every member.
 type AuthMethodCustom struct {
 	// Custom or future authentication method type.
 	//
@@ -2073,25 +2173,23 @@ type AuthMethodCustom struct {
 	// Human-readable name of the authentication method.
 	Name string `json:"name"`
 	// Optional description providing more details about this authentication method.
-	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	Description          *string                   `json:"description,omitzero"`
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (AuthMethodCustom) authMethodVariant() {}
-func (v AuthMethodCustom) Tag() string      { return v.Type }
 
-// A session configuration option selector and its current state.
+// Tag returns the "type" member.
+func (v AuthMethodCustom) Tag() string { return v.Type }
+
+// SessionConfigOption is a session configuration option selector and its current state.
+//
 // SessionConfigOption is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewSessionConfigOption or a type switch on Variant to work with it.
+// encodes as null; use [NewSessionConfigOption] or a type switch on [SessionConfigOption.Variant] to work with it.
 type SessionConfigOption struct{ value SessionConfigOptionVariant }
 
-// SessionConfigOptionVariant is implemented by SessionConfigOptionSelect, SessionConfigOptionBoolean, SessionConfigOptionCustom.
+// SessionConfigOptionVariant is implemented by [SessionConfigOptionSelect], [SessionConfigOptionBoolean], [SessionConfigOptionCustom].
 type SessionConfigOptionVariant interface {
 	sessionConfigOptionVariant()
 	Tag() string
@@ -2122,12 +2220,16 @@ func (u SessionConfigOption) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u SessionConfigOption) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u SessionConfigOption) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *SessionConfigOption) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalSessionConfigOptionVariant(dec, &u.value)
 }
@@ -2188,12 +2290,7 @@ type SessionConfigOptionSelect struct {
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
 	Category *SessionConfigOptionCategory `json:"category,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta                         `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionSelect) sessionConfigOptionVariant() {}
@@ -2207,9 +2304,12 @@ type sessionConfigOptionSelectWire struct {
 	sessionConfigOptionSelectFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigOptionSelect) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionConfigOptionSelectWire{"select", sessionConfigOptionSelectFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionConfigOptionSelect) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionConfigOptionSelectWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2234,12 +2334,7 @@ type SessionConfigOptionBoolean struct {
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
 	Category *SessionConfigOptionCategory `json:"category,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta                         `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionBoolean) sessionConfigOptionVariant() {}
@@ -2253,9 +2348,12 @@ type sessionConfigOptionBooleanWire struct {
 	sessionConfigOptionBooleanFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigOptionBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionConfigOptionBooleanWire{"boolean", sessionConfigOptionBooleanFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionConfigOptionBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionConfigOptionBooleanWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2268,7 +2366,7 @@ func (v *SessionConfigOptionBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	return nil
 }
 
-// SessionConfigOptionCustom carries a SessionConfigOption value with an unrecognized "type", keeping every member.
+// SessionConfigOptionCustom holds SessionConfigOption values with an unrecognized "type", keeping every member.
 type SessionConfigOptionCustom struct {
 	// Custom or future session configuration option type.
 	//
@@ -2283,25 +2381,23 @@ type SessionConfigOptionCustom struct {
 	// Optional description for the Client to display to the user.
 	Description *string `json:"description,omitzero"`
 	// Optional semantic category for this option (UX only).
-	Category *SessionConfigOptionCategory `json:"category,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta                 Meta                      `json:"_meta,omitzero"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
+	Category             *SessionConfigOptionCategory `json:"category,omitzero"`
+	Meta                 Meta                         `json:"_meta,omitzero"`
+	AdditionalProperties map[string]jsontext.Value    `json:",embed"`
 }
 
 func (SessionConfigOptionCustom) sessionConfigOptionVariant() {}
-func (v SessionConfigOptionCustom) Tag() string               { return v.Type }
 
-// Possible values for a session configuration option.
+// Tag returns the "type" member.
+func (v SessionConfigOptionCustom) Tag() string { return v.Type }
+
 // SessionConfigSelectOptions preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewSessionConfigSelectOptions to build one.
+// Use [SessionConfigSelectOptions.As] to read one alternative and [NewSessionConfigSelectOptions] to build one.
+//
+// Possible values for a session configuration option.
 type SessionConfigSelectOptions struct{ raw jsontext.Value }
 
-// SessionConfigSelectOptionsAlternative is the set of Go types a SessionConfigSelectOptions can hold.
+// SessionConfigSelectOptionsAlternative is the set of Go types SessionConfigSelectOptions can hold.
 type SessionConfigSelectOptionsAlternative interface {
 	[]SessionConfigSelectOption | []SessionConfigSelectGroup
 }
@@ -2311,8 +2407,8 @@ var sessionConfigSelectOptionsAlternatives = union.Table(
 	union.Alt[[]SessionConfigSelectGroup](union.Rule{NonNull: true}),
 )
 
-// NewSessionConfigSelectOptions encodes value as a SessionConfigSelectOptions, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewSessionConfigSelectOptions encodes value, one of the SessionConfigSelectOptionsAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewSessionConfigSelectOptions[T SessionConfigSelectOptionsAlternative](value T) (SessionConfigSelectOptions, error) {
 	raw, err := union.New("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, value)
 	return SessionConfigSelectOptions{raw: raw}, err
@@ -2322,29 +2418,22 @@ func NewSessionConfigSelectOptions[T SessionConfigSelectOptionsAlternative](valu
 func (v SessionConfigSelectOptions) As[T SessionConfigSelectOptionsAlternative]() (T, error) {
 	return union.As[T]("SessionConfigSelectOptions", sessionConfigSelectOptionsAlternatives, v.raw)
 }
-func (v SessionConfigSelectOptions) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *SessionConfigSelectOptions) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid SessionConfigSelectOptions JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v SessionConfigSelectOptions) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v SessionConfigSelectOptions) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigSelectOptions) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -2353,18 +2442,14 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	v.raw = raw.Clone()
 	return nil
 }
-func ParseSessionConfigSelectOptions(b []byte) (SessionConfigSelectOptions, error) {
-	var v SessionConfigSelectOptions
-	err := json.Unmarshal(b, &v)
-	return v, err
-}
 
-// A suggestion returned by the agent.
+// NesSuggestion is a suggestion returned by the agent.
+//
 // NesSuggestion is a tagged union discriminated by the "kind" member. The zero value
-// encodes as null; use NewNesSuggestion or a type switch on Variant to work with it.
+// encodes as null; use [NewNesSuggestion] or a type switch on [NesSuggestion.Variant] to work with it.
 type NesSuggestion struct{ value NesSuggestionVariant }
 
-// NesSuggestionVariant is implemented by NesSuggestionEdit, NesSuggestionJump, NesSuggestionRename, NesSuggestionSearchAndReplace, NesSuggestionCustom.
+// NesSuggestionVariant is implemented by [NesSuggestionEdit], [NesSuggestionJump], [NesSuggestionRename], [NesSuggestionSearchAndReplace], [NesSuggestionCustom].
 type NesSuggestionVariant interface {
 	nesSuggestionVariant()
 	Tag() string
@@ -2390,12 +2475,16 @@ func (u NesSuggestion) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u NesSuggestion) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u NesSuggestion) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *NesSuggestion) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalNesSuggestionVariant(dec, &u.value)
 }
@@ -2454,6 +2543,8 @@ func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVari
 	return nil
 }
 
+// NesSuggestionEdit is a text edit suggestion.
+//
 // NesSuggestionEdit is the NesSuggestion variant with kind "edit".
 type NesSuggestionEdit struct {
 	// Unique identifier for accept/reject tracking.
@@ -2464,12 +2555,7 @@ type NesSuggestionEdit struct {
 	Edits []NesTextEdit `json:"edits"`
 	// Optional suggested cursor position after applying edits.
 	CursorPosition *Position `json:"cursorPosition,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta           Meta      `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionEdit) nesSuggestionVariant() {}
@@ -2483,9 +2569,12 @@ type nesSuggestionEditWire struct {
 	nesSuggestionEditFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionEdit) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, nesSuggestionEditWire{"edit", nesSuggestionEditFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionEdit) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w nesSuggestionEditWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2498,6 +2587,8 @@ func (v *NesSuggestionEdit) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// NesSuggestionJump is a jump-to-location suggestion.
+//
 // NesSuggestionJump is the NesSuggestion variant with kind "jump".
 type NesSuggestionJump struct {
 	// Unique identifier for accept/reject tracking.
@@ -2506,12 +2597,7 @@ type NesSuggestionJump struct {
 	URI string `json:"uri"`
 	// The target position within the file.
 	Position Position `json:"position"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta     `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionJump) nesSuggestionVariant() {}
@@ -2525,9 +2611,12 @@ type nesSuggestionJumpWire struct {
 	nesSuggestionJumpFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionJump) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, nesSuggestionJumpWire{"jump", nesSuggestionJumpFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionJump) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w nesSuggestionJumpWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2540,6 +2629,8 @@ func (v *NesSuggestionJump) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// NesSuggestionRename is a rename symbol suggestion.
+//
 // NesSuggestionRename is the NesSuggestion variant with kind "rename".
 type NesSuggestionRename struct {
 	// Unique identifier for accept/reject tracking.
@@ -2550,12 +2641,7 @@ type NesSuggestionRename struct {
 	Position Position `json:"position"`
 	// The new name for the symbol.
 	NewName string `json:"newName"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionRename) nesSuggestionVariant() {}
@@ -2569,9 +2655,12 @@ type nesSuggestionRenameWire struct {
 	nesSuggestionRenameFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionRename) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, nesSuggestionRenameWire{"rename", nesSuggestionRenameFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionRename) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w nesSuggestionRenameWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2584,6 +2673,8 @@ func (v *NesSuggestionRename) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// NesSuggestionSearchAndReplace is a search-and-replace suggestion.
+//
 // NesSuggestionSearchAndReplace is the NesSuggestion variant with kind "searchAndReplace".
 type NesSuggestionSearchAndReplace struct {
 	// Unique identifier for accept/reject tracking.
@@ -2596,12 +2687,7 @@ type NesSuggestionSearchAndReplace struct {
 	Replace string `json:"replace"`
 	// Whether `search` is a regular expression. Defaults to `false`.
 	IsRegex *bool `json:"isRegex,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta  `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionSearchAndReplace) nesSuggestionVariant() {}
@@ -2615,9 +2701,12 @@ type nesSuggestionSearchAndReplaceWire struct {
 	nesSuggestionSearchAndReplaceFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionSearchAndReplace) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, nesSuggestionSearchAndReplaceWire{"searchAndReplace", nesSuggestionSearchAndReplaceFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *NesSuggestionSearchAndReplace) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w nesSuggestionSearchAndReplaceWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2630,7 +2719,7 @@ func (v *NesSuggestionSearchAndReplace) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return nil
 }
 
-// NesSuggestionCustom carries a NesSuggestion value with an unrecognized "kind", keeping every member.
+// NesSuggestionCustom holds NesSuggestion values with an unrecognized "kind", keeping every member.
 type NesSuggestionCustom struct {
 	// Custom or future NES suggestion kind.
 	//
@@ -2644,18 +2733,23 @@ type NesSuggestionCustom struct {
 }
 
 func (NesSuggestionCustom) nesSuggestionVariant() {}
-func (v NesSuggestionCustom) Tag() string         { return v.Kind }
 
+// Tag returns the "kind" member.
+func (v NesSuggestionCustom) Tag() string { return v.Kind }
+
+// SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. The zero value
+// encodes as null; use [NewSessionUpdate] or a type switch on [SessionUpdate.Variant] to work with it.
+//
 // Different types of updates that can be sent while a session exists.
 //
 // These updates report messages, progress, and other session activity.
 //
-// See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#3-agent-reports-output)
-// SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. The zero value
-// encodes as null; use NewSessionUpdate or a type switch on Variant to work with it.
+// See protocol docs: [Agent Reports Output]
+//
+// [Agent Reports Output]: https://agentclientprotocol.com/protocol/v2/draft/prompt-lifecycle#3-agent-reports-output
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by SessionUpdateUserMessageChunk, SessionUpdateUserMessage, SessionUpdateAgentMessageChunk, SessionUpdateAgentMessage, SessionUpdateAgentThoughtChunk, SessionUpdateAgentThought, SessionUpdateStateUpdate, SessionUpdateToolCallContentChunk, SessionUpdateToolCallUpdate, SessionUpdateTerminalUpdate, SessionUpdateTerminalOutputChunk, SessionUpdatePlanUpdate, SessionUpdatePlanRemoved, SessionUpdateAvailableCommandsUpdate, SessionUpdateConfigOptionUpdate, SessionUpdateSessionInfoUpdate, SessionUpdateUsageUpdate, SessionUpdateNotice, SessionUpdateCompactionUpdate, SessionUpdateCompactionSummaryChunk, SessionUpdateCustom.
+// SessionUpdateVariant is implemented by [SessionUpdateUserMessageChunk], [SessionUpdateUserMessage], [SessionUpdateAgentMessageChunk], [SessionUpdateAgentMessage], [SessionUpdateAgentThoughtChunk], [SessionUpdateAgentThought], [SessionUpdateStateUpdate], [SessionUpdateToolCallContentChunk], [SessionUpdateToolCallUpdate], [SessionUpdateTerminalUpdate], [SessionUpdateTerminalOutputChunk], [SessionUpdatePlanUpdate], [SessionUpdatePlanRemoved], [SessionUpdateAvailableCommandsUpdate], [SessionUpdateConfigOptionUpdate], [SessionUpdateSessionInfoUpdate], [SessionUpdateUsageUpdate], [SessionUpdateNotice], [SessionUpdateCompactionUpdate], [SessionUpdateCompactionSummaryChunk], [SessionUpdateCustom].
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -2681,12 +2775,16 @@ func (u SessionUpdate) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u SessionUpdate) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u SessionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *SessionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalSessionUpdateVariant(dec, &u.value)
 }
@@ -2850,11 +2948,7 @@ type SessionUpdateUserMessageChunk struct {
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This field is chunk-scoped.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This field is chunk-scoped.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2869,9 +2963,12 @@ type sessionUpdateUserMessageChunkWire struct {
 	sessionUpdateUserMessageChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUserMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateUserMessageChunkWire{"user_message_chunk", sessionUpdateUserMessageChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUserMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateUserMessageChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2884,17 +2981,27 @@ func (v *SessionUpdateUserMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return nil
 }
 
+// SessionUpdateUserMessage is a user message upsert.
+//
+// Only [SessionUpdateUserMessage.MessageID] is required. `content` has patch semantics:
+// an omitted field leaves existing message content unchanged, `null` clears the
+// value, and a concrete array replaces the previous value. For a new
+// `messageId`, omitted fields use client defaults. `content` is replaced as a
+// whole array; send `[]` or `null` to clear it.
+//
+// Message updates and chunks are applied in the order they are received. When
+// a `user_message` update includes `content`, that array replaces any content
+// previously accumulated for the message, including content from earlier
+// chunks. Later chunks with the same `messageId` append to the current
+// content.
+//
 // SessionUpdateUserMessage is the SessionUpdate variant with sessionUpdate "user_message".
 type SessionUpdateUserMessage struct {
 	// A unique identifier for the message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content []ContentBlock `json:"content,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2909,9 +3016,12 @@ type sessionUpdateUserMessageWire struct {
 	sessionUpdateUserMessageFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUserMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateUserMessageWire{"user_message", sessionUpdateUserMessageFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUserMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateUserMessageWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2933,11 +3043,7 @@ type SessionUpdateAgentMessageChunk struct {
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This field is chunk-scoped.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This field is chunk-scoped.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2952,9 +3058,12 @@ type sessionUpdateAgentMessageChunkWire struct {
 	sessionUpdateAgentMessageChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentMessageChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateAgentMessageChunkWire{"agent_message_chunk", sessionUpdateAgentMessageChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateAgentMessageChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -2967,17 +3076,27 @@ func (v *SessionUpdateAgentMessageChunk) UnmarshalJSONFrom(dec *jsontext.Decoder
 	return nil
 }
 
+// SessionUpdateAgentMessage is an agent message upsert.
+//
+// Only [SessionUpdateAgentMessage.MessageID] is required. `content` has patch semantics:
+// an omitted field leaves existing message content unchanged, `null` clears the
+// value, and a concrete array replaces the previous value. For a new
+// `messageId`, omitted fields use client defaults. `content` is replaced as a
+// whole array; send `[]` or `null` to clear it.
+//
+// Message updates and chunks are applied in the order they are received. When
+// an `agent_message` update includes `content`, that array replaces any
+// content previously accumulated for the message, including content from
+// earlier chunks. Later chunks with the same `messageId` append to the current
+// content.
+//
 // SessionUpdateAgentMessage is the SessionUpdate variant with sessionUpdate "agent_message".
 type SessionUpdateAgentMessage struct {
 	// A unique identifier for the message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this message.
 	Content []ContentBlock `json:"content,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2992,9 +3111,12 @@ type sessionUpdateAgentMessageWire struct {
 	sessionUpdateAgentMessageFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateAgentMessageWire{"agent_message", sessionUpdateAgentMessageFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateAgentMessageWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3016,11 +3138,7 @@ type SessionUpdateAgentThoughtChunk struct {
 	MessageID MessageID `json:"messageId"`
 	// A single item of content
 	Content ContentBlock `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This field is chunk-scoped.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This field is chunk-scoped.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3035,9 +3153,12 @@ type sessionUpdateAgentThoughtChunkWire struct {
 	sessionUpdateAgentThoughtChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentThoughtChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateAgentThoughtChunkWire{"agent_thought_chunk", sessionUpdateAgentThoughtChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentThoughtChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateAgentThoughtChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3050,17 +3171,27 @@ func (v *SessionUpdateAgentThoughtChunk) UnmarshalJSONFrom(dec *jsontext.Decoder
 	return nil
 }
 
+// SessionUpdateAgentThought is an agent thought or reasoning message upsert.
+//
+// Only [SessionUpdateAgentThought.MessageID] is required. `content` has patch semantics:
+// an omitted field leaves existing thought content unchanged, `null` clears the
+// value, and a concrete array replaces the previous value. For a new
+// `messageId`, omitted fields use client defaults. `content` is replaced as a
+// whole array; send `[]` or `null` to clear it.
+//
+// Message updates and chunks are applied in the order they are received. When
+// an `agent_thought` update includes `content`, that array replaces any
+// content previously accumulated for the thought, including content from
+// earlier chunks. Later chunks with the same `messageId` append to the current
+// content.
+//
 // SessionUpdateAgentThought is the SessionUpdate variant with sessionUpdate "agent_thought".
 type SessionUpdateAgentThought struct {
 	// A unique identifier for the thought message.
 	MessageID MessageID `json:"messageId"`
 	// Complete replacement content for this thought message.
 	Content []ContentBlock `json:"content,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3075,9 +3206,12 @@ type sessionUpdateAgentThoughtWire struct {
 	sessionUpdateAgentThoughtFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAgentThought) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateAgentThoughtWire{"agent_thought", sessionUpdateAgentThoughtFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAgentThought) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateAgentThoughtWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3098,24 +3232,31 @@ func (SessionUpdateStateUpdate) sessionUpdateVariant() {}
 
 // Tag returns "state_update".
 func (SessionUpdateStateUpdate) Tag() string { return "state_update" }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateStateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return union.SpliceTag(enc, "sessionUpdate", "state_update", v.Value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateStateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return union.UnspliceTag(dec, "sessionUpdate", "state_update", &v.Value)
 }
 
+// SessionUpdateToolCallContentChunk is a streamed item of tool-call content.
+//
+// Tool-call content chunks append one [ToolCallContent] item to the current
+// content for the matching [ToolCallID]. Agents can use
+// [ToolCallUpdate.Content] when they need to replace the whole content
+// collection instead.
+//
 // SessionUpdateToolCallContentChunk is the SessionUpdate variant with sessionUpdate "tool_call_content_chunk".
 type SessionUpdateToolCallContentChunk struct {
 	// The ID of the tool call this content belongs to.
 	ToolCallID ToolCallID `json:"toolCallId"`
 	// A single item of content produced by the tool call.
 	Content ToolCallContent `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This field is chunk-scoped.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This field is chunk-scoped.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3130,9 +3271,12 @@ type sessionUpdateToolCallContentChunkWire struct {
 	sessionUpdateToolCallContentChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateToolCallContentChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateToolCallContentChunkWire{"tool_call_content_chunk", sessionUpdateToolCallContentChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateToolCallContentChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateToolCallContentChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3172,11 +3316,7 @@ type SessionUpdateToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Raw output returned by the tool.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Omitted means no metadata update; `null` is an
-	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3191,9 +3331,12 @@ type sessionUpdateToolCallUpdateWire struct {
 	sessionUpdateToolCallUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateToolCallUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateToolCallUpdateWire{"tool_call_update", sessionUpdateToolCallUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateToolCallUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3206,6 +3349,13 @@ func (v *SessionUpdateToolCallUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	return nil
 }
 
+// SessionUpdateTerminalUpdate is an upsert for the stored state of an agent-owned terminal.
+//
+// Only [SessionUpdateTerminalUpdate.TerminalID] is required. Other fields have patch
+// semantics: omitted fields leave the stored value unchanged, `null` clears
+// it, and concrete values replace it. When the terminal ID is new, omitted
+// fields start unknown.
+//
 // SessionUpdateTerminalUpdate is the SessionUpdate variant with sessionUpdate "terminal_update".
 type SessionUpdateTerminalUpdate struct {
 	// Unique identifier for this terminal within the session.
@@ -3218,11 +3368,7 @@ type SessionUpdateTerminalUpdate struct {
 	Output *TerminalOutput `json:"output,omitzero"`
 	// Exit information. A concrete object marks the terminal as exited.
 	ExitStatus *TerminalExitStatus `json:"exitStatus,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Omitted means no metadata update; `null` is an
-	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3237,9 +3383,12 @@ type sessionUpdateTerminalUpdateWire struct {
 	sessionUpdateTerminalUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateTerminalUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateTerminalUpdateWire{"terminal_update", sessionUpdateTerminalUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateTerminalUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateTerminalUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3252,18 +3401,15 @@ func (v *SessionUpdateTerminalUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	return nil
 }
 
+// SessionUpdateTerminalOutputChunk is a chunk of bytes appended to an agent-owned terminal's output.
+//
 // SessionUpdateTerminalOutputChunk is the SessionUpdate variant with sessionUpdate "terminal_output_chunk".
 type SessionUpdateTerminalOutputChunk struct {
 	// The terminal receiving these bytes.
 	TerminalID TerminalID `json:"terminalId"`
 	// Independently base64-encoded terminal output bytes.
 	Data string `json:"data"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys. This field is chunk-scoped. Omitted and `null` are
-	// equivalent and mean no chunk metadata was provided.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// This field is chunk-scoped. Omitted and `null` are equivalent and mean no chunk metadata was provided.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3278,9 +3424,12 @@ type sessionUpdateTerminalOutputChunkWire struct {
 	sessionUpdateTerminalOutputChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateTerminalOutputChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateTerminalOutputChunkWire{"terminal_output_chunk", sessionUpdateTerminalOutputChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateTerminalOutputChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateTerminalOutputChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3293,16 +3442,13 @@ func (v *SessionUpdateTerminalOutputChunk) UnmarshalJSONFrom(dec *jsontext.Decod
 	return nil
 }
 
+// SessionUpdatePlanUpdate is a content update for a plan identified by ID.
+//
 // SessionUpdatePlanUpdate is the SessionUpdate variant with sessionUpdate "plan_update".
 type SessionUpdatePlanUpdate struct {
 	// The updated plan content.
 	Plan PlanUpdateContent `json:"plan"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta              `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanUpdate) sessionUpdateVariant() {}
@@ -3316,9 +3462,12 @@ type sessionUpdatePlanUpdateWire struct {
 	sessionUpdatePlanUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdatePlanUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdatePlanUpdateWire{"plan_update", sessionUpdatePlanUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdatePlanUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdatePlanUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3332,15 +3481,14 @@ func (v *SessionUpdatePlanUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 }
 
 // SessionUpdatePlanRemoved is the SessionUpdate variant with sessionUpdate "plan_removed".
+//
+// Removal notice for a plan identified by ID.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdatePlanRemoved struct {
 	// The plan ID to remove.
 	PlanID PlanID `json:"planId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta   `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanRemoved) sessionUpdateVariant() {}
@@ -3354,9 +3502,12 @@ type sessionUpdatePlanRemovedWire struct {
 	sessionUpdatePlanRemovedFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdatePlanRemoved) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdatePlanRemovedWire{"plan_removed", sessionUpdatePlanRemovedFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdatePlanRemoved) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdatePlanRemovedWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3370,15 +3521,12 @@ func (v *SessionUpdatePlanRemoved) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 }
 
 // SessionUpdateAvailableCommandsUpdate is the SessionUpdate variant with sessionUpdate "available_commands_update".
+//
+// Available commands are ready or have changed
 type SessionUpdateAvailableCommandsUpdate struct {
 	// Commands the agent can execute.
 	AvailableCommands []AvailableCommand `json:"availableCommands"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta              Meta               `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAvailableCommandsUpdate) sessionUpdateVariant() {}
@@ -3392,9 +3540,12 @@ type sessionUpdateAvailableCommandsUpdateWire struct {
 	sessionUpdateAvailableCommandsUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateAvailableCommandsUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateAvailableCommandsUpdateWire{"available_commands_update", sessionUpdateAvailableCommandsUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateAvailableCommandsUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateAvailableCommandsUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3408,15 +3559,12 @@ func (v *SessionUpdateAvailableCommandsUpdate) UnmarshalJSONFrom(dec *jsontext.D
 }
 
 // SessionUpdateConfigOptionUpdate is the SessionUpdate variant with sessionUpdate "config_option_update".
+//
+// Session configuration options have been updated.
 type SessionUpdateConfigOptionUpdate struct {
 	// The full set of configuration options and their current values.
 	ConfigOptions []SessionConfigOption `json:"configOptions"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateConfigOptionUpdate) sessionUpdateVariant() {}
@@ -3430,9 +3578,12 @@ type sessionUpdateConfigOptionUpdateWire struct {
 	sessionUpdateConfigOptionUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateConfigOptionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateConfigOptionUpdateWire{"config_option_update", sessionUpdateConfigOptionUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateConfigOptionUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3446,16 +3597,20 @@ func (v *SessionUpdateConfigOptionUpdate) UnmarshalJSONFrom(dec *jsontext.Decode
 }
 
 // SessionUpdateSessionInfoUpdate is the SessionUpdate variant with sessionUpdate "session_info_update".
+//
+// Update to session metadata. All fields are optional to support partial updates.
+//
+// Agents send this notification to update session information like title or custom metadata.
+// This allows clients to display dynamic session names and track session state changes.
+//
+// Omitted fields leave the existing session info unchanged. `null` clears the
+// corresponding value.
 type SessionUpdateSessionInfoUpdate struct {
 	// Human-readable title for the session. Set to null to clear.
 	Title *string `json:"title,omitzero"`
 	// RFC 3339 timestamp of last activity. Set to null to clear.
 	UpdatedAt *string `json:"updatedAt,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Omitted means no metadata update; `null` is an
-	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	// Omitted means no metadata update; `null` is an explicit clear signal.
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3470,9 +3625,12 @@ type sessionUpdateSessionInfoUpdateWire struct {
 	sessionUpdateSessionInfoUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateSessionInfoUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateSessionInfoUpdateWire{"session_info_update", sessionUpdateSessionInfoUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateSessionInfoUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateSessionInfoUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3486,6 +3644,8 @@ func (v *SessionUpdateSessionInfoUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder
 }
 
 // SessionUpdateUsageUpdate is the SessionUpdate variant with sessionUpdate "usage_update".
+//
+// Context window and cost update for a session.
 type SessionUpdateUsageUpdate struct {
 	// Tokens currently in context.
 	Used float64 `json:"used"`
@@ -3493,12 +3653,7 @@ type SessionUpdateUsageUpdate struct {
 	Size float64 `json:"size"`
 	// Cumulative session cost (optional).
 	Cost *Cost `json:"cost,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta  `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateUsageUpdate) sessionUpdateVariant() {}
@@ -3512,9 +3667,12 @@ type sessionUpdateUsageUpdateWire struct {
 	sessionUpdateUsageUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateUsageUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateUsageUpdateWire{"usage_update", sessionUpdateUsageUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateUsageUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3528,6 +3686,18 @@ func (v *SessionUpdateUsageUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 }
 
 // SessionUpdateNotice is the SessionUpdate variant with sessionUpdate "notice".
+//
+// Fire-and-forget advisory information for the user.
+//
+// Notices are live events rather than session history. Agents must not rely on
+// a notice being received, displayed, or seen by the user.
+// No Client capability is required, and unsupported Clients may ignore notices.
+//
+// See RFD: [Session Notices]
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+//
+// [Session Notices]: https://agentclientprotocol.com/rfds/session-notices
 type SessionUpdateNotice struct {
 	// Presentation severity hint.
 	Severity NoticeSeverity `json:"severity"`
@@ -3554,9 +3724,12 @@ type sessionUpdateNoticeWire struct {
 	sessionUpdateNoticeFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateNotice) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateNoticeWire{"notice", sessionUpdateNoticeFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateNoticeWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3569,7 +3742,17 @@ func (v *SessionUpdateNotice) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// SessionUpdateCompactionUpdate is a context compaction upsert. The first update fixes the compaction's
+// timeline position. Later updates with the same ID patch that entity in place.
+//
+// `summary`, `error`, and `_meta` have patch semantics: omission leaves the
+// stored value unchanged, `null` clears it, and a concrete value replaces it.
+// `summary: []` also clears the retained summary. A non-empty summary is only
+// valid with `completed`; `error` is only valid with `failed`.
+//
 // SessionUpdateCompactionUpdate is the SessionUpdate variant with sessionUpdate "compaction_update".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateCompactionUpdate struct {
 	// The Agent-owned ID of this compaction, unique within the session.
 	CompactionID CompactionID `json:"compactionId"`
@@ -3594,9 +3777,12 @@ type sessionUpdateCompactionUpdateWire struct {
 	sessionUpdateCompactionUpdateFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateCompactionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateCompactionUpdateWire{"compaction_update", sessionUpdateCompactionUpdateFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateCompactionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateCompactionUpdateWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3609,7 +3795,13 @@ func (v *SessionUpdateCompactionUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return nil
 }
 
+// SessionUpdateCompactionSummaryChunk is a content block appended to the retained summary of an in-progress
+// compaction. Agents send chunks only after an `in_progress` update and before
+// the terminal update for the same ID.
+//
 // SessionUpdateCompactionSummaryChunk is the SessionUpdate variant with sessionUpdate "compaction_summary_chunk".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionUpdateCompactionSummaryChunk struct {
 	// ID of the compaction whose summary receives this content.
 	CompactionID CompactionID `json:"compactionId"`
@@ -3630,9 +3822,12 @@ type sessionUpdateCompactionSummaryChunkWire struct {
 	sessionUpdateCompactionSummaryChunkFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionUpdateCompactionSummaryChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, sessionUpdateCompactionSummaryChunkWire{"compaction_summary_chunk", sessionUpdateCompactionSummaryChunkFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w sessionUpdateCompactionSummaryChunkWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3645,7 +3840,7 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 	return nil
 }
 
-// SessionUpdateCustom carries a SessionUpdate value with an unrecognized "sessionUpdate", keeping every member.
+// SessionUpdateCustom holds SessionUpdate values with an unrecognized "sessionUpdate", keeping every member.
 type SessionUpdateCustom struct {
 	// Custom or future session update type.
 	//
@@ -3657,17 +3852,20 @@ type SessionUpdateCustom struct {
 }
 
 func (SessionUpdateCustom) sessionUpdateVariant() {}
-func (v SessionUpdateCustom) Tag() string         { return v.SessionUpdate }
 
+// Tag returns the "sessionUpdate" member.
+func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
+
+// StateUpdate is a tagged union discriminated by the "state" member. The zero value
+// encodes as null; use [NewStateUpdate] or a type switch on [StateUpdate.Variant] to work with it.
+//
 // The state of the agent's foreground work has changed.
 //
 // Background activity can continue and emit other `session/update` notifications
 // while `idle`. Those notifications do not change this state.
-// StateUpdate is a tagged union discriminated by the "state" member. The zero value
-// encodes as null; use NewStateUpdate or a type switch on Variant to work with it.
 type StateUpdate struct{ value StateUpdateVariant }
 
-// StateUpdateVariant is implemented by StateUpdateRunning, StateUpdateIdle, StateUpdateRequiresAction, StateUpdateCustom.
+// StateUpdateVariant is implemented by [StateUpdateRunning], [StateUpdateIdle], [StateUpdateRequiresAction], [StateUpdateCustom].
 type StateUpdateVariant interface {
 	stateUpdateVariant()
 	Tag() string
@@ -3693,12 +3891,16 @@ func (u StateUpdate) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u StateUpdate) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *StateUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalStateUpdateVariant(dec, &u.value)
 }
@@ -3752,12 +3954,9 @@ func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant)
 }
 
 // StateUpdateRunning is the StateUpdate variant with state "running".
+//
+// Foreground work is in progress.
 type StateUpdateRunning struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3772,9 +3971,12 @@ type stateUpdateRunningWire struct {
 	stateUpdateRunningFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateRunning) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, stateUpdateRunningWire{"running", stateUpdateRunningFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w stateUpdateRunningWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3788,29 +3990,22 @@ func (v *StateUpdateRunning) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // StateUpdateIdle is the StateUpdate variant with state "idle".
+//
+// The agent is ready to process a new prompt.
 type StateUpdateIdle struct {
 	// Indicates why foreground work stopped.
 	//
 	// Optional. Omitted or `null` both mean the agent is not reporting a stop reason.
 	// Agents SHOULD include this when the idle transition ends foreground work.
 	StopReason *StopReason `json:"stopReason,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Token usage for completed foreground work.
 	//
 	// Optional. Omitted or `null` both mean the agent is not reporting token
 	// usage for this state update.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
 }
 
 func (StateUpdateIdle) stateUpdateVariant() {}
@@ -3824,9 +4019,12 @@ type stateUpdateIdleWire struct {
 	stateUpdateIdleFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateIdle) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, stateUpdateIdleWire{"idle", stateUpdateIdleFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w stateUpdateIdleWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3840,12 +4038,9 @@ func (v *StateUpdateIdle) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // StateUpdateRequiresAction is the StateUpdate variant with state "requires_action".
+//
+// Foreground work is blocked on user action.
 type StateUpdateRequiresAction struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3860,9 +4055,12 @@ type stateUpdateRequiresActionWire struct {
 	stateUpdateRequiresActionFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v StateUpdateRequiresAction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, stateUpdateRequiresActionWire{"requires_action", stateUpdateRequiresActionFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w stateUpdateRequiresActionWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -3875,7 +4073,7 @@ func (v *StateUpdateRequiresAction) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return nil
 }
 
-// StateUpdateCustom carries a StateUpdate value with an unrecognized "state", keeping every member.
+// StateUpdateCustom holds StateUpdate values with an unrecognized "state", keeping every member.
 type StateUpdateCustom struct {
 	// Custom or future session state.
 	//
@@ -3887,14 +4085,17 @@ type StateUpdateCustom struct {
 }
 
 func (StateUpdateCustom) stateUpdateVariant() {}
-func (v StateUpdateCustom) Tag() string       { return v.State }
 
-// Updated content for a plan.
+// Tag returns the "state" member.
+func (v StateUpdateCustom) Tag() string { return v.State }
+
 // PlanUpdateContent is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewPlanUpdateContent or a type switch on Variant to work with it.
+// encodes as null; use [NewPlanUpdateContent] or a type switch on [PlanUpdateContent.Variant] to work with it.
+//
+// Updated content for a plan.
 type PlanUpdateContent struct{ value PlanUpdateContentVariant }
 
-// PlanUpdateContentVariant is implemented by PlanUpdateContentItems, PlanUpdateContentFile, PlanUpdateContentMarkdown, PlanUpdateContentCustom.
+// PlanUpdateContentVariant is implemented by [PlanUpdateContentItems], [PlanUpdateContentFile], [PlanUpdateContentMarkdown], [PlanUpdateContentCustom].
 type PlanUpdateContentVariant interface {
 	planUpdateContentVariant()
 	Tag() string
@@ -3925,12 +4126,16 @@ func (u PlanUpdateContent) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u PlanUpdateContent) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u PlanUpdateContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *PlanUpdateContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalPlanUpdateContentVariant(dec, &u.value)
 }
@@ -3983,6 +4188,8 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 	return nil
 }
 
+// PlanUpdateContentItems is a plan represented as structured entries.
+//
 // PlanUpdateContentItems is the PlanUpdateContent variant with type "items".
 type PlanUpdateContentItems struct {
 	// The plan ID to update.
@@ -3992,12 +4199,7 @@ type PlanUpdateContentItems struct {
 	// When updating an item-based plan, the agent must send a complete list of all entries
 	// with their current status. The client replaces that plan with each update.
 	Entries []PlanEntry `json:"entries"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta        `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentItems) planUpdateContentVariant() {}
@@ -4011,9 +4213,12 @@ type planUpdateContentItemsWire struct {
 	planUpdateContentItemsFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentItems) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, planUpdateContentItemsWire{"items", planUpdateContentItemsFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w planUpdateContentItemsWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4026,18 +4231,17 @@ func (v *PlanUpdateContentItems) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return nil
 }
 
+// PlanUpdateContentFile is a plan represented by a file URI.
+//
 // PlanUpdateContentFile is the PlanUpdateContent variant with type "file".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
 type PlanUpdateContentFile struct {
 	// The plan ID to update.
 	PlanID PlanID `json:"planId"`
 	// The URI of the file containing the plan.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	URI  string `json:"uri"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentFile) planUpdateContentVariant() {}
@@ -4051,9 +4255,12 @@ type planUpdateContentFileWire struct {
 	planUpdateContentFileFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentFile) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, planUpdateContentFileWire{"file", planUpdateContentFileFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentFile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w planUpdateContentFileWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4066,18 +4273,17 @@ func (v *PlanUpdateContentFile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// PlanUpdateContentMarkdown is a plan represented as raw markdown content.
+//
 // PlanUpdateContentMarkdown is the PlanUpdateContent variant with type "markdown".
+//
+// Experimental: not part of the spec yet; it may change or be removed.
 type PlanUpdateContentMarkdown struct {
 	// The plan ID to update.
 	PlanID PlanID `json:"planId"`
 	// Markdown content for the plan.
 	Content string `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentMarkdown) planUpdateContentVariant() {}
@@ -4091,9 +4297,12 @@ type planUpdateContentMarkdownWire struct {
 	planUpdateContentMarkdownFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentMarkdown) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, planUpdateContentMarkdownWire{"markdown", planUpdateContentMarkdownFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *PlanUpdateContentMarkdown) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w planUpdateContentMarkdownWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4106,7 +4315,7 @@ func (v *PlanUpdateContentMarkdown) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return nil
 }
 
-// PlanUpdateContentCustom carries a PlanUpdateContent value with an unrecognized "type", keeping every member.
+// PlanUpdateContentCustom holds PlanUpdateContent values with an unrecognized "type", keeping every member.
 type PlanUpdateContentCustom struct {
 	// Custom or future plan update content type.
 	//
@@ -4120,14 +4329,17 @@ type PlanUpdateContentCustom struct {
 }
 
 func (PlanUpdateContentCustom) planUpdateContentVariant() {}
-func (v PlanUpdateContentCustom) Tag() string             { return v.Type }
 
-// The input specification for a command.
+// Tag returns the "type" member.
+func (v PlanUpdateContentCustom) Tag() string { return v.Type }
+
+// AvailableCommandInput is the input specification for a command.
+//
 // AvailableCommandInput is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewAvailableCommandInput or a type switch on Variant to work with it.
+// encodes as null; use [NewAvailableCommandInput] or a type switch on [AvailableCommandInput.Variant] to work with it.
 type AvailableCommandInput struct{ value AvailableCommandInputVariant }
 
-// AvailableCommandInputVariant is implemented by AvailableCommandInputText, AvailableCommandInputCustom.
+// AvailableCommandInputVariant is implemented by [AvailableCommandInputText], [AvailableCommandInputCustom].
 type AvailableCommandInputVariant interface {
 	availableCommandInputVariant()
 	Tag() string
@@ -4158,12 +4370,16 @@ func (u AvailableCommandInput) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u AvailableCommandInput) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *AvailableCommandInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalAvailableCommandInputVariant(dec, &u.value)
 }
@@ -4205,15 +4421,12 @@ func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *Available
 }
 
 // AvailableCommandInputText is the AvailableCommandInput variant with type "text".
+//
+// All text that was typed after the command name is provided as input.
 type AvailableCommandInputText struct {
 	// A hint to display when the input hasn't been provided yet
 	Hint string `json:"hint"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 func (AvailableCommandInputText) availableCommandInputVariant() {}
@@ -4227,9 +4440,12 @@ type availableCommandInputTextWire struct {
 	availableCommandInputTextFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v AvailableCommandInputText) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, availableCommandInputTextWire{"text", availableCommandInputTextFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *AvailableCommandInputText) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w availableCommandInputTextWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4242,7 +4458,7 @@ func (v *AvailableCommandInputText) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return nil
 }
 
-// AvailableCommandInputCustom carries a AvailableCommandInput value with an unrecognized "type", keeping every member.
+// AvailableCommandInputCustom holds AvailableCommandInput values with an unrecognized "type", keeping every member.
 type AvailableCommandInputCustom struct {
 	// Custom or future command input type.
 	//
@@ -4254,21 +4470,26 @@ type AvailableCommandInputCustom struct {
 }
 
 func (AvailableCommandInputCustom) availableCommandInputVariant() {}
-func (v AvailableCommandInputCustom) Tag() string                 { return v.Type }
 
+// Tag returns the "type" member.
+func (v AvailableCommandInputCustom) Tag() string { return v.Type }
+
+// MCPServer is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewMCPServer] or a type switch on [MCPServer.Variant] to work with it.
+//
 // Configuration for connecting to an MCP (Model Context Protocol) server.
 //
 // MCP servers provide tools and context that the agent can use when
 // processing prompts.
 //
-// See protocol docs: [MCP Servers](https://agentclientprotocol.com/protocol/v2/draft/session-setup#mcp-servers)
-// MCPServer is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewMCPServer or a type switch on Variant to work with it.
+// See protocol docs: [MCP Servers]
+//
+// [MCP Servers]: https://agentclientprotocol.com/protocol/v2/draft/session-setup#mcp-servers
 type MCPServer struct{ value MCPServerVariant }
 
-// MCPServerVariant is implemented by MCPServerHTTPVariant, MCPServerACPVariant, MCPServerStdioVariant, MCPServerCustom.
+// MCPServerVariant is implemented by [MCPServerHTTP], [MCPServerACP], [MCPServerStdio], [MCPServerCustom].
 type MCPServerVariant interface {
-	mCPServerVariant()
+	mcpServerVariant()
 	Tag() string
 }
 
@@ -4292,12 +4513,16 @@ func (u MCPServer) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u MCPServer) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u MCPServer) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *MCPServer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalMCPServerVariant(dec, &u.value)
 }
@@ -4323,19 +4548,19 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 	}
 	switch probe.Tag {
 	case "http":
-		var v MCPServerHTTPVariant
+		var v MCPServerHTTP
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
 		*out = v
 	case "acp":
-		var v MCPServerACPVariant
+		var v MCPServerACP
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
 		*out = v
 	case "stdio":
-		var v MCPServerStdioVariant
+		var v MCPServerStdio
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -4350,50 +4575,57 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 	return nil
 }
 
-// MCPServerHTTPVariant is the MCPServer variant with type "http".
-type MCPServerHTTPVariant struct {
+// MCPServerHTTP is the MCPServer variant with type "http".
+//
+// HTTP transport configuration for MCP.
+type MCPServerHTTP struct {
 	// Human-readable name identifying this MCP server.
 	Name string `json:"name"`
 	// URL to the MCP server.
 	URL string `json:"url"`
 	// HTTP headers to set when making requests to the MCP server.
 	Headers []HTTPHeader `json:"headers,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta         `json:"_meta,omitzero"`
 }
 
-func (MCPServerHTTPVariant) mCPServerVariant() {}
+func (MCPServerHTTP) mcpServerVariant() {}
 
 // Tag returns "http".
-func (MCPServerHTTPVariant) Tag() string { return "http" }
+func (MCPServerHTTP) Tag() string { return "http" }
 
-type mCPServerHTTPVariantFields MCPServerHTTPVariant
-type mCPServerHTTPVariantWire struct {
-	Tag                        string `json:"type"`
-	mCPServerHTTPVariantFields `json:",inline"`
+type mcpServerHTTPFields MCPServerHTTP
+type mcpServerHTTPWire struct {
+	Tag                 string `json:"type"`
+	mcpServerHTTPFields `json:",inline"`
 }
 
-func (v MCPServerHTTPVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mCPServerHTTPVariantWire{"http", mCPServerHTTPVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v MCPServerHTTP) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, mcpServerHTTPWire{"http", mcpServerHTTPFields(v)})
 }
-func (v *MCPServerHTTPVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mCPServerHTTPVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *MCPServerHTTP) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w mcpServerHTTPWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "http" {
-		return fmt.Errorf("MCPServerHTTPVariant: expected type \"http\", got %q", w.Tag)
+		return fmt.Errorf("MCPServerHTTP: expected type \"http\", got %q", w.Tag)
 	}
-	*v = MCPServerHTTPVariant(w.mCPServerHTTPVariantFields)
+	*v = MCPServerHTTP(w.mcpServerHTTPFields)
 	return nil
 }
 
-// MCPServerACPVariant is the MCPServer variant with type "acp".
-type MCPServerACPVariant struct {
+// MCPServerACP is the MCPServer variant with type "acp".
+//
+// ACP transport configuration for MCP.
+//
+// The MCP server is provided by an ACP component and communicates over the ACP channel
+// using `mcp/connect`, `mcp/message`, and `mcp/disconnect`.
+//
+// Experimental: not part of the spec yet; it may change or be removed.
+type MCPServerACP struct {
 	// Human-readable name identifying this MCP server.
 	Name string `json:"name"`
 	// Unique identifier for this MCP server, generated by the component providing it.
@@ -4401,42 +4633,42 @@ type MCPServerACPVariant struct {
 	// Providers MUST NOT reuse an ID for multiple ACP-transport MCP servers that are visible
 	// on the same ACP connection.
 	ServerID MCPServerACPID `json:"serverId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta           `json:"_meta,omitzero"`
 }
 
-func (MCPServerACPVariant) mCPServerVariant() {}
+func (MCPServerACP) mcpServerVariant() {}
 
 // Tag returns "acp".
-func (MCPServerACPVariant) Tag() string { return "acp" }
+func (MCPServerACP) Tag() string { return "acp" }
 
-type mCPServerACPVariantFields MCPServerACPVariant
-type mCPServerACPVariantWire struct {
-	Tag                       string `json:"type"`
-	mCPServerACPVariantFields `json:",inline"`
+type mcpServerACPFields MCPServerACP
+type mcpServerACPWire struct {
+	Tag                string `json:"type"`
+	mcpServerACPFields `json:",inline"`
 }
 
-func (v MCPServerACPVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mCPServerACPVariantWire{"acp", mCPServerACPVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v MCPServerACP) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, mcpServerACPWire{"acp", mcpServerACPFields(v)})
 }
-func (v *MCPServerACPVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mCPServerACPVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *MCPServerACP) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w mcpServerACPWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "acp" {
-		return fmt.Errorf("MCPServerACPVariant: expected type \"acp\", got %q", w.Tag)
+		return fmt.Errorf("MCPServerACP: expected type \"acp\", got %q", w.Tag)
 	}
-	*v = MCPServerACPVariant(w.mCPServerACPVariantFields)
+	*v = MCPServerACP(w.mcpServerACPFields)
 	return nil
 }
 
-// MCPServerStdioVariant is the MCPServer variant with type "stdio".
-type MCPServerStdioVariant struct {
+// MCPServerStdio is the MCPServer variant with type "stdio".
+//
+// Stdio transport configuration for MCP.
+type MCPServerStdio struct {
 	// Human-readable name identifying this MCP server.
 	Name string `json:"name"`
 	// Absolute path to the MCP server executable.
@@ -4444,42 +4676,40 @@ type MCPServerStdioVariant struct {
 	// Command-line arguments to pass to the MCP server.
 	Args []string `json:"args,omitzero"`
 	// Environment variables to set when launching the MCP server.
-	Env []EnvVariable `json:"env,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Env  []EnvVariable `json:"env,omitzero"`
+	Meta Meta          `json:"_meta,omitzero"`
 }
 
-func (MCPServerStdioVariant) mCPServerVariant() {}
+func (MCPServerStdio) mcpServerVariant() {}
 
 // Tag returns "stdio".
-func (MCPServerStdioVariant) Tag() string { return "stdio" }
+func (MCPServerStdio) Tag() string { return "stdio" }
 
-type mCPServerStdioVariantFields MCPServerStdioVariant
-type mCPServerStdioVariantWire struct {
-	Tag                         string `json:"type"`
-	mCPServerStdioVariantFields `json:",inline"`
+type mcpServerStdioFields MCPServerStdio
+type mcpServerStdioWire struct {
+	Tag                  string `json:"type"`
+	mcpServerStdioFields `json:",inline"`
 }
 
-func (v MCPServerStdioVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, mCPServerStdioVariantWire{"stdio", mCPServerStdioVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v MCPServerStdio) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, mcpServerStdioWire{"stdio", mcpServerStdioFields(v)})
 }
-func (v *MCPServerStdioVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w mCPServerStdioVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *MCPServerStdio) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w mcpServerStdioWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "stdio" {
-		return fmt.Errorf("MCPServerStdioVariant: expected type \"stdio\", got %q", w.Tag)
+		return fmt.Errorf("MCPServerStdio: expected type \"stdio\", got %q", w.Tag)
 	}
-	*v = MCPServerStdioVariant(w.mCPServerStdioVariantFields)
+	*v = MCPServerStdio(w.mcpServerStdioFields)
 	return nil
 }
 
-// MCPServerCustom carries a MCPServer value with an unrecognized "type", keeping every member.
+// MCPServerCustom holds MCPServer values with an unrecognized "type", keeping every member.
 type MCPServerCustom struct {
 	// Custom or future MCP server transport type.
 	//
@@ -4490,17 +4720,20 @@ type MCPServerCustom struct {
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-func (MCPServerCustom) mCPServerVariant() {}
-func (v MCPServerCustom) Tag() string     { return v.Type }
+func (MCPServerCustom) mcpServerVariant() {}
 
+// Tag returns the "type" member.
+func (v MCPServerCustom) Tag() string { return v.Type }
+
+// ReplayFrom is a tagged union discriminated by the "type" member. The zero value
+// encodes as null; use [NewReplayFrom] or a type switch on [ReplayFrom.Variant] to work with it.
+//
 // Inclusive cursor describing where replayed session history should begin.
 //
 // Replay includes the position identified by the cursor.
-// ReplayFrom is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewReplayFrom or a type switch on Variant to work with it.
 type ReplayFrom struct{ value ReplayFromVariant }
 
-// ReplayFromVariant is implemented by ReplayFromStartVariant, ReplayFromCustom.
+// ReplayFromVariant is implemented by [ReplayFromStart], [ReplayFromCustom].
 type ReplayFromVariant interface {
 	replayFromVariant()
 	Tag() string
@@ -4526,12 +4759,16 @@ func (u ReplayFrom) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u ReplayFrom) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u ReplayFrom) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *ReplayFrom) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalReplayFromVariant(dec, &u.value)
 }
@@ -4557,7 +4794,7 @@ func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) e
 	}
 	switch probe.Tag {
 	case "start":
-		var v ReplayFromStartVariant
+		var v ReplayFromStart
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
 		}
@@ -4572,70 +4809,68 @@ func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) e
 	return nil
 }
 
-// ReplayFromStartVariant is the ReplayFrom variant with type "start".
-type ReplayFromStartVariant struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+// ReplayFromStart is the ReplayFrom variant with type "start".
+//
+// Inclusive replay cursor requesting replay from the start of retained conversation history.
+type ReplayFromStart struct {
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-func (ReplayFromStartVariant) replayFromVariant() {}
+func (ReplayFromStart) replayFromVariant() {}
 
 // Tag returns "start".
-func (ReplayFromStartVariant) Tag() string { return "start" }
+func (ReplayFromStart) Tag() string { return "start" }
 
-type replayFromStartVariantFields ReplayFromStartVariant
-type replayFromStartVariantWire struct {
-	Tag                          string `json:"type"`
-	replayFromStartVariantFields `json:",inline"`
+type replayFromStartFields ReplayFromStart
+type replayFromStartWire struct {
+	Tag                   string `json:"type"`
+	replayFromStartFields `json:",inline"`
 }
 
-func (v ReplayFromStartVariant) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, replayFromStartVariantWire{"start", replayFromStartVariantFields(v)})
+// MarshalJSONTo implements [json.MarshalerTo].
+func (v ReplayFromStart) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, replayFromStartWire{"start", replayFromStartFields(v)})
 }
-func (v *ReplayFromStartVariant) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	var w replayFromStartVariantWire
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (v *ReplayFromStart) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var w replayFromStartWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
 		return err
 	}
 	if w.Tag != "start" {
-		return fmt.Errorf("ReplayFromStartVariant: expected type \"start\", got %q", w.Tag)
+		return fmt.Errorf("ReplayFromStart: expected type \"start\", got %q", w.Tag)
 	}
-	*v = ReplayFromStartVariant(w.replayFromStartVariantFields)
+	*v = ReplayFromStart(w.replayFromStartFields)
 	return nil
 }
 
-// ReplayFromCustom carries a ReplayFrom value with an unrecognized "type", keeping every member.
+// ReplayFromCustom holds ReplayFrom values with an unrecognized "type", keeping every member.
 type ReplayFromCustom struct {
 	// Custom or future replay cursor type.
 	//
 	// Values beginning with `_` are reserved for implementation-specific
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
-	Type string `json:"type"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	Type                 string                    `json:"type"`
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (ReplayFromCustom) replayFromVariant() {}
-func (v ReplayFromCustom) Tag() string      { return v.Type }
 
-// Request parameters for setting a session configuration option.
+// Tag returns the "type" member.
+func (v ReplayFromCustom) Tag() string { return v.Type }
+
 // SetSessionConfigOptionRequest is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use NewSetSessionConfigOptionRequest or a type switch on Variant to work with it.
+// encodes as null; use [NewSetSessionConfigOptionRequest] or a type switch on [SetSessionConfigOptionRequest.Variant] to work with it.
+//
+// Request parameters for setting a session configuration option.
 type SetSessionConfigOptionRequest struct {
 	value SetSessionConfigOptionRequestVariant
 }
 
-// SetSessionConfigOptionRequestVariant is implemented by SetSessionConfigOptionRequestID, SetSessionConfigOptionRequestBoolean, SetSessionConfigOptionRequestCustom.
+// SetSessionConfigOptionRequestVariant is implemented by [SetSessionConfigOptionRequestID], [SetSessionConfigOptionRequestBoolean], [SetSessionConfigOptionRequestCustom].
 type SetSessionConfigOptionRequestVariant interface {
 	setSessionConfigOptionRequestVariant()
 	Tag() string
@@ -4666,12 +4901,16 @@ func (u SetSessionConfigOptionRequest) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u SetSessionConfigOptionRequest) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u SetSessionConfigOptionRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *SetSessionConfigOptionRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalSetSessionConfigOptionRequestVariant(dec, &u.value)
 }
@@ -4726,12 +4965,7 @@ type SetSessionConfigOptionRequestID struct {
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
 	ConfigID SessionConfigID `json:"configId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta            `json:"_meta,omitzero"`
 }
 
 func (SetSessionConfigOptionRequestID) setSessionConfigOptionRequestVariant() {}
@@ -4745,9 +4979,12 @@ type setSessionConfigOptionRequestIDWire struct {
 	setSessionConfigOptionRequestIDFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SetSessionConfigOptionRequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, setSessionConfigOptionRequestIDWire{"id", setSessionConfigOptionRequestIDFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SetSessionConfigOptionRequestID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w setSessionConfigOptionRequestIDWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4768,12 +5005,7 @@ type SetSessionConfigOptionRequestBoolean struct {
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
 	ConfigID SessionConfigID `json:"configId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta            `json:"_meta,omitzero"`
 }
 
 func (SetSessionConfigOptionRequestBoolean) setSessionConfigOptionRequestVariant() {}
@@ -4787,9 +5019,12 @@ type setSessionConfigOptionRequestBooleanWire struct {
 	setSessionConfigOptionRequestBooleanFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v SetSessionConfigOptionRequestBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, setSessionConfigOptionRequestBooleanWire{"boolean", setSessionConfigOptionRequestBooleanFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *SetSessionConfigOptionRequestBoolean) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w setSessionConfigOptionRequestBooleanWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4802,7 +5037,7 @@ func (v *SetSessionConfigOptionRequestBoolean) UnmarshalJSONFrom(dec *jsontext.D
 	return nil
 }
 
-// SetSessionConfigOptionRequestCustom carries a SetSessionConfigOptionRequest value with an unrecognized "type", keeping every member.
+// SetSessionConfigOptionRequestCustom holds SetSessionConfigOptionRequest values with an unrecognized "type", keeping every member.
 type SetSessionConfigOptionRequestCustom struct {
 	// Custom or future session configuration option value type.
 	//
@@ -4815,27 +5050,25 @@ type SetSessionConfigOptionRequestCustom struct {
 	// The ID of the session to set the configuration option for.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the configuration option to set.
-	ConfigID SessionConfigID `json:"configId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
+	ConfigID             SessionConfigID           `json:"configId"`
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (SetSessionConfigOptionRequestCustom) setSessionConfigOptionRequestVariant() {}
-func (v SetSessionConfigOptionRequestCustom) Tag() string                         { return v.Type }
 
-// The outcome of a permission request.
+// Tag returns the "type" member.
+func (v SetSessionConfigOptionRequestCustom) Tag() string { return v.Type }
+
+// RequestPermissionOutcome is the outcome of a permission request.
+//
 // RequestPermissionOutcome is a tagged union discriminated by the "outcome" member. The zero value
-// encodes as null; use NewRequestPermissionOutcome or a type switch on Variant to work with it.
+// encodes as null; use [NewRequestPermissionOutcome] or a type switch on [RequestPermissionOutcome.Variant] to work with it.
 type RequestPermissionOutcome struct {
 	value RequestPermissionOutcomeVariant
 }
 
-// RequestPermissionOutcomeVariant is implemented by RequestPermissionOutcomeCancelled, RequestPermissionOutcomeSelected, RequestPermissionOutcomeCustom.
+// RequestPermissionOutcomeVariant is implemented by [RequestPermissionOutcomeCancelled], [RequestPermissionOutcomeSelected], [RequestPermissionOutcomeCustom].
 type RequestPermissionOutcomeVariant interface {
 	requestPermissionOutcomeVariant()
 	Tag() string
@@ -4866,12 +5099,16 @@ func (u RequestPermissionOutcome) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u RequestPermissionOutcome) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u RequestPermissionOutcome) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *RequestPermissionOutcome) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalRequestPermissionOutcomeVariant(dec, &u.value)
 }
@@ -4933,9 +5170,12 @@ type requestPermissionOutcomeCancelledWire struct {
 	requestPermissionOutcomeCancelledFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionOutcomeCancelled) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, requestPermissionOutcomeCancelledWire{"cancelled", requestPermissionOutcomeCancelledFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionOutcomeCancelled) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w requestPermissionOutcomeCancelledWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4948,16 +5188,13 @@ func (v *RequestPermissionOutcomeCancelled) UnmarshalJSONFrom(dec *jsontext.Deco
 	return nil
 }
 
+// RequestPermissionOutcomeSelected is the user selected one of the provided options.
+//
 // RequestPermissionOutcomeSelected is the RequestPermissionOutcome variant with outcome "selected".
 type RequestPermissionOutcomeSelected struct {
 	// The ID of the option the user selected.
 	OptionID PermissionOptionID `json:"optionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta               `json:"_meta,omitzero"`
 }
 
 func (RequestPermissionOutcomeSelected) requestPermissionOutcomeVariant() {}
@@ -4971,9 +5208,12 @@ type requestPermissionOutcomeSelectedWire struct {
 	requestPermissionOutcomeSelectedFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestPermissionOutcomeSelected) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, requestPermissionOutcomeSelectedWire{"selected", requestPermissionOutcomeSelectedFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *RequestPermissionOutcomeSelected) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w requestPermissionOutcomeSelectedWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -4986,7 +5226,7 @@ func (v *RequestPermissionOutcomeSelected) UnmarshalJSONFrom(dec *jsontext.Decod
 	return nil
 }
 
-// RequestPermissionOutcomeCustom carries a RequestPermissionOutcome value with an unrecognized "outcome", keeping every member.
+// RequestPermissionOutcomeCustom holds RequestPermissionOutcome values with an unrecognized "outcome", keeping every member.
 type RequestPermissionOutcomeCustom struct {
 	// Custom or future permission outcome.
 	//
@@ -4998,16 +5238,19 @@ type RequestPermissionOutcomeCustom struct {
 }
 
 func (RequestPermissionOutcomeCustom) requestPermissionOutcomeVariant() {}
-func (v RequestPermissionOutcomeCustom) Tag() string                    { return v.Outcome }
 
-// Response from the client to an elicitation request.
+// Tag returns the "outcome" member.
+func (v RequestPermissionOutcomeCustom) Tag() string { return v.Outcome }
+
+// CreateElicitationResponse is a response from the client to an elicitation request.
+//
 // CreateElicitationResponse is a tagged union discriminated by the "action" member. The zero value
-// encodes as null; use NewCreateElicitationResponse or a type switch on Variant to work with it.
+// encodes as null; use [NewCreateElicitationResponse] or a type switch on [CreateElicitationResponse.Variant] to work with it.
 type CreateElicitationResponse struct {
 	value CreateElicitationResponseVariant
 }
 
-// CreateElicitationResponseVariant is implemented by CreateElicitationResponseAccept, CreateElicitationResponseDecline, CreateElicitationResponseCancel, CreateElicitationResponseCustom.
+// CreateElicitationResponseVariant is implemented by [CreateElicitationResponseAccept], [CreateElicitationResponseDecline], [CreateElicitationResponseCancel], [CreateElicitationResponseCustom].
 type CreateElicitationResponseVariant interface {
 	createElicitationResponseVariant()
 	Tag() string
@@ -5038,12 +5281,16 @@ func (u CreateElicitationResponse) Tag() string {
 
 // IsZero reports whether no variant is set, so omitzero omits the field.
 func (u CreateElicitationResponse) IsZero() bool { return u.value == nil }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (u CreateElicitationResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
 		return enc.WriteToken(jsontext.Null)
 	}
 	return json.MarshalEncode(enc, u.value)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (u *CreateElicitationResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return unmarshalCreateElicitationResponseVariant(dec, &u.value)
 }
@@ -5100,13 +5347,7 @@ func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *Creat
 type CreateElicitationResponseAccept struct {
 	// The user-provided content, if any, as an object matching the requested schema.
 	Content map[string]ElicitationContentValue `json:"content,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5121,9 +5362,12 @@ type createElicitationResponseAcceptWire struct {
 	createElicitationResponseAcceptFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseAccept) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, createElicitationResponseAcceptWire{"accept", createElicitationResponseAcceptFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseAccept) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w createElicitationResponseAcceptWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -5138,13 +5382,7 @@ func (v *CreateElicitationResponseAccept) UnmarshalJSONFrom(dec *jsontext.Decode
 
 // CreateElicitationResponseDecline is the CreateElicitationResponse variant with action "decline".
 type CreateElicitationResponseDecline struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5159,9 +5397,12 @@ type createElicitationResponseDeclineWire struct {
 	createElicitationResponseDeclineFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseDecline) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, createElicitationResponseDeclineWire{"decline", createElicitationResponseDeclineFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseDecline) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w createElicitationResponseDeclineWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -5176,13 +5417,7 @@ func (v *CreateElicitationResponseDecline) UnmarshalJSONFrom(dec *jsontext.Decod
 
 // CreateElicitationResponseCancel is the CreateElicitationResponse variant with action "cancel".
 type CreateElicitationResponseCancel struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -5197,9 +5432,12 @@ type createElicitationResponseCancelWire struct {
 	createElicitationResponseCancelFields `json:",inline"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationResponseCancel) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return json.MarshalEncode(enc, createElicitationResponseCancelWire{"cancel", createElicitationResponseCancelFields(v)})
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *CreateElicitationResponseCancel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var w createElicitationResponseCancelWire
 	if err := json.UnmarshalDecode(dec, &w); err != nil {
@@ -5212,7 +5450,7 @@ func (v *CreateElicitationResponseCancel) UnmarshalJSONFrom(dec *jsontext.Decode
 	return nil
 }
 
-// CreateElicitationResponseCustom carries a CreateElicitationResponse value with an unrecognized "action", keeping every member.
+// CreateElicitationResponseCustom holds CreateElicitationResponse values with an unrecognized "action", keeping every member.
 type CreateElicitationResponseCustom struct {
 	// Custom or future elicitation action.
 	//
@@ -5220,26 +5458,23 @@ type CreateElicitationResponseCustom struct {
 	// extensions. Unknown values that do not begin with `_` are reserved for
 	// future ACP variants.
 	Action string `json:"action"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
 func (CreateElicitationResponseCustom) createElicitationResponseVariant() {}
-func (v CreateElicitationResponseCustom) Tag() string                     { return v.Action }
 
-// Allowed wire representations for [`ElicitationContentValue`].
+// Tag returns the "action" member.
+func (v CreateElicitationResponseCustom) Tag() string { return v.Action }
+
 // ElicitationContentValue preserves the complete JSON payload, including future variants.
-// Use As to read one alternative and NewElicitationContentValue to build one.
+// Use [ElicitationContentValue.As] to read one alternative and [NewElicitationContentValue] to build one.
+//
+// Allowed wire representations for [ElicitationContentValue].
 type ElicitationContentValue struct{ raw jsontext.Value }
 
-// ElicitationContentValueAlternative is the set of Go types a ElicitationContentValue can hold.
+// ElicitationContentValueAlternative is the set of Go types ElicitationContentValue can hold.
 type ElicitationContentValueAlternative interface {
 	string | float64 | bool | []string
 }
@@ -5251,8 +5486,8 @@ var elicitationContentValueAlternatives = union.Table(
 	union.Alt[[]string](union.Rule{NonNull: true}),
 )
 
-// NewElicitationContentValue encodes value as a ElicitationContentValue, adding any literal members the alternative
-// requires and rejecting values that are not that alternative.
+// NewElicitationContentValue encodes value, one of the ElicitationContentValueAlternative types, adding any literal members
+// it requires and rejecting values that are not that alternative.
 func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (ElicitationContentValue, error) {
 	raw, err := union.New("ElicitationContentValue", elicitationContentValueAlternatives, value)
 	return ElicitationContentValue{raw: raw}, err
@@ -5262,29 +5497,22 @@ func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (
 func (v ElicitationContentValue) As[T ElicitationContentValueAlternative]() (T, error) {
 	return union.As[T]("ElicitationContentValue", elicitationContentValueAlternatives, v.raw)
 }
-func (v ElicitationContentValue) MarshalJSON() ([]byte, error) {
-	if len(v.raw) == 0 {
-		return []byte("null"), nil
-	}
-	return v.raw.Clone(), nil
-}
-func (v *ElicitationContentValue) UnmarshalJSON(b []byte) error {
-	if !jsontext.Value(b).IsValid() {
-		return fmt.Errorf("invalid ElicitationContentValue JSON")
-	}
-	v.raw = jsontext.Value(b).Clone()
-	return nil
-}
+
+// RawJSON returns a copy of the payload as received or built.
 func (v ElicitationContentValue) RawJSON() jsontext.Value { return v.raw.Clone() }
 
 // IsZero reports whether no payload is stored, so omitzero omits the field.
 func (v ElicitationContentValue) IsZero() bool { return len(v.raw) == 0 }
+
+// MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationContentValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
 		return enc.WriteValue(jsontext.Value("null"))
 	}
 	return enc.WriteValue(v.raw)
 }
+
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := dec.ReadValue()
 	if err != nil {
@@ -5292,11 +5520,6 @@ func (v *ElicitationContentValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	}
 	v.raw = raw.Clone()
 	return nil
-}
-func ParseElicitationContentValue(b []byte) (ElicitationContentValue, error) {
-	var v ElicitationContentValue
-	err := json.Unmarshal(b, &v)
-	return v, err
 }
 
 // Unmarshalers decodes the tagged-union variant interfaces directly, for callers
@@ -5309,6 +5532,7 @@ var Unmarshalers = json.JoinUnmarshalers(
 	json.UnmarshalFromFunc(unmarshalContentBlockVariant),
 	json.UnmarshalFromFunc(unmarshalDiffChangeVariant),
 	json.UnmarshalFromFunc(unmarshalElicitationPropertySchemaVariant),
+	json.UnmarshalFromFunc(unmarshalMultiSelectItemsVariant),
 	json.UnmarshalFromFunc(unmarshalAuthMethodVariant),
 	json.UnmarshalFromFunc(unmarshalSessionConfigOptionVariant),
 	json.UnmarshalFromFunc(unmarshalNesSuggestionVariant),

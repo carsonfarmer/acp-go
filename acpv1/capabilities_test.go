@@ -68,11 +68,11 @@ func (readOnlyClient) ReadTextFile(context.Context, *acpv1.ReadTextFileRequest) 
 
 func TestClientCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	caps := acpv1.ClientCapabilitiesOf(readOnlyClient{})
-	if caps.Fs == nil || caps.Fs.ReadTextFile == nil || !*caps.Fs.ReadTextFile {
-		t.Errorf("fs.readTextFile = %+v, want true", caps.Fs)
+	if caps.FS == nil || caps.FS.ReadTextFile == nil || !*caps.FS.ReadTextFile {
+		t.Errorf("fs.readTextFile = %+v, want true", caps.FS)
 	}
-	if caps.Fs.WriteTextFile == nil || *caps.Fs.WriteTextFile {
-		t.Errorf("fs.writeTextFile = %+v, want explicit false", caps.Fs)
+	if caps.FS.WriteTextFile == nil || *caps.FS.WriteTextFile {
+		t.Errorf("fs.writeTextFile = %+v, want explicit false", caps.FS)
 	}
 	if caps.Terminal != nil || caps.Elicitation != nil {
 		t.Errorf("advertised unimplemented capabilities: %+v", caps)

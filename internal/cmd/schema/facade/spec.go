@@ -89,7 +89,7 @@ func Generate(spec *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
 		}
 		for _, m := range c.Members {
 			wire := strings.Trim(m.Value, `"`)
-			g.constants[c.Name+" "+wire] = tsgen.Name(c.Name) + tsgen.Name(m.Name)
+			g.constants[c.Name+" "+wire] = tsgen.ConstantName(c.Name, m.Name)
 		}
 	}
 	sides := []side{

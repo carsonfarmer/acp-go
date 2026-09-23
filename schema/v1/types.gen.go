@@ -9,7 +9,7 @@ import (
 	"github.com/ironpark/go-acp/schema/meta"
 )
 
-// Request to write content to a text file.
+// WriteTextFileRequest is a request to write content to a text file.
 //
 // Only available if the client supports the `fs.writeTextFile` capability.
 type WriteTextFileRequest struct {
@@ -19,15 +19,10 @@ type WriteTextFileRequest struct {
 	Path string `json:"path"`
 	// The text content to write to the file.
 	Content string `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// Request to read content from a text file.
+// ReadTextFileRequest is a request to read content from a text file.
 //
 // Only available if the client supports the `fs.readTextFile` capability.
 type ReadTextFileRequest struct {
@@ -39,19 +34,16 @@ type ReadTextFileRequest struct {
 	Line *uint32 `json:"line,omitzero"`
 	// Maximum number of lines to read.
 	Limit *uint32 `json:"limit,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta    `json:"_meta,omitzero"`
 }
 
-// Request for user permission to execute a tool call.
+// RequestPermissionRequest is a request for user permission to execute a tool call.
 //
 // Sent when the agent needs authorization before performing a sensitive operation.
 //
-// See protocol docs: [Requesting Permission](https://agentclientprotocol.com/protocol/tool-calls#requesting-permission)
+// See protocol docs: [Requesting Permission]
+//
+// [Requesting Permission]: https://agentclientprotocol.com/protocol/tool-calls#requesting-permission
 type RequestPermissionRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
@@ -59,20 +51,17 @@ type RequestPermissionRequest struct {
 	ToolCall ToolCallUpdate `json:"toolCall"`
 	// Available permission options for the user to choose from.
 	Options []PermissionOption `json:"options"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta               `json:"_meta,omitzero"`
 }
 
-// An update to an existing tool call.
+// ToolCallUpdate is an update to an existing tool call.
 //
 // Used to report progress and results as tools execute. All fields except
 // the tool call ID are optional - only changed fields need to be included.
 //
-// See protocol docs: [Updating](https://agentclientprotocol.com/protocol/tool-calls#updating)
+// See protocol docs: [Updating]
+//
+// [Updating]: https://agentclientprotocol.com/protocol/tool-calls#updating
 type ToolCallUpdate struct {
 	// The ID of the tool call being updated.
 	ToolCallID ToolCallID `json:"toolCallId"`
@@ -95,12 +84,7 @@ type ToolCallUpdate struct {
 	RawInput jsontext.Value `json:"rawInput,omitzero"`
 	// Update the raw output.
 	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta           `json:"_meta,omitzero"`
 }
 
 // Optional annotations for the client. The client can use annotations to inform how objects are used or displayed
@@ -111,100 +95,18 @@ type Annotations struct {
 	LastModified *string `json:"lastModified,omitzero"`
 	// Relative importance of this content when clients choose what to surface.
 	Priority *float64 `json:"priority,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Text provided to or from an LLM.
-type TextContent struct {
-	// Optional annotations that help clients decide how to display or route this content.
-	Annotations *Annotations `json:"annotations,omitzero"`
-	// Text payload carried by this content block.
-	Text string `json:"text"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// An image provided to or from an LLM.
-type ImageContent struct {
-	// Optional annotations that help clients decide how to display or route this content.
-	Annotations *Annotations `json:"annotations,omitzero"`
-	// Base64-encoded media payload.
-	Data string `json:"data"`
-	// MIME type describing the encoded media payload.
-	MimeType string `json:"mimeType"`
-	// URI associated with this resource or media payload.
-	URI *string `json:"uri,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Audio provided to or from an LLM.
-type AudioContent struct {
-	// Optional annotations that help clients decide how to display or route this content.
-	Annotations *Annotations `json:"annotations,omitzero"`
-	// Base64-encoded media payload.
-	Data string `json:"data"`
-	// MIME type describing the encoded media payload.
-	MimeType string `json:"mimeType"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A resource that the server is capable of reading, included in a prompt or tool call result.
-type ResourceLink struct {
-	// Optional annotations that help clients decide how to display or route this content.
-	Annotations *Annotations `json:"annotations,omitzero"`
-	// Optional human-readable details shown with this protocol object.
-	Description *string `json:"description,omitzero"`
-	// MIME type describing the encoded media payload.
-	MimeType *string `json:"mimeType,omitzero"`
-	// Human-readable name shown for this protocol object.
-	Name string `json:"name"`
-	// Optional size of the linked resource in bytes, if known.
-	Size *float64 `json:"size,omitzero"`
-	// Optional display title for end-user UI.
-	Title *string `json:"title,omitzero"`
-	// URI associated with this resource or media payload.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta     `json:"_meta,omitzero"`
 }
 
 // Text-based resource contents.
 type TextResourceContents struct {
 	// MIME type describing the encoded media payload.
-	MimeType *string `json:"mimeType,omitzero"`
+	MIMEType *string `json:"mimeType,omitzero"`
 	// Text payload carried by this content block.
 	Text string `json:"text"`
 	// URI associated with this resource or media payload.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	URI  string `json:"uri"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Binary resource contents.
@@ -212,99 +114,29 @@ type BlobResourceContents struct {
 	// Base64-encoded bytes for a binary resource payload.
 	Blob string `json:"blob"`
 	// MIME type describing the encoded media payload.
-	MimeType *string `json:"mimeType,omitzero"`
+	MIMEType *string `json:"mimeType,omitzero"`
 	// URI associated with this resource or media payload.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	URI  string `json:"uri"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
-// The contents of a resource, embedded into a prompt or tool call result.
-type EmbeddedResource struct {
-	// Optional annotations that help clients decide how to display or route this content.
-	Annotations *Annotations `json:"annotations,omitzero"`
-	// Embedded resource payload, either text or binary data.
-	Resource EmbeddedResourceResource `json:"resource"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Standard content block (text, images, resources).
-type Content struct {
-	// The actual content block.
-	Content ContentBlock `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A diff representing file modifications.
-//
-// Shows changes to files in a format suitable for display in the client UI.
-//
-// See protocol docs: [Content](https://agentclientprotocol.com/protocol/tool-calls#content)
-type Diff struct {
-	// The absolute file path being modified.
-	Path string `json:"path"`
-	// The original content (None for new files).
-	OldText *string `json:"oldText,omitzero"`
-	// The new content after modification.
-	NewText string `json:"newText"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Embed a terminal created with `terminal/create` by its id.
-//
-// The terminal must be added before calling `terminal/release`.
-//
-// See protocol docs: [Terminal](https://agentclientprotocol.com/protocol/terminals)
-type Terminal struct {
-	// Identifier of the terminal instance to embed in the content stream.
-	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A file location being accessed or modified by a tool.
+// ToolCallLocation is a file location being accessed or modified by a tool.
 //
 // Enables clients to implement "follow-along" features that track
 // which files the agent is working with in real-time.
 //
-// See protocol docs: [Following the Agent](https://agentclientprotocol.com/protocol/tool-calls#following-the-agent)
+// See protocol docs: [Following the Agent]
+//
+// [Following the Agent]: https://agentclientprotocol.com/protocol/tool-calls#following-the-agent
 type ToolCallLocation struct {
 	// The absolute file path being accessed or modified.
 	Path string `json:"path"`
 	// Optional line number within the file.
 	Line *uint32 `json:"line,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta    `json:"_meta,omitzero"`
 }
 
-// An option presented to the user when requesting permission.
+// PermissionOption is an option presented to the user when requesting permission.
 type PermissionOption struct {
 	// Unique identifier for this permission option.
 	OptionID PermissionOptionID `json:"optionId"`
@@ -312,15 +144,10 @@ type PermissionOption struct {
 	Name string `json:"name"`
 	// Hint about the nature of this permission option.
 	Kind PermissionOptionKind `json:"kind"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta                 `json:"_meta,omitzero"`
 }
 
-// Request to create a new terminal and execute a command.
+// CreateTerminalRequest is a request to create a new terminal and execute a command.
 type CreateTerminalRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
@@ -341,82 +168,52 @@ type CreateTerminalRequest struct {
 	// string output, even if this means the retained output is slightly less than the
 	// specified limit.
 	OutputByteLimit *float64 `json:"outputByteLimit,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta            Meta     `json:"_meta,omitzero"`
 }
 
-// An environment variable to set when launching an MCP server.
+// EnvVariable is an environment variable to set when launching an MCP server.
 type EnvVariable struct {
 	// The name of the environment variable.
 	Name string `json:"name"`
 	// The value to set for the environment variable.
 	Value string `json:"value"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
 }
 
-// Request to get the current output and status of a terminal.
+// TerminalOutputRequest is a request to get the current output and status of a terminal.
 type TerminalOutputRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the terminal to get output from.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
-// Request to release a terminal and free its resources.
+// ReleaseTerminalRequest is a request to release a terminal and free its resources.
 type ReleaseTerminalRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the terminal to release.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
-// Request to wait for a terminal command to exit.
+// WaitForTerminalExitRequest is a request to wait for a terminal command to exit.
 type WaitForTerminalExitRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the terminal to wait for.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
-// Request to kill a terminal without releasing it.
+// KillTerminalRequest is a request to kill a terminal without releasing it.
 type KillTerminalRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the terminal to kill.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
 // Session-scoped elicitation, optionally tied to a specific tool call.
@@ -462,17 +259,11 @@ type ElicitationSchema struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no schema description is provided.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// A titled enum option with a const value, human-readable title, and optional description.
+// EnumOption is a titled enum option with a const value, human-readable title, and optional description.
 type EnumOption struct {
 	// The constant value for this option.
 	Const string `json:"const"`
@@ -482,166 +273,7 @@ type EnumOption struct {
 	//
 	// Optional. Omitted and `null` are equivalent and mean no description is provided.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Schema for string properties in an elicitation form.
-//
-// When `enum` or `oneOf` is set, this represents a single-select enum
-// with `"type": "string"`.
-type StringPropertySchema struct {
-	// Optional title for the property.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no title is provided.
-	Title *string `json:"title,omitzero"`
-	// Human-readable description.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no description is provided.
-	Description *string `json:"description,omitzero"`
-	// Minimum string length.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no minimum length constraint.
-	MinLength *uint32 `json:"minLength,omitzero"`
-	// Maximum string length.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no maximum length constraint.
-	MaxLength *uint32 `json:"maxLength,omitzero"`
-	// Pattern the string must match.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no pattern constraint.
-	Pattern *string `json:"pattern,omitzero"`
-	// String format.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no format constraint.
-	Format *StringFormat `json:"format,omitzero"`
-	// Default value.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
-	Default *string `json:"default,omitzero"`
-	// Enum values for untitled single-select enums.
-	// Optional. Omitted and `null` are equivalent and mean no untitled single-select choices are
-	// declared by `enum`.
-	Enum []string `json:"enum,omitzero"`
-	// Titled enum options for titled single-select enums.
-	// Optional. Omitted and `null` are equivalent and mean no titled single-select choices are
-	// declared by `oneOf`.
-	OneOf []EnumOption `json:"oneOf,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Schema for number (floating-point) properties in an elicitation form.
-type NumberPropertySchema struct {
-	// Optional title for the property.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no title is provided.
-	Title *string `json:"title,omitzero"`
-	// Human-readable description.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no description is provided.
-	Description *string `json:"description,omitzero"`
-	// Minimum value (inclusive).
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no inclusive lower bound.
-	Minimum *float64 `json:"minimum,omitzero"`
-	// Maximum value (inclusive).
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no inclusive upper bound.
-	Maximum *float64 `json:"maximum,omitzero"`
-	// Default value.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
-	Default *float64 `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Schema for integer properties in an elicitation form.
-type IntegerPropertySchema struct {
-	// Optional title for the property.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no title is provided.
-	Title *string `json:"title,omitzero"`
-	// Human-readable description.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no description is provided.
-	Description *string `json:"description,omitzero"`
-	// Minimum value (inclusive).
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no inclusive lower bound.
-	Minimum *float64 `json:"minimum,omitzero"`
-	// Maximum value (inclusive).
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no inclusive upper bound.
-	Maximum *float64 `json:"maximum,omitzero"`
-	// Default value.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
-	Default *float64 `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Schema for boolean properties in an elicitation form.
-type BooleanPropertySchema struct {
-	// Optional title for the property.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no title is provided.
-	Title *string `json:"title,omitzero"`
-	// Human-readable description.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no description is provided.
-	Description *string `json:"description,omitzero"`
-	// Default value.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no default value is provided.
-	Default *bool `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// String item schema for multi-select enum properties.
-type StringMultiSelectItems struct {
-	// Allowed enum values.
-	Enum []string `json:"enum"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -649,75 +281,22 @@ type StringMultiSelectItems struct {
 type TitledMultiSelectItems struct {
 	// Titled enum options.
 	AnyOf []EnumOption `json:"anyOf"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Schema for multi-select (array) properties in an elicitation form.
-type MultiSelectPropertySchema struct {
-	// Optional title for the property.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no title is provided.
-	Title *string `json:"title,omitzero"`
-	// Human-readable description.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no description is provided.
-	Description *string `json:"description,omitzero"`
-	// Minimum number of items to select.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no minimum selection count.
-	MinItems *float64 `json:"minItems,omitzero"`
-	// Maximum number of items to select.
-	//
-	// Optional. Omitted and `null` are equivalent and mean there is no maximum selection count.
-	MaxItems *float64 `json:"maxItems,omitzero"`
-	// The items definition describing allowed values.
-	Items MultiSelectItems `json:"items"`
-	// Default selected values.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no default selections are provided.
-	Default []string `json:"default,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `mcp/connect`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ConnectMCPRequest struct {
 	// The ACP MCP server ID that was provided by the component declaring the MCP server.
 	ServerID MCPServerACPID `json:"serverId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta           `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `mcp/message`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPRequest struct {
 	// The MCP-over-ACP connection this message is sent on.
 	ConnectionID MCPConnectionID `json:"connectionId"`
@@ -727,44 +306,34 @@ type MessageMCPRequest struct {
 	//
 	// If omitted or set to `null`, the inner MCP message has no params.
 	Params map[string]jsontext.Value `json:"params,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta                      `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `mcp/disconnect`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type DisconnectMCPRequest struct {
 	// The MCP-over-ACP connection to close.
 	ConnectionID MCPConnectionID `json:"connectionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta         Meta            `json:"_meta,omitzero"`
 }
 
 // Allows for sending an arbitrary request that is not part of the ACP spec.
 // Extension methods provide a way to add custom functionality while maintaining
 // protocol compatibility.
 //
-// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+// See protocol docs: [Extensibility]
+//
+// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
 type ExtRequest = jsontext.Value
 
-// Response to the `initialize` method.
+// InitializeResponse is a response to the `initialize` method.
 //
 // Contains the negotiated protocol version and agent capabilities.
 //
-// See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
+// See protocol docs: [Initialization]
+//
+// [Initialization]: https://agentclientprotocol.com/protocol/initialization
 type InitializeResponse struct {
 	// The protocol version the client specified if supported by the agent,
 	// or the latest protocol version supported by the agent.
@@ -779,12 +348,7 @@ type InitializeResponse struct {
 	//
 	// Note: in future versions of the protocol, this will be required.
 	AgentInfo *Implementation `json:"agentInfo,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta            `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the agent.
@@ -792,7 +356,9 @@ type InitializeResponse struct {
 // Advertised during initialization to inform the client about
 // available features and content types.
 //
-// See protocol docs: [Agent Capabilities](https://agentclientprotocol.com/protocol/initialization#agent-capabilities)
+// See protocol docs: [Agent Capabilities]
+//
+// [Agent Capabilities]: https://agentclientprotocol.com/protocol/initialization#agent-capabilities
 type AgentCapabilities struct {
 	// Whether the agent supports `session/load`.
 	LoadSession *bool `json:"loadSession,omitzero"`
@@ -804,48 +370,31 @@ type AgentCapabilities struct {
 	SessionCapabilities *SessionCapabilities `json:"sessionCapabilities,omitzero"`
 	// Authentication-related capabilities supported by the agent.
 	Auth *AgentAuthCapabilities `json:"auth,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Provider configuration capabilities supported by the agent.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports provider configuration methods.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Providers *ProvidersCapabilities `json:"providers,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// NES (Next Edit Suggestions) capabilities supported by the agent.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support
 	// for NES methods.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Nes *NesCapabilities `json:"nes,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// The position encoding selected by the agent from the client's supported encodings.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	PositionEncoding *PositionEncodingKind `json:"positionEncoding,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta             Meta                  `json:"_meta,omitzero"`
 }
 
 // Prompt capabilities supported by the agent in `session/prompt` requests.
 //
-// Baseline agent functionality requires support for [`ContentBlock::Text`]
-// and [`ContentBlock::ResourceLink`] in prompt requests.
+// Baseline agent functionality requires support for [ContentBlockText]
+// and [ContentBlockResourceLink] in prompt requests.
 //
 // Other variants must be explicitly opted in to.
 // Capabilities for different types of content in prompt requests.
@@ -853,45 +402,33 @@ type AgentCapabilities struct {
 // Indicates which content types beyond the baseline (text and resource links)
 // the agent can process.
 //
-// See protocol docs: [Prompt Capabilities](https://agentclientprotocol.com/protocol/initialization#prompt-capabilities)
+// See protocol docs: [Prompt Capabilities]
+//
+// [Prompt Capabilities]: https://agentclientprotocol.com/protocol/initialization#prompt-capabilities
 type PromptCapabilities struct {
-	// Agent supports [`ContentBlock::Image`].
+	// Agent supports [ContentBlockImage].
 	Image *bool `json:"image,omitzero"`
-	// Agent supports [`ContentBlock::Audio`].
+	// Agent supports [ContentBlockAudio].
 	Audio *bool `json:"audio,omitzero"`
 	// Agent supports embedded context in `session/prompt` requests.
 	//
-	// When enabled, the Client is allowed to include [`ContentBlock::Resource`]
+	// When enabled, the Client is allowed to include [ContentBlockResource]
 	// in prompt requests for pieces of context that are referenced in the message.
 	EmbeddedContext *bool `json:"embeddedContext,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta            Meta  `json:"_meta,omitzero"`
 }
 
 // MCP capabilities supported by the agent
 type MCPCapabilities struct {
-	// Agent supports [`McpServer::Http`].
+	// Agent supports [MCPServerHTTP].
 	HTTP *bool `json:"http,omitzero"`
-	// Agent supports [`McpServer::Sse`].
-	Sse *bool `json:"sse,omitzero"`
-	// **UNSTABLE**
+	// Agent supports [MCPServerSSE].
+	SSE *bool `json:"sse,omitzero"`
+	// Agent supports [MCPServerACP].
 	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
-	// Agent supports [`McpServer::Acp`].
-	//
-	// @experimental
-	ACP *bool `json:"acp,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	// Experimental: not part of the spec yet; it may change or be removed.
+	ACP  *bool `json:"acp,omitzero"`
+	Meta Meta  `json:"_meta,omitzero"`
 }
 
 // Session capabilities supported by the agent.
@@ -902,7 +439,9 @@ type MCPCapabilities struct {
 //
 // Note: `session/load` is still handled by the top-level `load_session` capability. This will be unified in future versions of the protocol.
 //
-// See protocol docs: [Session Capabilities](https://agentclientprotocol.com/protocol/initialization#session-capabilities)
+// See protocol docs: [Session Capabilities]
+//
+// [Session Capabilities]: https://agentclientprotocol.com/protocol/initialization#session-capabilities
 type SessionCapabilities struct {
 	// Whether the agent supports `session/list`.
 	//
@@ -924,16 +463,12 @@ type SessionCapabilities struct {
 	// `SessionInfo.additionalDirectories` to report the complete ordered
 	// additional-root list associated with a listed session.
 	AdditionalDirectories *SessionAdditionalDirectoriesCapabilities `json:"additionalDirectories,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Whether the agent supports `session/fork`.
 	//
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports forking sessions.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Fork *SessionForkCapabilities `json:"fork,omitzero"`
 	// Whether the agent supports `session/resume`.
 	//
@@ -945,23 +480,13 @@ type SessionCapabilities struct {
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports closing sessions.
 	Close *SessionCloseCapabilities `json:"close,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta                      `json:"_meta,omitzero"`
 }
 
 // Capabilities for the `session/list` method.
 //
 // Supplying `{}` means the agent supports listing sessions.
 type SessionListCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -969,11 +494,6 @@ type SessionListCapabilities struct {
 //
 // Supplying `{}` means the agent supports deleting sessions from `session/list`.
 type SessionDeleteCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -984,29 +504,15 @@ type SessionDeleteCapabilities struct {
 // `session/list` may return `SessionInfo.additionalDirectories` to report the
 // complete ordered additional-root list associated with a listed session.
 type SessionAdditionalDirectoriesCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Capabilities for the `session/fork` method.
 //
 // Supplying `{}` means the agent supports forking sessions.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionForkCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1014,11 +520,6 @@ type SessionForkCapabilities struct {
 //
 // Supplying `{}` means the agent supports resuming sessions.
 type SessionResumeCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1026,11 +527,6 @@ type SessionResumeCapabilities struct {
 //
 // Supplying `{}` means the agent supports closing sessions.
 type SessionCloseCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1041,41 +537,22 @@ type AgentAuthCapabilities struct {
 	// Optional. Omitted or `null` both mean the agent does not advertise support.
 	// Supplying `{}` means the agent supports the logout method.
 	Logout *LogoutCapabilities `json:"logout,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta                `json:"_meta,omitzero"`
 }
 
 // Logout capabilities supported by the agent.
 //
 // Supplying `{}` means the agent supports the logout method.
 type LogoutCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Provider configuration capabilities supported by the agent.
 //
 // Supplying `{}` means the agent supports provider configuration methods.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ProvidersCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1085,24 +562,14 @@ type NesCapabilities struct {
 	Events *NesEventCapabilities `json:"events,omitzero"`
 	// Context the agent wants attached to each suggestion request.
 	Context *NesContextCapabilities `json:"context,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                    `json:"_meta,omitzero"`
 }
 
 // Event capabilities the agent can consume.
 type NesEventCapabilities struct {
 	// Document event capabilities.
 	Document *NesDocumentEventCapabilities `json:"document,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta                          `json:"_meta,omitzero"`
 }
 
 // Document event capabilities the agent wants to receive.
@@ -1117,21 +584,11 @@ type NesDocumentEventCapabilities struct {
 	DidSave *NesDocumentDidSaveCapabilities `json:"didSave,omitzero"`
 	// Whether the agent wants `document/didFocus` events.
 	DidFocus *NesDocumentDidFocusCapabilities `json:"didFocus,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta                             `json:"_meta,omitzero"`
 }
 
-// Marker for `document/didOpen` capability support.
+// NesDocumentDidOpenCapabilities is a marker for `document/didOpen` capability support.
 type NesDocumentDidOpenCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1139,41 +596,21 @@ type NesDocumentDidOpenCapabilities struct {
 type NesDocumentDidChangeCapabilities struct {
 	// The sync kind the agent wants: `"full"` or `"incremental"`.
 	SyncKind TextDocumentSyncKind `json:"syncKind"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta                 `json:"_meta,omitzero"`
 }
 
-// Marker for `document/didClose` capability support.
+// NesDocumentDidCloseCapabilities is a marker for `document/didClose` capability support.
 type NesDocumentDidCloseCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Marker for `document/didSave` capability support.
+// NesDocumentDidSaveCapabilities is a marker for `document/didSave` capability support.
 type NesDocumentDidSaveCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Marker for `document/didFocus` capability support.
+// NesDocumentDidFocusCapabilities is a marker for `document/didFocus` capability support.
 type NesDocumentDidFocusCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1191,33 +628,18 @@ type NesContextCapabilities struct {
 	OpenFiles *NesOpenFilesCapabilities `json:"openFiles,omitzero"`
 	// Whether the agent wants diagnostics context.
 	Diagnostics *NesDiagnosticsCapabilities `json:"diagnostics,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta                        `json:"_meta,omitzero"`
 }
 
 // Capabilities for recent files context.
 type NesRecentFilesCapabilities struct {
 	// Maximum number of recent files the agent can use.
 	MaxCount *uint32 `json:"maxCount,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta    `json:"_meta,omitzero"`
 }
 
 // Capabilities for related snippets context.
 type NesRelatedSnippetsCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1225,70 +647,23 @@ type NesRelatedSnippetsCapabilities struct {
 type NesEditHistoryCapabilities struct {
 	// Maximum number of edit history entries the agent can use.
 	MaxCount *uint32 `json:"maxCount,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta    `json:"_meta,omitzero"`
 }
 
 // Capabilities for user actions context.
 type NesUserActionsCapabilities struct {
 	// Maximum number of user actions the agent can use.
 	MaxCount *uint32 `json:"maxCount,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta    `json:"_meta,omitzero"`
 }
 
 // Capabilities for open files context.
 type NesOpenFilesCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for diagnostics context.
 type NesDiagnosticsCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Terminal-based authentication method.
-//
-// The client runs the configured agent program as a separate interactive
-// process for the user to authenticate via a TUI. Agents MUST advertise this
-// method only when the client enabled its terminal authentication capability.
-// A zero exit status signals success; any other termination signals failure.
-// The client MUST NOT pass this method to `authenticate`.
-type AuthMethodTerminal struct {
-	// Unique identifier for this authentication method.
-	ID AuthMethodID `json:"id"`
-	// Human-readable name of the authentication method.
-	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
-	Description *string `json:"description,omitzero"`
-	// Additional arguments to append to the configured agent invocation for terminal auth.
-	Args []string `json:"args,omitzero"`
-	// Additional environment variables to set on the configured agent invocation for terminal auth.
-	// These values override same-named variables in the base launch configuration.
-	Env map[string]string `json:"env,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -1302,12 +677,7 @@ type AuthMethodAgent struct {
 	Name string `json:"name"`
 	// Optional description providing more details about this authentication method.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta    `json:"_meta,omitzero"`
 }
 
 // Metadata about the implementation of the client or agent.
@@ -1325,133 +695,75 @@ type Implementation struct {
 	// Version of the implementation. Can be displayed to the user or used
 	// for debugging or metrics purposes. (e.g. "1.0.0").
 	Version string `json:"version"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// Response to the `authenticate` method.
+// AuthenticateResponse is a response to the `authenticate` method.
 type AuthenticateResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
+// ListProvidersResponse is a response to `providers/list`.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `providers/list`.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ListProvidersResponse struct {
 	// Configurable providers with current routing info suitable for UI display.
 	Providers []ProviderInfo `json:"providers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta           `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Information about a configurable LLM provider.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ProviderInfo struct {
 	// Provider identifier, for example "main" or "openai".
 	ProviderID ProviderID `json:"providerId"`
 	// Supported protocol types for this provider.
-	Supported []LlmProtocol `json:"supported"`
+	Supported []LLMProtocol `json:"supported"`
 	// Whether this provider is mandatory and cannot be disabled via `providers/disable`.
 	// If true, clients must not call `providers/disable` for this provider ID.
 	Required bool `json:"required"`
 	// Current effective non-secret routing config.
 	// Null or omitted means provider is disabled.
 	Current *ProviderCurrentConfig `json:"current,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                   `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Current effective non-secret routing configuration for a provider.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ProviderCurrentConfig struct {
 	// Protocol currently used by this provider.
-	APIType LlmProtocol `json:"apiType"`
+	APIType LLMProtocol `json:"apiType"`
 	// Base URL currently used by this provider.
 	BaseURL string `json:"baseUrl"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
+// SetProviderResponse is a response to `providers/set`.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `providers/set`.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type SetProviderResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
+// DisableProviderResponse is a response to `providers/disable`.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `providers/disable`.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type DisableProviderResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Response to the `logout` method.
+// LogoutResponse is a response to the `logout` method.
 type LogoutResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Response from creating a new session.
+// NewSessionResponse is a response from creating a new session.
 //
-// See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)
+// See protocol docs: [Creating a Session]
+//
+// [Creating a Session]: https://agentclientprotocol.com/protocol/session-setup#creating-a-session
 type NewSessionResponse struct {
 	// Unique identifier for the created session.
 	//
@@ -1463,31 +775,23 @@ type NewSessionResponse struct {
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
-// The set of modes and the one currently active.
+// SessionModeState is the set of modes and the one currently active.
 type SessionModeState struct {
 	// The current mode the Agent is in.
 	CurrentModeID SessionModeID `json:"currentModeId"`
 	// The set of modes that the Agent can operate in
 	AvailableModes []SessionMode `json:"availableModes"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta           Meta          `json:"_meta,omitzero"`
 }
 
 // A mode the agent can operate in.
 //
-// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
+// See protocol docs: [Session Modes]
+//
+// [Session Modes]: https://agentclientprotocol.com/protocol/session-modes
 type SessionMode struct {
 	// Stable identifier used to refer to this protocol object in later messages.
 	ID SessionModeID `json:"id"`
@@ -1495,15 +799,10 @@ type SessionMode struct {
 	Name string `json:"name"`
 	// Optional human-readable details shown with this protocol object.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta    `json:"_meta,omitzero"`
 }
 
-// A possible value for a session configuration option.
+// SessionConfigSelectOption is a possible value for a session configuration option.
 type SessionConfigSelectOption struct {
 	// Unique identifier for this option value.
 	Value SessionConfigValueID `json:"value"`
@@ -1511,15 +810,10 @@ type SessionConfigSelectOption struct {
 	Name string `json:"name"`
 	// Optional description for this option value.
 	Description *string `json:"description,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta    `json:"_meta,omitzero"`
 }
 
-// A group of possible values for a session configuration option.
+// SessionConfigSelectGroup is a group of possible values for a session configuration option.
 type SessionConfigSelectGroup struct {
 	// Unique identifier for this group.
 	Group SessionConfigGroupID `json:"group"`
@@ -1527,15 +821,10 @@ type SessionConfigSelectGroup struct {
 	Name string `json:"name"`
 	// The set of option values in this group.
 	Options []SessionConfigSelectOption `json:"options"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                        `json:"_meta,omitzero"`
 }
 
-// A single-value selector (dropdown) session configuration option payload.
+// SessionConfigSelect is a single-value selector (dropdown) session configuration option payload.
 type SessionConfigSelect struct {
 	// The currently selected value.
 	CurrentValue SessionConfigValueID `json:"currentValue"`
@@ -1543,13 +832,13 @@ type SessionConfigSelect struct {
 	Options SessionConfigSelectOptions `json:"options"`
 }
 
-// A boolean on/off toggle session configuration option payload.
+// SessionConfigBoolean is a boolean on/off toggle session configuration option payload.
 type SessionConfigBoolean struct {
 	// The current value of the boolean option.
 	CurrentValue bool `json:"currentValue"`
 }
 
-// Response from loading an existing session.
+// LoadSessionResponse is a response from loading an existing session.
 type LoadSessionResponse struct {
 	// Initial mode state if supported by the Agent
 	//
@@ -1557,27 +846,17 @@ type LoadSessionResponse struct {
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
-// Response from listing sessions.
+// ListSessionsResponse is a response from listing sessions.
 type ListSessionsResponse struct {
 	// Array of session information objects
 	Sessions []SessionInfo `json:"sessions"`
 	// Opaque cursor token. If present, pass this in the next request's cursor parameter
 	// to fetch the next page. If absent, there are no more results.
 	NextCursor *string `json:"nextCursor,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta    `json:"_meta,omitzero"`
 }
 
 // Information about a session returned by session/list
@@ -1596,31 +875,17 @@ type SessionInfo struct {
 	Title *string `json:"title,omitzero"`
 	// ISO 8601 timestamp of last activity
 	UpdatedAt *string `json:"updatedAt,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta    `json:"_meta,omitzero"`
 }
 
-// Response from deleting a session.
+// DeleteSessionResponse is a response from deleting a session.
 type DeleteSessionResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
+// ForkSessionResponse is a response from forking an existing session.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response from forking an existing session.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ForkSessionResponse struct {
 	// Unique identifier for the newly created forked session.
 	SessionID SessionID `json:"sessionId"`
@@ -1630,15 +895,10 @@ type ForkSessionResponse struct {
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
-// Response from resuming an existing session.
+// ResumeSessionResponse is a response from resuming an existing session.
 type ResumeSessionResponse struct {
 	// Initial mode state if supported by the Agent
 	//
@@ -1646,75 +906,44 @@ type ResumeSessionResponse struct {
 	Modes *SessionModeState `json:"modes,omitzero"`
 	// Initial session configuration options if supported by the Agent.
 	ConfigOptions []SessionConfigOption `json:"configOptions,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
-// Response from closing a session.
+// CloseSessionResponse is a response from closing a session.
 type CloseSessionResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Response to `session/set_mode` method.
+// SetSessionModeResponse is a response to `session/set_mode` method.
 type SetSessionModeResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Response to `session/set_config_option` method.
+// SetSessionConfigOptionResponse is a response to `session/set_config_option` method.
 type SetSessionConfigOptionResponse struct {
 	// The full set of configuration options and their current values.
 	ConfigOptions []SessionConfigOption `json:"configOptions"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta                  `json:"_meta,omitzero"`
 }
 
-// Response from processing a user prompt.
+// PromptResponse is a response from processing a user prompt.
 //
-// See protocol docs: [Check for Completion](https://agentclientprotocol.com/protocol/prompt-turn#4-check-for-completion)
+// See protocol docs: [Check for Completion]
+//
+// [Check for Completion]: https://agentclientprotocol.com/protocol/prompt-turn#4-check-for-completion
 type PromptResponse struct {
 	// Indicates why the agent stopped processing the turn.
 	StopReason StopReason `json:"stopReason"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Token usage for this turn (optional).
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Usage *Usage `json:"usage,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Token usage information for a prompt turn.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type Usage struct {
 	// Sum of all token types across session.
 	TotalTokens float64 `json:"totalTokens"`
@@ -1728,67 +957,42 @@ type Usage struct {
 	CachedReadTokens *float64 `json:"cachedReadTokens,omitzero"`
 	// Total cache write tokens.
 	CachedWriteTokens *float64 `json:"cachedWriteTokens,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta              Meta     `json:"_meta,omitzero"`
 }
 
-// Response to `nes/start`.
+// StartNesResponse is a response to `nes/start`.
 type StartNesResponse struct {
 	// The session ID for the newly started NES session.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
-// Response to `nes/suggest`.
+// SuggestNesResponse is a response to `nes/suggest`.
 type SuggestNesResponse struct {
 	// The list of suggestions.
 	Suggestions []NesSuggestion `json:"suggestions"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta            `json:"_meta,omitzero"`
 }
 
-// A text edit within a suggestion.
+// NesTextEdit is a text edit within a suggestion.
 type NesTextEdit struct {
 	// The range to replace.
 	Range Range `json:"range"`
 	// The replacement text.
 	NewText string `json:"newText"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// A range in a text document, expressed as start and end positions.
+// Range is a range in a text document, expressed as start and end positions.
 type Range struct {
 	// The start position (inclusive).
 	Start Position `json:"start"`
 	// The end position (exclusive).
-	End Position `json:"end"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	End  Position `json:"end"`
+	Meta Meta     `json:"_meta,omitzero"`
 }
 
-// A zero-based position in a text document.
+// Position is a zero-based position in a text document.
 //
 // The meaning of `character` depends on the negotiated position encoding.
 type Position struct {
@@ -1796,133 +1000,46 @@ type Position struct {
 	Line uint32 `json:"line"`
 	// Zero-based character offset (encoding-dependent).
 	Character uint32 `json:"character"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta   `json:"_meta,omitzero"`
 }
 
-// A text edit suggestion.
-type NesEditSuggestion struct {
-	// Unique identifier for accept/reject tracking.
-	ID NesSuggestionID `json:"id"`
-	// The URI of the file to edit.
-	URI string `json:"uri"`
-	// The text edits to apply.
-	Edits []NesTextEdit `json:"edits"`
-	// Optional suggested cursor position after applying edits.
-	CursorPosition *Position `json:"cursorPosition,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A jump-to-location suggestion.
-type NesJumpSuggestion struct {
-	// Unique identifier for accept/reject tracking.
-	ID NesSuggestionID `json:"id"`
-	// The file to navigate to.
-	URI string `json:"uri"`
-	// The target position within the file.
-	Position Position `json:"position"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A rename symbol suggestion.
-type NesRenameSuggestion struct {
-	// Unique identifier for accept/reject tracking.
-	ID NesSuggestionID `json:"id"`
-	// The file URI containing the symbol.
-	URI string `json:"uri"`
-	// The position of the symbol to rename.
-	Position Position `json:"position"`
-	// The new name for the symbol.
-	NewName string `json:"newName"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A search-and-replace suggestion.
-type NesSearchAndReplaceSuggestion struct {
-	// Unique identifier for accept/reject tracking.
-	ID NesSuggestionID `json:"id"`
-	// The file URI to search within.
-	URI string `json:"uri"`
-	// The text or pattern to find.
-	Search string `json:"search"`
-	// The replacement text.
-	Replace string `json:"replace"`
-	// Whether `search` is a regular expression. Defaults to `false`.
-	IsRegex *bool `json:"isRegex,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Response from closing an NES session.
+// CloseNesResponse is a response from closing an NES session.
 type CloseNesResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Allows for sending an arbitrary response to an [`ExtRequest`] that is not part of the ACP spec.
+// Allows for sending an arbitrary response to an [ExtRequest] that is not part of the ACP spec.
 // Extension methods provide a way to add custom functionality while maintaining
 // protocol compatibility.
 //
-// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+// See protocol docs: [Extensibility]
+//
+// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
 type ExtResponse = jsontext.Value
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `mcp/message`.
+// MessageMCPResponse is a response to `mcp/message`.
 //
 // This is the inner MCP response result payload. Any JSON value is valid.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPResponse = jsontext.Value
 
 // Notification containing a session update from the agent.
 //
 // Used to stream real-time progress and results during prompt processing.
 //
-// See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
+// See protocol docs: [Agent Reports Output]
+//
+// [Agent Reports Output]: https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output
 type SessionNotification struct {
 	// The ID of the session this update pertains to.
 	SessionID SessionID `json:"sessionId"`
 	// The actual update content.
 	Update SessionUpdate `json:"update"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta          `json:"_meta,omitzero"`
 }
 
-// A streamed item of content
+// ContentChunk is a streamed item of content
 type ContentChunk struct {
 	// A single item of content
 	Content ContentBlock `json:"content"`
@@ -1931,57 +1048,16 @@ type ContentChunk struct {
 	// All chunks belonging to the same message share the same `messageId`.
 	// A change in `messageId` indicates a new message has started.
 	MessageID *MessageID `json:"messageId,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta       `json:"_meta,omitzero"`
 }
 
-// Represents a tool call that the language model has requested.
-//
-// Tool calls are actions that the agent executes on behalf of the language model,
-// such as reading files, executing code, or fetching data from external sources.
-//
-// See protocol docs: [Tool Calls](https://agentclientprotocol.com/protocol/tool-calls)
-type ToolCall struct {
-	// Unique identifier for this tool call within the session.
-	ToolCallID ToolCallID `json:"toolCallId"`
-	// Human-readable title describing what the tool is doing.
-	Title string `json:"title"`
-	// Programmatic name of the tool being invoked.
-	//
-	// This field is optional. Omitting it or sending `null` both mean that no
-	// tool name is available.
-	Name *string `json:"name,omitzero"`
-	// The category of tool being invoked.
-	// Helps clients choose appropriate icons and UI treatment.
-	Kind *ToolKind `json:"kind,omitzero"`
-	// Current execution status of the tool call.
-	Status *ToolCallStatus `json:"status,omitzero"`
-	// Content produced by the tool call.
-	Content []ToolCallContent `json:"content,omitzero"`
-	// File locations affected by this tool call.
-	// Enables "follow-along" features in clients.
-	Locations []ToolCallLocation `json:"locations,omitzero"`
-	// Raw input parameters sent to the tool.
-	RawInput jsontext.Value `json:"rawInput,omitzero"`
-	// Raw output returned by the tool.
-	RawOutput jsontext.Value `json:"rawOutput,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// A single entry in the execution plan.
+// PlanEntry is a single entry in the execution plan.
 //
 // Represents a task or goal that the assistant intends to accomplish
 // as part of fulfilling the user's request.
-// See protocol docs: [Plan Entries](https://agentclientprotocol.com/protocol/agent-plan#plan-entries)
+// See protocol docs: [Plan Entries]
+//
+// [Plan Entries]: https://agentclientprotocol.com/protocol/agent-plan#plan-entries
 type PlanEntry struct {
 	// Human-readable description of what this task aims to accomplish.
 	Content string `json:"content"`
@@ -1990,132 +1066,7 @@ type PlanEntry struct {
 	Priority PlanEntryPriority `json:"priority"`
 	// Current execution status of this task.
 	Status PlanEntryStatus `json:"status"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// An execution plan for accomplishing complex tasks.
-//
-// Plans consist of multiple entries representing individual tasks or goals.
-// Agents report plans to clients to provide visibility into their execution strategy.
-// Plans can evolve during execution as the agent discovers new requirements or completes tasks.
-//
-// See protocol docs: [Agent Plan](https://agentclientprotocol.com/protocol/agent-plan)
-type Plan struct {
-	// The list of tasks to be accomplished.
-	//
-	// When updating a plan, the agent must send a complete list of all entries
-	// with their current status. The client replaces the entire plan with each update.
-	Entries []PlanEntry `json:"entries"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A plan represented as structured entries.
-//
-// @experimental
-type PlanItems struct {
-	// The plan ID to update.
-	PlanID PlanID `json:"planId"`
-	// The list of tasks to be accomplished.
-	//
-	// When updating an item-based plan, the agent must send a complete list of all entries
-	// with their current status. The client replaces that plan with each update.
-	Entries []PlanEntry `json:"entries"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A plan represented by a file URI.
-//
-// @experimental
-type PlanFile struct {
-	// The plan ID to update.
-	PlanID PlanID `json:"planId"`
-	// The URI of the file containing the plan.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A plan represented as raw markdown content.
-//
-// @experimental
-type PlanMarkdown struct {
-	// The plan ID to update.
-	PlanID PlanID `json:"planId"`
-	// Markdown content for the plan.
-	Content string `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A content update for a plan identified by ID.
-//
-// @experimental
-type PlanUpdate struct {
-	// The updated plan content.
-	Plan PlanUpdateContent `json:"plan"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Removal notice for a plan identified by ID.
-//
-// @experimental
-type PlanRemoved struct {
-	// The plan ID to remove.
-	PlanID PlanID `json:"planId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta            `json:"_meta,omitzero"`
 }
 
 // Information about a command.
@@ -2126,12 +1077,7 @@ type AvailableCommand struct {
 	Description string `json:"description"`
 	// Input for the command if required
 	Input *AvailableCommandInput `json:"input,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta                   `json:"_meta,omitzero"`
 }
 
 // unstructured
@@ -2143,67 +1089,7 @@ type AvailableCommandInput = UnstructuredCommandInput
 type UnstructuredCommandInput struct {
 	// A hint to display when the input hasn't been provided yet
 	Hint string `json:"hint"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Available commands are ready or have changed
-type AvailableCommandsUpdate struct {
-	// Commands the agent can execute
-	AvailableCommands []AvailableCommand `json:"availableCommands"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// The current mode of the session has changed
-//
-// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
-type CurrentModeUpdate struct {
-	// The ID of the current mode
-	CurrentModeID SessionModeID `json:"currentModeId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Session configuration options have been updated.
-type ConfigOptionUpdate struct {
-	// The full set of configuration options and their current values.
-	ConfigOptions []SessionConfigOption `json:"configOptions"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Update to session metadata. All fields are optional to support partial updates.
-//
-// Agents send this notification to update session information like title or custom metadata.
-// This allows clients to display dynamic session names and track session state changes.
-type SessionInfoUpdate struct {
-	// Human-readable title for the session. Set to null to clear.
-	Title *string `json:"title,omitzero"`
-	// ISO 8601 timestamp of last activity. Set to null to clear.
-	UpdatedAt *string `json:"updatedAt,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Cost information for a session.
@@ -2212,131 +1098,23 @@ type Cost struct {
 	Amount float64 `json:"amount"`
 	// ISO 4217 currency code (e.g., "USD", "EUR").
 	Currency string `json:"currency"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// Context window and cost update for a session.
-type UsageUpdate struct {
-	// Tokens currently in context.
-	Used float64 `json:"used"`
-	// Total context window size in tokens.
-	Size float64 `json:"size"`
-	// Cumulative session cost (optional).
-	Cost *Cost `json:"cost,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Fire-and-forget advisory information for the user.
-//
-// Notices are live events rather than session history. Agents must not rely on
-// a notice being received, displayed, or seen by the user.
-// Agents MUST only send notices when the Client advertised
-// [`ClientSessionCapabilities::notices`]. Otherwise, Agents may use an agent
-// message when the information should still be surfaced to the user.
-//
-// See RFD: [Session Notices](https://agentclientprotocol.com/rfds/session-notices)
-//
-// @experimental
-type Notice struct {
-	// Presentation severity hint.
-	Severity NoticeSeverity `json:"severity"`
-	// Required non-empty plain-text title that can stand alone.
-	Title string `json:"title"`
-	// Optional plain-text detail or guidance.
-	//
-	// Omitted and `null` are equivalent and mean no description was supplied.
-	Description *string `json:"description,omitzero"`
-	// Metadata scoped to this notice.
-	//
-	// Omitted and `null` are equivalent and mean no metadata was supplied.
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A context compaction upsert. The first update fixes the compaction's
-// timeline position. Later updates with the same ID patch that entity in place.
-// Agents MUST only send this update when the Client advertised
-// [`ClientSessionCapabilities::compaction`].
-//
-// `summary`, `error`, and `_meta` have patch semantics: omission leaves the
-// stored value unchanged, `null` clears it, and a concrete value replaces it.
-// `summary: []` also clears the retained summary. A non-empty summary is only
-// valid with `completed`; `error` is only valid with `failed`.
-//
-// @experimental
-type CompactionUpdate struct {
-	// The Agent-owned ID of this compaction, unique within the session.
-	CompactionID CompactionID `json:"compactionId"`
-	// Current lifecycle status.
-	Status CompactionStatus `json:"status"`
-	// Complete replacement user-displayable summary retained by the compaction.
-	Summary []ContentBlock `json:"summary,omitzero"`
-	// Human-readable description of why the compaction failed.
-	Error *string `json:"error,omitzero"`
-	// Extensible metadata patch for this compaction.
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// A content block appended to the retained summary of an in-progress
-// compaction. Agents send chunks only after an `in_progress` update and before
-// the terminal update for the same ID. Agents MUST only send this update when
-// the Client advertised [`ClientSessionCapabilities::compaction`].
-//
-// @experimental
-type CompactionSummaryChunk struct {
-	// ID of the compaction whose summary receives this content.
-	CompactionID CompactionID `json:"compactionId"`
-	// One content block to append.
-	Content ContentBlock `json:"content"`
-	// Metadata scoped to this chunk. Omission and `null` both mean absent.
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta   `json:"_meta,omitzero"`
 }
 
 // Notification sent by the agent when a URL-based elicitation is complete.
 type CompleteElicitationNotification struct {
 	// The ID of the elicitation that completed.
 	ElicitationID ElicitationID `json:"elicitationId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Notification parameters for `mcp/message`.
 //
 // This is used when the wrapped MCP message is a notification and the outer JSON-RPC
 // envelope has no `id`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type MessageMCPNotification struct {
 	// The MCP-over-ACP connection this message is sent on.
 	ConnectionID MCPConnectionID `json:"connectionId"`
@@ -2346,26 +1124,25 @@ type MessageMCPNotification struct {
 	//
 	// If omitted or set to `null`, the inner MCP message has no params.
 	Params map[string]jsontext.Value `json:"params,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta                      `json:"_meta,omitzero"`
 }
 
 // Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
 // Extension notifications provide a way to send one-way messages for custom functionality
 // while maintaining protocol compatibility.
 //
-// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+// See protocol docs: [Extensibility]
+//
+// [Extensibility]: https://agentclientprotocol.com/protocol/extensibility
 type ExtNotification = jsontext.Value
 
 // Request parameters for the initialize method.
 //
 // Sent by the client to establish connection and negotiate capabilities.
 //
-// See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
+// See protocol docs: [Initialization]
+//
+// [Initialization]: https://agentclientprotocol.com/protocol/initialization
 type InitializeRequest struct {
 	// The latest protocol version supported by the client.
 	ProtocolVersion ProtocolVersion `json:"protocolVersion"`
@@ -2375,12 +1152,7 @@ type InitializeRequest struct {
 	//
 	// Note: in future versions of the protocol, this will be required.
 	ClientInfo *Implementation `json:"clientInfo,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta            `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the client.
@@ -2388,11 +1160,13 @@ type InitializeRequest struct {
 // Advertised during initialization to inform the agent about
 // available features and methods.
 //
-// See protocol docs: [Client Capabilities](https://agentclientprotocol.com/protocol/initialization#client-capabilities)
+// See protocol docs: [Client Capabilities]
+//
+// [Client Capabilities]: https://agentclientprotocol.com/protocol/initialization#client-capabilities
 type ClientCapabilities struct {
 	// File system capabilities supported by the client.
 	// Determines which file operations the agent can request.
-	Fs *FileSystemCapabilities `json:"fs,omitzero"`
+	FS *FileSystemCapabilities `json:"fs,omitzero"`
 	// Whether the Client support all `terminal*` methods.
 	Terminal *bool `json:"terminal,omitzero"`
 	// Session-related capabilities supported by the client.
@@ -2400,16 +1174,12 @@ type ClientCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise any
 	// session-related extensions.
 	Session *ClientSessionCapabilities `json:"session,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Whether the client supports `plan_update` and `plan_removed` session updates.
 	//
 	// Optional. Omitted or `null` both mean the client does not advertise support.
 	// Supplying `{}` means the client can receive both update types.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Plan *PlanCapabilities `json:"plan,omitzero"`
 	// Authentication capabilities supported by the client.
 	// Determines which authentication method types the agent may include
@@ -2421,91 +1191,58 @@ type ClientCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise
 	// elicitation support.
 	Elicitation *ElicitationCapabilities `json:"elicitation,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// NES (Next Edit Suggestions) capabilities supported by the client.
 	//
 	// Optional. Omitted or `null` both mean the client does not advertise any
 	// NES suggestion-kind extensions.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Nes *ClientNesCapabilities `json:"nes,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// The position encodings supported by the client, in order of preference.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	PositionEncodings []PositionEncodingKind `json:"positionEncodings,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta              Meta                   `json:"_meta,omitzero"`
 }
 
 // File system capabilities that a client may support.
 //
-// See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)
+// See protocol docs: [FileSystem]
+//
+// [FileSystem]: https://agentclientprotocol.com/protocol/initialization#filesystem
 type FileSystemCapabilities struct {
 	// Whether the Client supports `fs/read_text_file` requests.
 	ReadTextFile *bool `json:"readTextFile,omitzero"`
 	// Whether the Client supports `fs/write_text_file` requests.
 	WriteTextFile *bool `json:"writeTextFile,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta  `json:"_meta,omitzero"`
 }
 
 // Session-related capabilities supported by the client.
 type ClientSessionCapabilities struct {
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Support for ID-addressed context compaction updates. Omitted or `null`
 	// means unsupported; `{}` advertises the complete compaction contract.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Compaction *CompactionCapabilities `json:"compaction,omitzero"`
 	// Config option capabilities supported by the client.
 	//
 	// Omitted or `null` both mean the client does not advertise support for any
 	// config option extensions.
 	ConfigOptions *SessionConfigOptionsCapabilities `json:"configOptions,omitzero"`
-	// **UNSTABLE**
-	//
-	// This capability is not part of the spec yet, and may be removed or changed at any point.
-	//
 	// Support for live advisory `notice` session updates.
 	//
 	// Optional. Omitted or `null` both mean the client does not advertise support.
 	// Supplying `{}` means the client can present notices to the user.
 	//
-	// @experimental
+	// Experimental: not part of the spec yet; it may change or be removed.
 	Notices *NoticeCapabilities `json:"notices,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Client support for ID-addressed context compaction updates.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type CompactionCapabilities = map[string]jsontext.Value
 
 // Session configuration option capabilities supported by the client.
@@ -2517,48 +1254,25 @@ type SessionConfigOptionsCapabilities struct {
 	// `configOptions`, and the client may send `session/set_config_option`
 	// requests with `type: "boolean"` and a boolean `value`.
 	Boolean *BooleanConfigOptionCapabilities `json:"boolean,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                             `json:"_meta,omitzero"`
 }
 
 // Capabilities for boolean session configuration options.
 //
 // Supplying `{}` means the client supports boolean session configuration options.
 type BooleanConfigOptionCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Client support for presenting live advisory notices to the user.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type NoticeCapabilities = map[string]jsontext.Value
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Capabilities for receiving `plan_update` and `plan_removed` session updates.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type PlanCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2574,12 +1288,7 @@ type AuthCapabilities struct {
 	// configured agent invocation in an interactive terminal. When `true`, the
 	// agent may include `terminal` entries in its authentication methods.
 	Terminal *bool `json:"terminal,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta  `json:"_meta,omitzero"`
 }
 
 // Elicitation capabilities supported by the client.
@@ -2594,13 +1303,7 @@ type ElicitationCapabilities struct {
 	// Optional. Omitted or `null` both mean the client does not advertise support.
 	// Supplying `{}` means the client supports URL-based elicitation.
 	URL *ElicitationURLCapabilities `json:"url,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2608,13 +1311,7 @@ type ElicitationCapabilities struct {
 //
 // Supplying `{}` means the client supports form-based elicitation.
 type ElicitationFormCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2622,13 +1319,7 @@ type ElicitationFormCapabilities struct {
 //
 // Supplying `{}` means the client supports URL-based elicitation.
 type ElicitationURLCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2640,41 +1331,21 @@ type ClientNesCapabilities struct {
 	Rename *NesRenameCapabilities `json:"rename,omitzero"`
 	// Whether the client supports the `searchAndReplace` suggestion kind.
 	SearchAndReplace *NesSearchAndReplaceCapabilities `json:"searchAndReplace,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta             Meta                             `json:"_meta,omitzero"`
 }
 
-// Marker for jump suggestion support.
+// NesJumpCapabilities is a marker for jump suggestion support.
 type NesJumpCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Marker for rename suggestion support.
+// NesRenameCapabilities is a marker for rename suggestion support.
 type NesRenameCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Marker for search and replace suggestion support.
+// NesSearchAndReplaceCapabilities is a marker for search and replace suggestion support.
 type NesSearchAndReplaceCapabilities struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -2685,90 +1356,55 @@ type AuthenticateRequest struct {
 	// The ID of the authentication method to use.
 	// Must be one of the methods advertised in the initialize response.
 	MethodID AuthMethodID `json:"methodId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta         `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `providers/list`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ListProvidersRequest struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `providers/set`.
 //
 // Replaces the full configuration for one provider ID.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type SetProviderRequest struct {
 	// Provider ID to configure.
 	ProviderID ProviderID `json:"providerId"`
 	// Protocol type for this provider.
-	APIType LlmProtocol `json:"apiType"`
+	APIType LLMProtocol `json:"apiType"`
 	// Base URL for requests sent through this provider.
 	BaseURL string `json:"baseUrl"`
 	// Full headers map for this provider.
 	// May include authorization, routing, or other integration-specific headers.
 	Headers map[string]string `json:"headers,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta              `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for `providers/disable`.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type DisableProviderRequest struct {
 	// Provider ID to disable.
 	ProviderID ProviderID `json:"providerId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
 // Request parameters for the logout method.
 //
 // Terminates the current authenticated session.
 type LogoutRequest struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for creating a new session.
 //
-// See protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)
+// See protocol docs: [Creating a Session]
+//
+// [Creating a Session]: https://agentclientprotocol.com/protocol/session-setup#creating-a-session
 type NewSessionRequest struct {
 	// The working directory for this session. Must be an absolute path.
 	Cwd string `json:"cwd"`
@@ -2780,84 +1416,16 @@ type NewSessionRequest struct {
 	AdditionalDirectories []string `json:"additionalDirectories,omitzero"`
 	// List of MCP (Model Context Protocol) servers the agent should connect to.
 	MCPServers []MCPServer `json:"mcpServers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta        `json:"_meta,omitzero"`
 }
 
-// An HTTP header to set when making requests to the MCP server.
+// HTTPHeader is an HTTP header to set when making requests to the MCP server.
 type HTTPHeader struct {
 	// The name of the HTTP header.
 	Name string `json:"name"`
 	// The value to set for the HTTP header.
 	Value string `json:"value"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// HTTP transport configuration for MCP.
-type MCPServerHTTP struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// URL to the MCP server.
-	URL string `json:"url"`
-	// HTTP headers to set when making requests to the MCP server.
-	Headers []HTTPHeader `json:"headers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// SSE transport configuration for MCP.
-type MCPServerSse struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// URL to the MCP server.
-	URL string `json:"url"`
-	// HTTP headers to set when making requests to the MCP server.
-	Headers []HTTPHeader `json:"headers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// ACP transport configuration for MCP.
-//
-// The MCP server is provided by an ACP component and communicates over the ACP channel
-// using `mcp/connect`, `mcp/message`, and `mcp/disconnect`.
-//
-// @experimental
-type MCPServerACP struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// Unique identifier for this MCP server, generated by the component providing it.
-	//
-	// Providers MUST NOT reuse an ID for multiple ACP-transport MCP servers that are visible
-	// on the same ACP connection.
-	ServerID MCPServerACPID `json:"serverId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta  Meta   `json:"_meta,omitzero"`
 }
 
 // Stdio transport configuration for MCP.
@@ -2869,20 +1437,17 @@ type MCPServerStdio struct {
 	// Command-line arguments to pass to the MCP server.
 	Args []string `json:"args"`
 	// Environment variables to set when launching the MCP server.
-	Env []EnvVariable `json:"env"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Env  []EnvVariable `json:"env"`
+	Meta Meta          `json:"_meta,omitzero"`
 }
 
 // Request parameters for loading an existing session.
 //
 // Only available if the Agent supports the `loadSession` capability.
 //
-// See protocol docs: [Loading Sessions](https://agentclientprotocol.com/protocol/session-setup#loading-sessions)
+// See protocol docs: [Loading Sessions]
+//
+// [Loading Sessions]: https://agentclientprotocol.com/protocol/session-setup#loading-sessions
 type LoadSessionRequest struct {
 	// List of MCP servers to connect to for this session.
 	MCPServers []MCPServer `json:"mcpServers"`
@@ -2897,12 +1462,7 @@ type LoadSessionRequest struct {
 	AdditionalDirectories []string `json:"additionalDirectories,omitzero"`
 	// The ID of the session to load.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
 // Request parameters for listing existing sessions.
@@ -2913,12 +1473,7 @@ type ListSessionsRequest struct {
 	Cwd *string `json:"cwd,omitzero"`
 	// Opaque cursor token from a previous response's nextCursor field for cursor-based pagination
 	Cursor *string `json:"cursor,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta    `json:"_meta,omitzero"`
 }
 
 // Request parameters for deleting an existing session from `session/list`.
@@ -2927,18 +1482,9 @@ type ListSessionsRequest struct {
 type DeleteSessionRequest struct {
 	// The ID of the session to delete.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
-//
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
 // Request parameters for forking an existing session.
 //
 // Creates a new session based on the context of an existing one, allowing
@@ -2946,7 +1492,7 @@ type DeleteSessionRequest struct {
 //
 // Only available if the Agent supports the `session.fork` capability.
 //
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ForkSessionRequest struct {
 	// The ID of the session to fork.
 	SessionID SessionID `json:"sessionId"`
@@ -2960,12 +1506,7 @@ type ForkSessionRequest struct {
 	AdditionalDirectories []string `json:"additionalDirectories,omitzero"`
 	// List of MCP servers to connect to for this session.
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta        `json:"_meta,omitzero"`
 }
 
 // Request parameters for resuming an existing session.
@@ -2988,12 +1529,7 @@ type ResumeSessionRequest struct {
 	AdditionalDirectories []string `json:"additionalDirectories,omitzero"`
 	// List of MCP servers to connect to for this session.
 	MCPServers []MCPServer `json:"mcpServers,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta        `json:"_meta,omitzero"`
 }
 
 // Request parameters for closing an active session.
@@ -3006,12 +1542,7 @@ type ResumeSessionRequest struct {
 type CloseSessionRequest struct {
 	// The ID of the session to close.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
 // Request parameters for setting a session mode.
@@ -3020,45 +1551,37 @@ type SetSessionModeRequest struct {
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the mode to set.
 	ModeID SessionModeID `json:"modeId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta          `json:"_meta,omitzero"`
 }
 
 // Request parameters for sending a user prompt to the agent.
 //
 // Contains the user's message and any additional context.
 //
-// See protocol docs: [User Message](https://agentclientprotocol.com/protocol/prompt-turn#1-user-message)
+// See protocol docs: [User Message]
+//
+// [User Message]: https://agentclientprotocol.com/protocol/prompt-turn#1-user-message
 type PromptRequest struct {
 	// The ID of the session to send this user message to
 	SessionID SessionID `json:"sessionId"`
 	// The blocks of content that compose the user's message.
 	//
-	// As a baseline, the Agent MUST support [`ContentBlock::Text`] and [`ContentBlock::ResourceLink`],
-	// while other variants are optionally enabled via [`PromptCapabilities`].
+	// As a baseline, the Agent MUST support [ContentBlockText] and [ContentBlockResourceLink],
+	// while other variants are optionally enabled via [PromptCapabilities].
 	//
-	// The Client MUST adapt its interface according to [`PromptCapabilities`].
+	// The Client MUST adapt its interface according to [PromptCapabilities].
 	//
 	// The client MAY include referenced pieces of context as either
-	// [`ContentBlock::Resource`] or [`ContentBlock::ResourceLink`].
+	// [ContentBlockResource] or [ContentBlockResourceLink].
 	//
-	// When available, [`ContentBlock::Resource`] is preferred
+	// When available, [ContentBlockResource] is preferred
 	// as it avoids extra round-trips and allows the message to include
 	// pieces of context from sources the agent may not have access to.
 	Prompt []ContentBlock `json:"prompt"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta           `json:"_meta,omitzero"`
 }
 
-// Request to start an NES session.
+// StartNesRequest is a request to start an NES session.
 type StartNesRequest struct {
 	// The root URI of the workspace.
 	WorkspaceURI *string `json:"workspaceUri,omitzero"`
@@ -3066,26 +1589,16 @@ type StartNesRequest struct {
 	WorkspaceFolders []WorkspaceFolder `json:"workspaceFolders,omitzero"`
 	// Repository metadata, if the workspace is a git repository.
 	Repository *NesRepository `json:"repository,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta           `json:"_meta,omitzero"`
 }
 
-// A workspace folder.
+// WorkspaceFolder is a workspace folder.
 type WorkspaceFolder struct {
 	// The URI of the folder.
 	URI string `json:"uri"`
 	// The display name of the folder.
 	Name string `json:"name"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Repository metadata for an NES session.
@@ -3096,15 +1609,10 @@ type NesRepository struct {
 	Owner string `json:"owner"`
 	// The remote URL of the repository.
 	RemoteURL string `json:"remoteUrl"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta   `json:"_meta,omitzero"`
 }
 
-// Request for a code suggestion.
+// SuggestNesRequest is a request for a code suggestion.
 type SuggestNesRequest struct {
 	// The session ID for this request.
 	SessionID SessionID `json:"sessionId"`
@@ -3120,12 +1628,7 @@ type SuggestNesRequest struct {
 	TriggerKind NesTriggerKind `json:"triggerKind"`
 	// Context for the suggestion, included based on agent capabilities.
 	Context *NesSuggestContext `json:"context,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta               `json:"_meta,omitzero"`
 }
 
 // Context attached to a suggestion request.
@@ -3142,15 +1645,10 @@ type NesSuggestContext struct {
 	OpenFiles []NesOpenFile `json:"openFiles,omitzero"`
 	// Current diagnostics (errors, warnings).
 	Diagnostics []NesDiagnostic `json:"diagnostics,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta            `json:"_meta,omitzero"`
 }
 
-// A recently accessed file.
+// NesRecentFile is a recently accessed file.
 type NesRecentFile struct {
 	// The URI of the file.
 	URI string `json:"uri"`
@@ -3158,29 +1656,19 @@ type NesRecentFile struct {
 	LanguageID string `json:"languageId"`
 	// The full text content of the file.
 	Text string `json:"text"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
-// A related code snippet from a file.
+// NesRelatedSnippet is a related code snippet from a file.
 type NesRelatedSnippet struct {
 	// The URI of the file containing the snippets.
 	URI string `json:"uri"`
 	// The code excerpts.
 	Excerpts []NesExcerpt `json:"excerpts"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta     Meta         `json:"_meta,omitzero"`
 }
 
-// A code excerpt from a file.
+// NesExcerpt is a code excerpt from a file.
 type NesExcerpt struct {
 	// The start line of the excerpt (zero-based).
 	StartLine uint32 `json:"startLine"`
@@ -3188,29 +1676,19 @@ type NesExcerpt struct {
 	EndLine uint32 `json:"endLine"`
 	// The text content of the excerpt.
 	Text string `json:"text"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
-// An entry in the edit history.
+// NesEditHistoryEntry is an entry in the edit history.
 type NesEditHistoryEntry struct {
 	// The URI of the edited file.
 	URI string `json:"uri"`
 	// A diff representing the edit.
 	Diff string `json:"diff"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
-// A user action (typing, cursor movement, etc.).
+// NesUserAction is a user action (typing, cursor movement, etc.).
 type NesUserAction struct {
 	// The kind of action (e.g., "insertChar", "cursorMovement").
 	Action string `json:"action"`
@@ -3220,15 +1698,10 @@ type NesUserAction struct {
 	Position Position `json:"position"`
 	// Timestamp in milliseconds since epoch.
 	TimestampMs float64 `json:"timestampMs"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta        Meta    `json:"_meta,omitzero"`
 }
 
-// An open file in the editor.
+// NesOpenFile is an open file in the editor.
 type NesOpenFile struct {
 	// The URI of the file.
 	URI string `json:"uri"`
@@ -3238,15 +1711,10 @@ type NesOpenFile struct {
 	VisibleRange *Range `json:"visibleRange,omitzero"`
 	// Timestamp in milliseconds since epoch of when the file was last focused.
 	LastFocusedMs *float64 `json:"lastFocusedMs,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta          Meta     `json:"_meta,omitzero"`
 }
 
-// A diagnostic (error, warning, etc.).
+// NesDiagnostic is a diagnostic (error, warning, etc.).
 type NesDiagnostic struct {
 	// The URI of the file containing the diagnostic.
 	URI string `json:"uri"`
@@ -3256,36 +1724,21 @@ type NesDiagnostic struct {
 	Severity NesDiagnosticSeverity `json:"severity"`
 	// The diagnostic message.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// Request to close an NES session.
+// CloseNesRequest is a request to close an NES session.
 //
 // The agent **must** cancel any ongoing work related to the NES session
 // and then free up any resources associated with the session.
 type CloseNesRequest struct {
 	// The ID of the NES session to close.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
-// Response to `fs/write_text_file`
+// WriteTextFileResponse is a response to `fs/write_text_file`
 type WriteTextFileResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3293,48 +1746,21 @@ type WriteTextFileResponse struct {
 type ReadTextFileResponse struct {
 	// Content payload returned by this response.
 	Content string `json:"content"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta   `json:"_meta,omitzero"`
 }
 
-// Response to a permission request.
+// RequestPermissionResponse is a response to a permission request.
 type RequestPermissionResponse struct {
 	// The user's decision on the permission request.
 	Outcome RequestPermissionOutcome `json:"outcome"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// The user selected one of the provided options.
-type SelectedPermissionOutcome struct {
-	// The ID of the option the user selected.
-	OptionID PermissionOptionID `json:"optionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta    Meta                     `json:"_meta,omitzero"`
 }
 
 // Response containing the ID of the created terminal.
 type CreateTerminalResponse struct {
 	// The unique identifier for the created terminal.
 	TerminalID TerminalID `json:"terminalId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta       `json:"_meta,omitzero"`
 }
 
 // Response containing the terminal output and exit status.
@@ -3345,12 +1771,7 @@ type TerminalOutputResponse struct {
 	Truncated bool `json:"truncated"`
 	// Exit status if the command has completed.
 	ExitStatus *TerminalExitStatus `json:"exitStatus,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta       Meta                `json:"_meta,omitzero"`
 }
 
 // Exit status of a terminal command.
@@ -3359,21 +1780,11 @@ type TerminalExitStatus struct {
 	ExitCode *uint32 `json:"exitCode,omitzero"`
 	// The signal that terminated the process (may be null if exited normally).
 	Signal *string `json:"signal,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta    `json:"_meta,omitzero"`
 }
 
-// Response to terminal/release method
+// ReleaseTerminalResponse is a response to terminal/release method
 type ReleaseTerminalResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
@@ -3383,76 +1794,45 @@ type WaitForTerminalExitResponse struct {
 	ExitCode *uint32 `json:"exitCode,omitzero"`
 	// The signal that terminated the process (may be null if exited normally).
 	Signal *string `json:"signal,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta    `json:"_meta,omitzero"`
 }
 
-// Response to `terminal/kill` method
+// KillTerminalResponse is a response to `terminal/kill` method
 type KillTerminalResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// The user accepted the elicitation and provided content.
+// ElicitationAcceptAction is the user accepted the elicitation and provided content.
 type ElicitationAcceptAction struct {
 	// The user-provided content, if any, as an object matching the requested schema.
 	Content map[string]ElicitationContentValue `json:"content,omitzero"`
 }
 
-// **UNSTABLE**
+// ConnectMCPResponse is a response to `mcp/connect`.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `mcp/connect`.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type ConnectMCPResponse struct {
 	// The unique identifier for this MCP-over-ACP connection.
 	ConnectionID MCPConnectionID `json:"connectionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta         Meta            `json:"_meta,omitzero"`
 }
 
-// **UNSTABLE**
+// DisconnectMCPResponse is a response to `mcp/disconnect`.
 //
-// This capability is not part of the spec yet, and may be removed or changed at any point.
-//
-// Response to `mcp/disconnect`.
-//
-// @experimental
+// Experimental: not part of the spec yet; it may change or be removed.
 type DisconnectMCPResponse struct {
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// Notification to cancel ongoing operations for a session.
+// CancelNotification is a notification to cancel ongoing operations for a session.
 //
-// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
+// See protocol docs: [Cancellation]
+//
+// [Cancellation]: https://agentclientprotocol.com/protocol/prompt-turn#cancellation
 type CancelNotification struct {
 	// The ID of the session to cancel operations for.
 	SessionID SessionID `json:"sessionId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is opened in the editor.
@@ -3467,12 +1847,7 @@ type DidOpenDocumentNotification struct {
 	Version float64 `json:"version"`
 	// The full text content of the document.
 	Text string `json:"text"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is edited.
@@ -3485,15 +1860,10 @@ type DidChangeDocumentNotification struct {
 	Version float64 `json:"version"`
 	// The content changes.
 	ContentChanges []TextDocumentContentChangeEvent `json:"contentChanges"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta           Meta                             `json:"_meta,omitzero"`
 }
 
-// A content change event for a document.
+// TextDocumentContentChangeEvent is a content change event for a document.
 //
 // When `range` is `None`, `text` is the full content of the document.
 // When `range` is `Some`, `text` replaces the given range.
@@ -3502,12 +1872,7 @@ type TextDocumentContentChangeEvent struct {
 	Range *Range `json:"range,omitzero"`
 	// The new text for the range, or the full document content if `range` is `None`.
 	Text string `json:"text"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is closed.
@@ -3515,13 +1880,8 @@ type DidCloseDocumentNotification struct {
 	// The session ID for this notification.
 	SessionID SessionID `json:"sessionId"`
 	// The URI of the closed document.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	URI  string `json:"uri"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is saved.
@@ -3529,16 +1889,11 @@ type DidSaveDocumentNotification struct {
 	// The session ID for this notification.
 	SessionID SessionID `json:"sessionId"`
 	// The URI of the saved document.
-	URI string `json:"uri"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	URI  string `json:"uri"`
+	Meta Meta   `json:"_meta,omitzero"`
 }
 
-// Notification sent when a file becomes the active editor tab.
+// DidFocusDocumentNotification is a notification sent when a file becomes the active editor tab.
 type DidFocusDocumentNotification struct {
 	// The session ID for this notification.
 	SessionID SessionID `json:"sessionId"`
@@ -3550,12 +1905,7 @@ type DidFocusDocumentNotification struct {
 	Position Position `json:"position"`
 	// The portion of the file currently visible in the editor viewport.
 	VisibleRange Range `json:"visibleRange"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta         Meta  `json:"_meta,omitzero"`
 }
 
 // Notification sent when a suggestion is accepted.
@@ -3563,13 +1913,8 @@ type AcceptNesNotification struct {
 	// The session ID for this notification.
 	SessionID SessionID `json:"sessionId"`
 	// The ID of the accepted suggestion.
-	ID NesSuggestionID `json:"id"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	ID   NesSuggestionID `json:"id"`
+	Meta Meta            `json:"_meta,omitzero"`
 }
 
 // Notification sent when a suggestion is rejected.
@@ -3580,29 +1925,21 @@ type RejectNesNotification struct {
 	ID NesSuggestionID `json:"id"`
 	// The reason for rejection.
 	Reason *NesRejectReason `json:"reason,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta   Meta             `json:"_meta,omitzero"`
 }
 
-// Notification to cancel an ongoing request.
+// CancelRequestNotification is a notification to cancel an ongoing request.
 //
-// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/cancellation)
+// See protocol docs: [Cancellation]
+//
+// [Cancellation]: https://agentclientprotocol.com/protocol/cancellation
 type CancelRequestNotification struct {
 	// The ID of the request to cancel.
 	RequestID RequestID `json:"requestId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
+	Meta      Meta      `json:"_meta,omitzero"`
 }
 
-type CreateElicitationRequestForm struct {
+type CreateElicitationRequestFormSession struct {
 	// The session this elicitation is tied to.
 	SessionID SessionID `json:"sessionId"`
 	// Optional tool call within the session.
@@ -3612,62 +1949,42 @@ type CreateElicitationRequestForm struct {
 	ToolCallID *ToolCallID `json:"toolCallId,omitzero"`
 	// A JSON Schema describing the form fields to present to the user.
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
-	Mode            string            `json:"mode"`
+	// Always "form": MarshalJSONTo writes it whatever the field holds.
+	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// MarshalJSON encodes v with its literal members fixed.
-func (v CreateElicitationRequestForm) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo encodes v with its literal members fixed.
+func (v CreateElicitationRequestFormSession) MarshalJSONTo(enc *jsontext.Encoder) error {
 	v.Mode = "form"
-	type plain CreateElicitationRequestForm
-	return json.Marshal(plain(v))
-}
-func (v CreateElicitationRequestForm) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Mode = "form"
-	type plain CreateElicitationRequestForm
+	type plain CreateElicitationRequestFormSession
 	return json.MarshalEncode(enc, plain(v))
 }
 
-type CreateElicitationRequestForm2 struct {
+type CreateElicitationRequestFormRequest struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// A JSON Schema describing the form fields to present to the user.
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
-	Mode            string            `json:"mode"`
+	// Always "form": MarshalJSONTo writes it whatever the field holds.
+	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// MarshalJSON encodes v with its literal members fixed.
-func (v CreateElicitationRequestForm2) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo encodes v with its literal members fixed.
+func (v CreateElicitationRequestFormRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	v.Mode = "form"
-	type plain CreateElicitationRequestForm2
-	return json.Marshal(plain(v))
-}
-func (v CreateElicitationRequestForm2) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Mode = "form"
-	type plain CreateElicitationRequestForm2
+	type plain CreateElicitationRequestFormRequest
 	return json.MarshalEncode(enc, plain(v))
 }
 
-type CreateElicitationRequestURL struct {
+type CreateElicitationRequestURLSession struct {
 	// The session this elicitation is tied to.
 	SessionID SessionID `json:"sessionId"`
 	// Optional tool call within the session.
@@ -3678,65 +1995,45 @@ type CreateElicitationRequestURL struct {
 	// The unique identifier for this elicitation.
 	ElicitationID ElicitationID `json:"elicitationId"`
 	// The URL to direct the user to.
-	URL  string `json:"url"`
+	URL string `json:"url"`
+	// Always "url": MarshalJSONTo writes it whatever the field holds.
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// MarshalJSON encodes v with its literal members fixed.
-func (v CreateElicitationRequestURL) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo encodes v with its literal members fixed.
+func (v CreateElicitationRequestURLSession) MarshalJSONTo(enc *jsontext.Encoder) error {
 	v.Mode = "url"
-	type plain CreateElicitationRequestURL
-	return json.Marshal(plain(v))
-}
-func (v CreateElicitationRequestURL) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Mode = "url"
-	type plain CreateElicitationRequestURL
+	type plain CreateElicitationRequestURLSession
 	return json.MarshalEncode(enc, plain(v))
 }
 
-type CreateElicitationRequestURL4 struct {
+type CreateElicitationRequestURLRequest struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// The unique identifier for this elicitation.
 	ElicitationID ElicitationID `json:"elicitationId"`
 	// The URL to direct the user to.
-	URL  string `json:"url"`
+	URL string `json:"url"`
+	// Always "url": MarshalJSONTo writes it whatever the field holds.
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta Meta `json:"_meta,omitzero"`
 }
 
-// MarshalJSON encodes v with its literal members fixed.
-func (v CreateElicitationRequestURL4) MarshalJSON() ([]byte, error) {
+// MarshalJSONTo encodes v with its literal members fixed.
+func (v CreateElicitationRequestURLRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	v.Mode = "url"
-	type plain CreateElicitationRequestURL4
-	return json.Marshal(plain(v))
-}
-func (v CreateElicitationRequestURL4) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Mode = "url"
-	type plain CreateElicitationRequestURL4
+	type plain CreateElicitationRequestURLRequest
 	return json.MarshalEncode(enc, plain(v))
 }
 
-type CreateElicitationRequestObject struct {
+type CreateElicitationRequestCustomSession struct {
 	// The session this elicitation is tied to.
 	SessionID SessionID `json:"sessionId"`
 	// Optional tool call within the session.
@@ -3752,18 +2049,12 @@ type CreateElicitationRequestObject struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-type CreateElicitationRequestObject6 struct {
+type CreateElicitationRequestCustomRequest struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// Custom or future elicitation mode.
@@ -3774,54 +2065,12 @@ type CreateElicitationRequestObject6 struct {
 	Mode string `json:"mode"`
 	// A human-readable message describing what input is needed.
 	Message string `json:"message"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
-type MultiSelectItemsString struct {
-	// Allowed enum values.
-	Enum []string `json:"enum"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// Optional. Omitted and `null` are equivalent and mean no metadata.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta   `json:"_meta,omitzero"`
-	Type string `json:"type"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v MultiSelectItemsString) MarshalJSON() ([]byte, error) {
-	v.Type = "string"
-	type plain MultiSelectItemsString
-	return json.Marshal(plain(v))
-}
-func (v MultiSelectItemsString) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "string"
-	type plain MultiSelectItemsString
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type MultiSelectItemsObject struct {
-	// Custom or future multi-select item type.
-	//
-	// Values beginning with `_` are reserved for implementation-specific
-	// extensions. Unknown values that do not begin with `_` are reserved for
-	// future ACP variants.
-	Type                 string                    `json:"type"`
-	AdditionalProperties map[string]jsontext.Value `json:",embed"`
-}
-
-type ElicitationFormModeSessionID struct {
+type ElicitationFormModeSession struct {
 	// The session this elicitation is tied to.
 	SessionID SessionID `json:"sessionId"`
 	// Optional tool call within the session.
@@ -3833,14 +2082,14 @@ type ElicitationFormModeSessionID struct {
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
 }
 
-type ElicitationFormModeRequestID struct {
+type ElicitationFormModeRequest struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// A JSON Schema describing the form fields to present to the user.
 	RequestedSchema ElicitationSchema `json:"requestedSchema"`
 }
 
-type ElicitationURLModeSessionID struct {
+type ElicitationURLModeSession struct {
 	// The session this elicitation is tied to.
 	SessionID SessionID `json:"sessionId"`
 	// Optional tool call within the session.
@@ -3854,174 +2103,13 @@ type ElicitationURLModeSessionID struct {
 	URL string `json:"url"`
 }
 
-type ElicitationURLModeRequestID struct {
+type ElicitationURLModeRequest struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
 	// The unique identifier for this elicitation.
 	ElicitationID ElicitationID `json:"elicitationId"`
 	// The URL to direct the user to.
 	URL string `json:"url"`
-}
-
-type AuthMethodTerminal2 struct {
-	// Unique identifier for this authentication method.
-	ID AuthMethodID `json:"id"`
-	// Human-readable name of the authentication method.
-	Name string `json:"name"`
-	// Optional description providing more details about this authentication method.
-	Description *string `json:"description,omitzero"`
-	// Additional arguments to append to the configured agent invocation for terminal auth.
-	Args []string `json:"args,omitzero"`
-	// Additional environment variables to set on the configured agent invocation for terminal auth.
-	// These values override same-named variables in the base launch configuration.
-	Env map[string]string `json:"env,omitzero"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta   `json:"_meta,omitzero"`
-	Type string `json:"type"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v AuthMethodTerminal2) MarshalJSON() ([]byte, error) {
-	v.Type = "terminal"
-	type plain AuthMethodTerminal2
-	return json.Marshal(plain(v))
-}
-func (v AuthMethodTerminal2) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "terminal"
-	type plain AuthMethodTerminal2
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type MCPServerHTTP2 struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// URL to the MCP server.
-	URL string `json:"url"`
-	// HTTP headers to set when making requests to the MCP server.
-	Headers []HTTPHeader `json:"headers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta   `json:"_meta,omitzero"`
-	Type string `json:"type"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v MCPServerHTTP2) MarshalJSON() ([]byte, error) {
-	v.Type = "http"
-	type plain MCPServerHTTP2
-	return json.Marshal(plain(v))
-}
-func (v MCPServerHTTP2) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "http"
-	type plain MCPServerHTTP2
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type MCPServerSse2 struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// URL to the MCP server.
-	URL string `json:"url"`
-	// HTTP headers to set when making requests to the MCP server.
-	Headers []HTTPHeader `json:"headers"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta   `json:"_meta,omitzero"`
-	Type string `json:"type"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v MCPServerSse2) MarshalJSON() ([]byte, error) {
-	v.Type = "sse"
-	type plain MCPServerSse2
-	return json.Marshal(plain(v))
-}
-func (v MCPServerSse2) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "sse"
-	type plain MCPServerSse2
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type MCPServerACP2 struct {
-	// Human-readable name identifying this MCP server.
-	Name string `json:"name"`
-	// Unique identifier for this MCP server, generated by the component providing it.
-	//
-	// Providers MUST NOT reuse an ID for multiple ACP-transport MCP servers that are visible
-	// on the same ACP connection.
-	ServerID MCPServerACPID `json:"serverId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta   `json:"_meta,omitzero"`
-	Type string `json:"type"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v MCPServerACP2) MarshalJSON() ([]byte, error) {
-	v.Type = "acp"
-	type plain MCPServerACP2
-	return json.Marshal(plain(v))
-}
-func (v MCPServerACP2) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "acp"
-	type plain MCPServerACP2
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type SetSessionConfigOptionRequestBoolean struct {
-	// The boolean value.
-	Value bool   `json:"value"`
-	Type  string `json:"type"`
-	// The ID of the session to set the configuration option for.
-	SessionID SessionID `json:"sessionId"`
-	// The ID of the configuration option to set.
-	ConfigID SessionConfigID `json:"configId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
-}
-
-// MarshalJSON encodes v with its literal members fixed.
-func (v SetSessionConfigOptionRequestBoolean) MarshalJSON() ([]byte, error) {
-	v.Type = "boolean"
-	type plain SetSessionConfigOptionRequestBoolean
-	return json.Marshal(plain(v))
-}
-func (v SetSessionConfigOptionRequestBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
-	v.Type = "boolean"
-	type plain SetSessionConfigOptionRequestBoolean
-	return json.MarshalEncode(enc, plain(v))
-}
-
-type SetSessionConfigOptionRequestObject struct {
-	// The value ID.
-	Value SessionConfigValueID `json:"value"`
-	// The ID of the session to set the configuration option for.
-	SessionID SessionID `json:"sessionId"`
-	// The ID of the configuration option to set.
-	ConfigID SessionConfigID `json:"configId"`
-	// The _meta property is reserved by ACP to allow clients and agents to attach additional
-	// metadata to their interactions. Implementations MUST NOT make assumptions about values at
-	// these keys.
-	//
-	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Meta is the _meta extension object reserved on protocol messages.

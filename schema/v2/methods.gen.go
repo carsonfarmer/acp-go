@@ -2,38 +2,51 @@
 
 package schema
 
-const AgentMethodsInitialize = "initialize"
-const AgentMethodsAuthLogin = "auth/login"
-const AgentMethodsProvidersList = "providers/list"
-const AgentMethodsProvidersSet = "providers/set"
-const AgentMethodsProvidersDisable = "providers/disable"
-const AgentMethodsSessionNew = "session/new"
-const AgentMethodsSessionSetConfigOption = "session/set_config_option"
-const AgentMethodsSessionPrompt = "session/prompt"
-const AgentMethodsSessionCancel = "session/cancel"
-const AgentMethodsMCPMessage = "mcp/message"
-const AgentMethodsSessionList = "session/list"
-const AgentMethodsSessionDelete = "session/delete"
-const AgentMethodsSessionFork = "session/fork"
-const AgentMethodsSessionResume = "session/resume"
-const AgentMethodsSessionClose = "session/close"
-const AgentMethodsAuthLogout = "auth/logout"
-const AgentMethodsNesStart = "nes/start"
-const AgentMethodsNesSuggest = "nes/suggest"
-const AgentMethodsNesAccept = "nes/accept"
-const AgentMethodsNesReject = "nes/reject"
-const AgentMethodsNesClose = "nes/close"
-const AgentMethodsDocumentDidOpen = "document/didOpen"
-const AgentMethodsDocumentDidChange = "document/didChange"
-const AgentMethodsDocumentDidClose = "document/didClose"
-const AgentMethodsDocumentDidSave = "document/didSave"
-const AgentMethodsDocumentDidFocus = "document/didFocus"
-const ClientMethodsSessionRequestPermission = "session/request_permission"
-const ClientMethodsSessionUpdate = "session/update"
-const ClientMethodsMCPConnect = "mcp/connect"
-const ClientMethodsMCPMessage = "mcp/message"
-const ClientMethodsMCPDisconnect = "mcp/disconnect"
-const ClientMethodsElicitationCreate = "elicitation/create"
-const ClientMethodsElicitationComplete = "elicitation/complete"
-const ProtocolMethodsCancelRequest = "$/cancel_request"
+// The AgentMethods constants mirror the SDK's AGENT_METHODS table.
+const (
+	AgentMethodsInitialize             = "initialize"
+	AgentMethodsAuthLogin              = "auth/login"
+	AgentMethodsProvidersList          = "providers/list"
+	AgentMethodsProvidersSet           = "providers/set"
+	AgentMethodsProvidersDisable       = "providers/disable"
+	AgentMethodsSessionNew             = "session/new"
+	AgentMethodsSessionSetConfigOption = "session/set_config_option"
+	AgentMethodsSessionPrompt          = "session/prompt"
+	AgentMethodsSessionCancel          = "session/cancel"
+	AgentMethodsMCPMessage             = "mcp/message"
+	AgentMethodsSessionList            = "session/list"
+	AgentMethodsSessionDelete          = "session/delete"
+	AgentMethodsSessionFork            = "session/fork"
+	AgentMethodsSessionResume          = "session/resume"
+	AgentMethodsSessionClose           = "session/close"
+	AgentMethodsAuthLogout             = "auth/logout"
+	AgentMethodsNesStart               = "nes/start"
+	AgentMethodsNesSuggest             = "nes/suggest"
+	AgentMethodsNesAccept              = "nes/accept"
+	AgentMethodsNesReject              = "nes/reject"
+	AgentMethodsNesClose               = "nes/close"
+	AgentMethodsDocumentDidOpen        = "document/didOpen"
+	AgentMethodsDocumentDidChange      = "document/didChange"
+	AgentMethodsDocumentDidClose       = "document/didClose"
+	AgentMethodsDocumentDidSave        = "document/didSave"
+	AgentMethodsDocumentDidFocus       = "document/didFocus"
+)
+
+// The ClientMethods constants mirror the SDK's CLIENT_METHODS table.
+const (
+	ClientMethodsSessionRequestPermission = "session/request_permission"
+	ClientMethodsSessionUpdate            = "session/update"
+	ClientMethodsMCPConnect               = "mcp/connect"
+	ClientMethodsMCPMessage               = "mcp/message"
+	ClientMethodsMCPDisconnect            = "mcp/disconnect"
+	ClientMethodsElicitationCreate        = "elicitation/create"
+	ClientMethodsElicitationComplete      = "elicitation/complete"
+)
+
+// The ProtocolMethods constants mirror the SDK's PROTOCOL_METHODS table.
+const (
+	ProtocolMethodsCancelRequest = "$/cancel_request"
+)
+
+// CurrentProtocolVersion is the SDK's PROTOCOL_VERSION constant.
 const CurrentProtocolVersion = 2

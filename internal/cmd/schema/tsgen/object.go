@@ -30,9 +30,6 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		if field == "AdditionalProperties" && t.Element != nil {
 			return fmt.Errorf("reserved field %s", field)
 		}
-		if field == "Tag" && skip != "" {
-			return fmt.Errorf("reserved field %s in union variant", field)
-		}
 		if names[field] {
 			return fmt.Errorf("field collision %s", field)
 		}
@@ -53,12 +50,17 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			}
 			tag += ",omitzero"
 		}
+		text := fieldDoc(f.Comment)
+		if !f.Optional && f.Type.Kind == "literal" {
+			text = strings.TrimSpace(text + "\n\nAlways " + f.Type.Literal + ": MarshalJSONTo writes it whatever the field holds.")
+		}
 		if f.Name == "_meta" && expr == "map[string]jsontext.Value" {
 			// The extensibility spec reserves _meta on every message; one
 			// shared type gives it Set/Get helpers in every version.
 			expr, g.usesMeta = "Meta", true
+			text = metaDoc(f.Comment)
 		}
-		g.write("%s%s %s `json:%q`\n", comment(f.Comment), field, expr, tag)
+		g.write("%s%s %s `json:%q`\n", comment(text), field, expr, tag)
 	}
 	if t.Element != nil {
 		element, err := g.expr(t.Element, name+"AdditionalProperty")
@@ -78,8 +80,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		// The literal members are part of the wire shape, so a zero value still
 		// encodes as this type and raw-union constructors need no splicing.
 		set := strings.Join(fixed, "")
-		g.write("// MarshalJSON encodes v with its literal members fixed.\n")
-		g.write("func (v %s) MarshalJSON() ([]byte, error) { %stype plain %s; return json.Marshal(plain(v)) }\n", name, set, name)
+		g.write("// MarshalJSONTo encodes v with its literal members fixed.\n")
 		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { %stype plain %s; return json.MarshalEncode(enc, plain(v)) }\n", name, set, name)
 	}
 	return nil

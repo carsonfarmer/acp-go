@@ -208,8 +208,8 @@ func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
 		t.Errorf("clientInfo = %+v", seen.ClientInfo)
 	}
 	caps := seen.ClientCapabilities
-	if caps == nil || caps.Fs == nil || caps.Fs.ReadTextFile == nil || *caps.Fs.ReadTextFile || caps.Fs.WriteTextFile == nil || *caps.Fs.WriteTextFile {
-		t.Errorf("fs capabilities = %+v, want explicit false", caps.Fs)
+	if caps == nil || caps.FS == nil || caps.FS.ReadTextFile == nil || *caps.FS.ReadTextFile || caps.FS.WriteTextFile == nil || *caps.FS.WriteTextFile {
+		t.Errorf("fs capabilities = %+v, want explicit false", caps.FS)
 	}
 	if caps.Terminal == nil || *caps.Terminal {
 		t.Errorf("terminal = %v, want false", caps.Terminal)

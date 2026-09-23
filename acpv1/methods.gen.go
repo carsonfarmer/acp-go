@@ -77,7 +77,7 @@ type SessionDeleter interface {
 // SessionForker handles session/fork. Advertise it with the
 // `sessionCapabilities.fork` agent capability.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
 }
@@ -86,7 +86,7 @@ type SessionForker interface {
 // replaying its history. Advertise it with the `sessionCapabilities.resume`
 // agent capability.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
@@ -94,7 +94,7 @@ type SessionResumer interface {
 // SessionCloser handles session/close. Advertise it with the
 // `sessionCapabilities.close` agent capability.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 type SessionCloser interface {
 	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
@@ -116,7 +116,7 @@ type SessionConfigOptionSetter interface {
 // ProviderManager handles the providers/* methods. Advertise them with the
 // `providers` agent capability.
 //
-// **UNSTABLE**: these methods are not part of the spec yet and may change.
+// Experimental: these methods are not part of the spec yet and may change.
 type ProviderManager interface {
 	ListProviders(ctx context.Context, params *ListProvidersRequest) (*ListProvidersResponse, error)
 
@@ -134,7 +134,7 @@ type LogoutHandler interface {
 // them with the `nes` agent capability. AcceptNes and RejectNes are
 // notifications.
 //
-// **UNSTABLE**: these methods are not part of the spec yet and may change.
+// Experimental: these methods are not part of the spec yet and may change.
 type NesHandler interface {
 	StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error)
 
@@ -150,7 +150,7 @@ type NesHandler interface {
 // DocumentHandler receives the document/did* notifications that mirror the
 // client's open editors.
 //
-// **UNSTABLE**: these notifications are not part of the spec yet and may change.
+// Experimental: these notifications are not part of the spec yet and may change.
 type DocumentHandler interface {
 	DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error
 
@@ -281,21 +281,21 @@ func (c *ClientSideConnection) DeleteSession(ctx context.Context, params *Delete
 // ForkSession branches a session so work continues without touching the
 // original history.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error) {
 	return acpconn.Call[ForkSessionResponse](ctx, c.conn, schema.AgentMethodsSessionFork, params)
 }
 
 // ResumeSession continues a session without replaying its history.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
 }
 
 // CloseSession cancels any ongoing work and frees the session's resources.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
 	return acpconn.Call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
 }
@@ -313,21 +313,21 @@ func (c *ClientSideConnection) SetSessionConfigOption(ctx context.Context, param
 
 // ListProviders lists the model providers the agent can use.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) ListProviders(ctx context.Context, params *ListProvidersRequest) (*ListProvidersResponse, error) {
 	return acpconn.Call[ListProvidersResponse](ctx, c.conn, schema.AgentMethodsProvidersList, params)
 }
 
 // SetProvider configures one provider.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) SetProvider(ctx context.Context, params *SetProviderRequest) (*SetProviderResponse, error) {
 	return acpconn.Call[SetProviderResponse](ctx, c.conn, schema.AgentMethodsProvidersSet, params)
 }
 
 // DisableProvider turns one provider off.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) DisableProvider(ctx context.Context, params *DisableProviderRequest) (*DisableProviderResponse, error) {
 	return acpconn.Call[DisableProviderResponse](ctx, c.conn, schema.AgentMethodsProvidersDisable, params)
 }
@@ -339,70 +339,70 @@ func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutRequest
 
 // StartNes starts a Next Edit Suggestions stream.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error) {
 	return acpconn.Call[StartNesResponse](ctx, c.conn, schema.AgentMethodsNesStart, params)
 }
 
 // SuggestNes asks for the next edit suggestion.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) SuggestNes(ctx context.Context, params *SuggestNesRequest) (*SuggestNesResponse, error) {
 	return acpconn.Call[SuggestNesResponse](ctx, c.conn, schema.AgentMethodsNesSuggest, params)
 }
 
 // CloseNes ends a Next Edit Suggestions stream.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) CloseNes(ctx context.Context, params *CloseNesRequest) (*CloseNesResponse, error) {
 	return acpconn.Call[CloseNesResponse](ctx, c.conn, schema.AgentMethodsNesClose, params)
 }
 
 // AcceptNes reports that the user accepted a suggestion.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) AcceptNes(ctx context.Context, params *AcceptNesNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsNesAccept, params)
 }
 
 // RejectNes reports that the user rejected a suggestion.
 //
-// **UNSTABLE**: this capability is not part of the spec yet and may change.
+// Experimental: this capability is not part of the spec yet and may change.
 func (c *ClientSideConnection) RejectNes(ctx context.Context, params *RejectNesNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsNesReject, params)
 }
 
 // DidOpenDocument tells the agent a document was opened.
 //
-// **UNSTABLE**: this notification is not part of the spec yet and may change.
+// Experimental: this notification is not part of the spec yet and may change.
 func (c *ClientSideConnection) DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidOpen, params)
 }
 
 // DidChangeDocument tells the agent a document changed.
 //
-// **UNSTABLE**: this notification is not part of the spec yet and may change.
+// Experimental: this notification is not part of the spec yet and may change.
 func (c *ClientSideConnection) DidChangeDocument(ctx context.Context, params *DidChangeDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidChange, params)
 }
 
 // DidCloseDocument tells the agent a document was closed.
 //
-// **UNSTABLE**: this notification is not part of the spec yet and may change.
+// Experimental: this notification is not part of the spec yet and may change.
 func (c *ClientSideConnection) DidCloseDocument(ctx context.Context, params *DidCloseDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidClose, params)
 }
 
 // DidSaveDocument tells the agent a document was saved.
 //
-// **UNSTABLE**: this notification is not part of the spec yet and may change.
+// Experimental: this notification is not part of the spec yet and may change.
 func (c *ClientSideConnection) DidSaveDocument(ctx context.Context, params *DidSaveDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidSave, params)
 }
 
 // DidFocusDocument tells the agent a document was focused.
 //
-// **UNSTABLE**: this notification is not part of the spec yet and may change.
+// Experimental: this notification is not part of the spec yet and may change.
 func (c *ClientSideConnection) DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidFocus, params)
 }
@@ -422,13 +422,13 @@ func (c *AgentSideConnection) RequestPermission(ctx context.Context, params *Req
 // ReadTextFile reads a text file through the client. Requires the client's
 // `fs.readTextFile` capability.
 func (c *AgentSideConnection) ReadTextFile(ctx context.Context, params *ReadTextFileRequest) (*ReadTextFileResponse, error) {
-	return acpconn.Call[ReadTextFileResponse](ctx, c.conn, schema.ClientMethodsFsReadTextFile, params)
+	return acpconn.Call[ReadTextFileResponse](ctx, c.conn, schema.ClientMethodsFSReadTextFile, params)
 }
 
 // WriteTextFile writes a text file through the client. Requires the client's
 // `fs.writeTextFile` capability.
 func (c *AgentSideConnection) WriteTextFile(ctx context.Context, params *WriteTextFileRequest) (*WriteTextFileResponse, error) {
-	return acpconn.Call[WriteTextFileResponse](ctx, c.conn, schema.ClientMethodsFsWriteTextFile, params)
+	return acpconn.Call[WriteTextFileResponse](ctx, c.conn, schema.ClientMethodsFSWriteTextFile, params)
 }
 
 // CreateTerminal starts a command in a client-managed terminal. Requires the
@@ -593,11 +593,11 @@ func (c *ClientSideConnection) handleRequest(ctx context.Context, method string,
 	switch method {
 	case schema.ClientMethodsSessionRequestPermission:
 		return acpconn.Request(ctx, schema.Validated, params, c.client.RequestPermission)
-	case schema.ClientMethodsFsReadTextFile:
+	case schema.ClientMethodsFSReadTextFile:
 		if h, ok := c.client.(FileReader); ok {
 			return acpconn.Request(ctx, schema.Validated, params, h.ReadTextFile)
 		}
-	case schema.ClientMethodsFsWriteTextFile:
+	case schema.ClientMethodsFSWriteTextFile:
 		if h, ok := c.client.(FileWriter); ok {
 			return acpconn.Request(ctx, schema.Validated, params, h.WriteTextFile)
 		}

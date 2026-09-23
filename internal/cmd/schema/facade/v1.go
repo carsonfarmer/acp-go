@@ -113,13 +113,13 @@ Requires the agent's ` + "`loadSession`" + ` capability.`,
 			Doc: `SessionForker handles session/fork. Advertise it with the
 ` + "`sessionCapabilities.fork`" + ` agent capability.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
 original history.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			}},
 		},
 		{
@@ -128,12 +128,12 @@ original history.
 replaying its history. Advertise it with the ` + "`sessionCapabilities.resume`" + `
 agent capability.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			Methods: []Method{{
 				Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
 				CallDoc: `ResumeSession continues a session without replaying its history.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			}},
 		},
 		{
@@ -141,12 +141,12 @@ agent capability.
 			Doc: `SessionCloser handles session/close. Advertise it with the
 ` + "`sessionCapabilities.close`" + ` agent capability.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			Methods: []Method{{
 				Wire: "session/close", Name: "CloseSession", Params: "CloseSessionRequest", Response: "CloseSessionResponse",
 				CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			}},
 		},
 		{
@@ -175,7 +175,7 @@ every option, since one change may affect the others.`,
 			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
 ` + "`providers`" + ` agent capability.
 
-**UNSTABLE**: these methods are not part of the spec yet and may change.`,
+Experimental: these methods are not part of the spec yet and may change.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
 					CallDoc: unstable("ListProviders lists the model providers the agent can use.")},
@@ -199,7 +199,7 @@ every option, since one change may affect the others.`,
 them with the ` + "`nes`" + ` agent capability. AcceptNes and RejectNes are
 notifications.
 
-**UNSTABLE**: these methods are not part of the spec yet and may change.`,
+Experimental: these methods are not part of the spec yet and may change.`,
 			Methods: nesMethods,
 		},
 		{
@@ -207,7 +207,7 @@ notifications.
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
 client's open editors.
 
-**UNSTABLE**: these notifications are not part of the spec yet and may change.`,
+Experimental: these notifications are not part of the spec yet and may change.`,
 			Methods: documentMethods,
 		},
 	},
@@ -299,7 +299,7 @@ notification. Advertise it with the ` + "`elicitation`" + ` client capability.`,
 
 // unstable appends the upstream experimental warning to a doc line.
 func unstable(s string) string {
-	return s + "\n\n**UNSTABLE**: this capability is not part of the spec yet and may change."
+	return s + "\n\nExperimental: this capability is not part of the spec yet and may change."
 }
 
 // nesMethods is shared by both versions; the wire methods and types match.
@@ -330,7 +330,7 @@ var documentMethods = []Method{
 }
 
 func unstableNotification(s string) string {
-	return s + "\n\n**UNSTABLE**: this notification is not part of the spec yet and may change."
+	return s + "\n\nExperimental: this notification is not part of the spec yet and may change."
 }
 
 // elicitationMethods takes the capability path, which differs between versions.

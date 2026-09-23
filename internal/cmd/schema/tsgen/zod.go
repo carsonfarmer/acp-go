@@ -1,6 +1,7 @@
 package tsgen
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 	"sort"
 	"strconv"
@@ -42,7 +43,7 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n")
+	var registry []string
 	for _, k := range keys {
 		z := schema.Validators[k]
 		if open, ok := g.openTags[Name(strings.TrimPrefix(k, "z"))]; ok {
@@ -52,9 +53,8 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", k, err)
 		}
-		g.write("%s: %s,\n", strconv.Quote(k), rule)
+		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(k), rule))
 	}
-	g.write("}\n\n")
 
 	defs := append([]tsdef.Definition(nil), schema.Types...)
 	sort.Slice(defs, func(i, j int) bool { return defs[i].Name < defs[j].Name })
@@ -70,9 +70,28 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 			// rule registered for them would apply to every value of that type.
 			continue
 		}
+		if g.isAbsorbed(name) {
+			continue // registered below under the rule its variant carries
+		}
 		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", name, key))
 		unmarshalers = append(unmarshalers, fmt.Sprintf("zod.Unmarshaler[%s](zodSchemas, %q)", name, key))
 	}
+	for _, v := range g.variantRules {
+		// The variant writes its tag, so its rule is the absorbed type's
+		// own rule intersected with that tag.
+		key := fmt.Sprintf("z%s&%s=%s", v.base, v.tag, v.value)
+		rule, err := zodLiteral(&tsdef.Zod{Kind: "intersection", Members: []*tsdef.Zod{
+			{Kind: "ref", Ref: "z" + v.base},
+			{Kind: "object", Fields: []tsdef.ZodField{{Name: v.tag, Schema: &tsdef.Zod{Kind: "literal", Value: jsontext.Value(v.value)}}}},
+		}})
+		if err != nil {
+			return err
+		}
+		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(key), rule))
+		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", v.goName, key))
+		unmarshalers = append(unmarshalers, fmt.Sprintf("zod.Unmarshaler[%s](zodSchemas, %q)", v.goName, key))
+	}
+	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n%s\n}\n\n", strings.Join(registry, "\n"))
 	g.write("// zodTypes maps generated Go types to their Zod rule. Type aliases are not\n// listed; they share a reflect.Type with their underlying type.\nvar zodTypes = map[reflect.Type]string{\n%s,\n}\n\n", strings.Join(types, ",\n"))
 	g.write("// Validated is a json.Options value that applies the SDK Zod validation, default and\n// recovery rules to every generated type encountered while unmarshaling:\n//\n//\tjson.Unmarshal(data, &v, schema.Validated)\n//\n// Type aliases are decoded as their underlying type.\nvar Validated = json.WithUnmarshalers(json.JoinUnmarshalers(\n%s,\n))\n\n", strings.Join(unmarshalers, ",\n"))
 	g.out.WriteString(`// zodRule returns the Zod rule registered for T.

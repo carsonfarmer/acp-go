@@ -85,13 +85,13 @@ turn. The pending Prompt call should return with the cancelled outcome.`,
 			Doc: `SessionForker handles session/fork. Advertise it with the
 ` + "`capabilities.session.fork`" + ` agent capability.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
 original history.
 
-**UNSTABLE**: this capability is not part of the spec yet and may change.`,
+Experimental: this capability is not part of the spec yet and may change.`,
 			}},
 		},
 		{
@@ -127,7 +127,7 @@ every option, since one change may affect the others.`,
 			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
 ` + "`capabilities.providers`" + ` agent capability.
 
-**UNSTABLE**: these methods are not part of the spec yet and may change.`,
+Experimental: these methods are not part of the spec yet and may change.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
 					CallDoc: unstable("ListProviders lists the model providers the agent can use.")},
@@ -143,7 +143,7 @@ every option, since one change may affect the others.`,
 them with the ` + "`capabilities.nes`" + ` agent capability. AcceptNes and RejectNes
 are notifications.
 
-**UNSTABLE**: these methods are not part of the spec yet and may change.`,
+Experimental: these methods are not part of the spec yet and may change.`,
 			Methods: nesMethods,
 		},
 		{
@@ -151,7 +151,7 @@ are notifications.
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
 client's open editors.
 
-**UNSTABLE**: these notifications are not part of the spec yet and may change.`,
+Experimental: these notifications are not part of the spec yet and may change.`,
 			Methods: documentMethods,
 		},
 		{
@@ -160,16 +160,16 @@ client's open editors.
 mcp/message. The method carries either a request, answered with the MCP
 result, or a notification, which has no response.
 
-**UNSTABLE**: MCP proxying is not part of the spec yet and may change.`,
+Experimental: MCP proxying is not part of the spec yet and may change.`,
 			Methods: []Method{
 				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
 					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.
 
-**UNSTABLE**: MCP proxying is not part of the spec yet and may change.`},
+Experimental: MCP proxying is not part of the spec yet and may change.`},
 				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
 					CallDoc: `NotifyMCP forwards an MCP notification to the agent.
 
-**UNSTABLE**: MCP proxying is not part of the spec yet and may change.`},
+Experimental: MCP proxying is not part of the spec yet and may change.`},
 			},
 		},
 	},
@@ -207,7 +207,7 @@ opens a connection, mcp/message carries requests and notifications over it,
 and mcp/disconnect closes it. In v2 this replaces the v1 fs/* and terminal/*
 methods.
 
-**UNSTABLE**: MCP proxying is not part of the spec yet and may change.`,
+Experimental: MCP proxying is not part of the spec yet and may change.`,
 			Methods: []Method{
 				{Wire: "mcp/connect", Name: "ConnectMCP", Params: "ConnectMCPRequest", Response: "ConnectMCPResponse",
 					CallDoc: `ConnectMCP opens an MCP connection through the client.`},

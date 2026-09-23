@@ -14,18 +14,53 @@ import (
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
 )
 
+// Doc lines of the JSON v2 methods generated types implement.
+const (
+	marshalDoc   = "// MarshalJSONTo implements [json.MarshalerTo].\n"
+	unmarshalDoc = "// UnmarshalJSONFrom implements [json.UnmarshalerFrom].\n"
+)
+
+// memberKind is how a tagged-union member is represented in Go.
+type memberKind int
+
+const (
+	memberLiteral memberKind = iota // object fixing the tag to a literal: a variant struct
+	memberNested                    // union payload with a literal tag: a variant wrapping the payload
+	memberCustom                    // object catch-all for other tags: a variant keeping every member
+	memberOpen                      // catch-all that is not one object: decoded as the Unknown variant
+	memberDefault                   // object without the tag: decoded when the tag is absent
+)
+
 // taggedMember is one alternative of a discriminated object union.
 type taggedMember struct {
-	object *tsdef.Type // expanded object shape; nil for nested members
-	nested string      // TypeScript name of a union payload combined with the tag
-	value  string      // quoted literal for known variants; empty for the catch-all
+	kind   memberKind
+	object *tsdef.Type // expanded object shape of literal, custom and default members
+	nested string      // TypeScript name of a nested member's union payload
+	base   string      // TypeScript name of the object a literal member extends: Base & { tag: "x" }
+	ref    string      // TypeScript name of a default member that is a plain reference
+	value  string      // quoted tag literal of literal and nested members
 }
 
-// nestedTagged recognizes `Ref & { tag: "literal" }` where Ref is itself a
-// union, which cannot be flattened into one struct without losing its variants.
+// nestedTagged recognizes `Ref & { tag: "literal" }` where Ref is, or expands
+// to, a union, which cannot be flattened into one struct without losing its
+// variants.
 func (g *generator) nestedTagged(m *tsdef.Type) (ref, tag, value string, ok bool) {
-	if m.Kind != "intersection" || len(m.Members) != 2 {
+	ref, tagField, ok := g.tagIntersection(m)
+	if !ok {
 		return "", "", "", false
+	}
+	target, err := g.expand(&tsdef.Type{Kind: "ref", Name: ref}, map[string]bool{})
+	if err != nil || target.Kind != "union" {
+		return "", "", "", false
+	}
+	return ref, tagField.Name, tagField.Type.Literal, true
+}
+
+// tagIntersection recognizes `Ref & { tag: "literal" }`, returning the
+// reference and the tag member.
+func (g *generator) tagIntersection(m *tsdef.Type) (string, tsdef.Field, bool) {
+	if m.Kind != "intersection" || len(m.Members) != 2 {
+		return "", tsdef.Field{}, false
 	}
 	for i, part := range m.Members {
 		other := m.Members[1-i]
@@ -33,41 +68,41 @@ func (g *generator) nestedTagged(m *tsdef.Type) (ref, tag, value string, ok bool
 			continue
 		}
 		f := other.Fields[0]
-		if f.Optional || f.Type.Kind != "literal" {
+		if f.Optional || !stringLiteral(f.Type) {
 			continue
 		}
-		if k, _ := literals(f.Type); k != "string" {
-			continue
-		}
-		target := g.defs[part.Name]
-		for target != nil && target.Kind == "ref" {
-			target = g.defs[target.Name]
-		}
-		if target == nil || target.Kind != "union" {
-			continue
-		}
-		return part.Name, f.Name, f.Type.Literal, true
+		return part.Name, f, true
 	}
-	return "", "", "", false
+	return "", tsdef.Field{}, false
 }
 
-// tagged recognizes unions whose members are all objects sharing one required
-// string discriminator: each known member fixes it to a distinct literal and at
-// most one catch-all member leaves it as string alongside an index signature.
+// stringLiteral reports whether t is a string literal type.
+func stringLiteral(t *tsdef.Type) bool {
+	k, _ := literals(t)
+	return t.Kind == "literal" && k == "string"
+}
+
+// taggedShape is a union member as tagged() sees it before a tag is chosen.
+type taggedShape struct {
+	expanded    *tsdef.Type // object or union expansion; nil for nested members
+	base, ref   string      // see taggedMember
+	nested      string
+	nestedTag   string
+	nestedValue string
+}
+
+// tagged recognizes unions discriminated by one string member: each known
+// member fixes it to a distinct literal, at most one catch-all accepts any
+// other value, and at most one member without the tag is the default.
 func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, ok bool, err error) {
 	if len(t.Members) < 2 {
 		return "", nil, false, nil
 	}
-	type shape struct {
-		object            *tsdef.Type
-		nested, nestedTag string
-		nestedValue       string
-	}
-	var shapes []shape
+	var shapes []taggedShape
 	candidates := map[string]bool{}
 	for _, m := range t.Members {
 		if ref, tagName, value, ok := g.nestedTagged(m); ok {
-			shapes = append(shapes, shape{nested: ref, nestedTag: tagName, nestedValue: value})
+			shapes = append(shapes, taggedShape{nested: ref, nestedTag: tagName, nestedValue: value})
 			candidates[tagName] = true
 			continue
 		}
@@ -75,68 +110,125 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 		if err != nil {
 			return "", nil, false, err
 		}
-		if expanded.Kind != "object" {
+		if expanded.Kind != "object" && expanded.Kind != "union" {
 			return "", nil, false, nil
 		}
-		shapes = append(shapes, shape{object: expanded})
-		for _, f := range requiredLiterals(expanded) {
-			if k, _ := literals(f.Type); k == "string" {
-				candidates[f.Name] = true
+		shape := taggedShape{expanded: expanded}
+		if base, _, ok := g.tagIntersection(m); ok {
+			shape.base = base
+		}
+		if m.Kind == "ref" {
+			shape.ref = m.Name
+		}
+		shapes = append(shapes, shape)
+		if expanded.Kind == "object" {
+			for _, f := range requiredLiterals(expanded) {
+				if stringLiteral(f.Type) {
+					candidates[f.Name] = true
+				}
 			}
 		}
 	}
 	for _, tag := range slices.Sorted(maps.Keys(candidates)) {
-		members = nil
-		seen := map[string]bool{}
-		custom := 0
-		valid := true
-		for _, sh := range shapes {
-			if sh.nested != "" {
-				if sh.nestedTag != tag || seen[sh.nestedValue] {
-					valid = false
-					break
-				}
-				seen[sh.nestedValue] = true
-				members = append(members, taggedMember{nested: sh.nested, value: sh.nestedValue})
-				continue
-			}
-			var field *tsdef.Field
-			for i := range sh.object.Fields {
-				if sh.object.Fields[i].Name == tag {
-					field = &sh.object.Fields[i]
-				}
-			}
-			if field == nil || field.Optional {
-				valid = false
-				break
-			}
-			switch {
-			case field.Type.Kind == "literal":
-				if seen[field.Type.Literal] {
-					valid = false
-				}
-				seen[field.Type.Literal] = true
-				members = append(members, taggedMember{object: sh.object, value: field.Type.Literal})
-			case field.Type.Kind == "string" && sh.object.Element != nil:
-				custom++
-				members = append(members, taggedMember{object: sh.object})
-			default:
-				valid = false
-			}
-			if !valid {
-				break
-			}
-		}
-		if valid && custom <= 1 && len(members)-custom >= 1 {
+		if members, ok := classify(tag, shapes); ok {
 			return tag, members, true, nil
 		}
 	}
 	return "", nil, false, nil
 }
 
+// classify maps each shape to a member kind for one candidate tag, reporting
+// false when the shapes do not form a union discriminated by it.
+func classify(tag string, shapes []taggedShape) ([]taggedMember, bool) {
+	var members []taggedMember
+	seen := map[string]bool{}
+	catchAll, defaults := 0, 0
+	for _, sh := range shapes {
+		var m taggedMember
+		switch {
+		case sh.nested != "":
+			if sh.nestedTag != tag {
+				return nil, false
+			}
+			m = taggedMember{kind: memberNested, nested: sh.nested, value: sh.nestedValue}
+		case sh.expanded.Kind == "union":
+			if !catchAllObjects(sh.expanded, tag) {
+				return nil, false
+			}
+			m = taggedMember{kind: memberOpen}
+		default:
+			field := fieldNamed(sh.expanded, tag)
+			switch {
+			case field == nil:
+				m = taggedMember{kind: memberDefault, object: sh.expanded, ref: sh.ref}
+			case field.Optional:
+				return nil, false
+			case stringLiteral(field.Type):
+				m = taggedMember{kind: memberLiteral, object: sh.expanded, base: sh.base, value: field.Type.Literal}
+			case isCatchAll(sh.expanded, tag):
+				m = taggedMember{kind: memberCustom, object: sh.expanded}
+			default:
+				return nil, false
+			}
+		}
+		switch m.kind {
+		case memberLiteral, memberNested:
+			if seen[m.value] {
+				return nil, false
+			}
+			seen[m.value] = true
+		case memberCustom, memberOpen:
+			catchAll++
+		case memberDefault:
+			defaults++
+		}
+		members = append(members, m)
+	}
+	return members, len(seen) > 0 && catchAll <= 1 && defaults <= 1
+}
+
+// catchAllObjects reports whether every member of u is an object catch-all
+// for tag: tag is a required string beside an index signature.
+func catchAllObjects(u *tsdef.Type, tag string) bool {
+	for _, m := range u.Members {
+		if !isCatchAll(m, tag) {
+			return false
+		}
+	}
+	return true
+}
+
+// isCatchAll reports whether object t is a catch-all for tag: tag is a
+// required string beside an index signature.
+func isCatchAll(t *tsdef.Type, tag string) bool {
+	f := fieldNamed(t, tag)
+	return t.Kind == "object" && t.Element != nil && f != nil && !f.Optional && f.Type.Kind == "string"
+}
+
+// fieldNamed returns the member of object t with the given JSON name, or nil.
+func fieldNamed(t *tsdef.Type, name string) *tsdef.Field {
+	for i := range t.Fields {
+		if t.Fields[i].Name == name {
+			return &t.Fields[i]
+		}
+	}
+	return nil
+}
+
+// lowerFirst turns an exported name into an unexported one, lowering a
+// leading initialism as a whole: MCPServer becomes mcpServer, not mCPServer.
 func lowerFirst(s string) string {
 	r := []rune(s)
-	r[0] = unicode.ToLower(r[0])
+	n := 0
+	for n < len(r) && unicode.IsUpper(r[n]) {
+		n++
+	}
+	if n > 1 && n < len(r) && unicode.IsLower(r[n]) {
+		n-- // the last capital starts the next word: HTTPHeader -> httpHeader
+	}
+	for i := range max(n, 1) {
+		r[i] = unicode.ToLower(r[i])
+	}
 	return string(r)
 }
 
@@ -148,9 +240,12 @@ type openTags struct {
 }
 
 // taggedUnion emits a wrapper struct holding a sealed interface value. Each
-// variant is a plain struct whose discriminator is implied by its Go type and
-// written by its own JSON methods, so type switches replace As… probing.
-func (g *generator) taggedUnion(name, tag string, members []taggedMember) error {
+// variant writes its own discriminator: literal members are structs whose tag
+// is implied by the Go type, nested members wrap their union payload, the
+// object catch-all keeps the tag as a field, and the default member has none.
+// Unknown tags go to the catch-all, else to the default variant, else to a
+// generated Unknown variant that keeps the JSON as received.
+func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember) error {
 	iface := name + "Variant"
 	for _, n := range []string{iface, "New" + name} {
 		if err := g.reserve(n); err != nil {
@@ -163,47 +258,72 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 		return err
 	}
 	g.unmarshalers = append(g.unmarshalers, "json.UnmarshalFromFunc("+unmarshalFn+")")
-	var variantNames []string
-	for _, m := range members {
-		label := "Custom"
-		if m.value != "" {
-			value, err := strconv.Unquote(m.value)
-			if err != nil {
-				return err
+	variantNames := make([]string, len(members))
+	schemaNamed := make([]bool, len(members)) // the variant is a type the schema names and reserves
+	custom, open, defaultIndex := -1, false, -1
+	known := openTags{tag: tag}
+	for i, m := range members {
+		switch m.kind {
+		case memberCustom:
+			custom = i
+			variantNames[i] = name + "Custom"
+		case memberOpen:
+			open = true
+			continue
+		case memberDefault:
+			defaultIndex = i
+			if m.ref != "" && g.defaultVariant(m.ref) {
+				variantNames[i], schemaNamed[i] = Name(m.ref), true
+				continue
 			}
-			label = Name(value)
-		}
-		vname := name + label
-		if g.names[vname] {
-			// The SDK often names the payload type after the variant (AuthMethodTerminal),
-			// so the merged variant struct takes a suffix instead of failing.
-			vname += "Variant"
-		}
-		variantNames = append(variantNames, vname)
-	}
-	// Without a schema-defined catch-all, unknown tags decode into an Unknown
-	// variant that keeps the JSON as received, so a newer peer's additions are
-	// ignorable rather than fatal.
-	unknown := ""
-	if !slices.ContainsFunc(members, func(m taggedMember) bool { return m.value == "" }) {
-		known := openTags{tag: tag}
-		for _, m := range members {
+			variantNames[i] = name + "Untagged"
+		case memberLiteral, memberNested:
 			value, err := strconv.Unquote(m.value)
 			if err != nil {
 				return err
 			}
 			known.values = append(known.values, value)
+			variantNames[i] = name + Name(value)
+			if a, ok := g.absorbedBy(m.base, name, m.value); ok && a.goName == variantNames[i] {
+				schemaNamed[i] = true
+				continue
+			}
 		}
-		g.openTags[name] = known
+		if g.names[variantNames[i]] {
+			// An unrelated schema type already has the name.
+			variantNames[i] += "Variant"
+		}
+	}
+	unknown := ""
+	if custom < 0 && (open || defaultIndex < 0) {
 		unknown = name + "Unknown"
 		if g.names[unknown] {
 			unknown += "Variant"
 		}
-		variantNames = append(variantNames, unknown)
+		if !open {
+			// The SDK rejects unknown tags here; let them through to Unknown.
+			g.openTags[name] = known
+		}
 	}
-	g.write("// %s is a tagged union discriminated by the %q member. The zero value\n// encodes as null; use New%s or a type switch on Variant to work with it.\n", name, tag, name)
+	fallback := unknown
+	switch {
+	case custom >= 0:
+		fallback = variantNames[custom]
+	case unknown == "":
+		fallback = variantNames[defaultIndex]
+	}
+	var implementers []string
+	for i, v := range variantNames {
+		if members[i].kind != memberOpen {
+			implementers = append(implementers, "["+v+"]")
+		}
+	}
+	if unknown != "" {
+		implementers = append(implementers, "["+unknown+"]")
+	}
+	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s is a tagged union discriminated by the %q member. The zero value\nencodes as null; use [New%s] or a type switch on [%s.Variant] to work with it.", name, tag, name, name)))
 	g.write("type %s struct{ value %s }\n", name, iface)
-	g.write("// %s is implemented by %s.\n", iface, strings.Join(variantNames, ", "))
+	g.write("// %s is implemented by %s.\n", iface, strings.Join(implementers, ", "))
 	g.write("type %s interface { %s(); Tag() string }\n", iface, marker)
 	g.write("// New%s wraps a variant; a nil variant yields the zero value.\n", name)
 	g.write("func New%s(v %s) %s { return %s{value: v} }\n", name, iface, name, name)
@@ -215,28 +335,42 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 	g.write("func (u %s) Tag() string { if u.value == nil { return \"\" }; return u.value.Tag() }\n", name)
 	g.write("// IsZero reports whether no variant is set, so omitzero omits the field.\n")
 	g.write("func (u %s) IsZero() bool { return u.value == nil }\n", name)
+	g.write("%s", marshalDoc)
 	g.write("func (u %s) MarshalJSONTo(enc *jsontext.Encoder) error { if u.value == nil { return enc.WriteToken(jsontext.Null) }; return json.MarshalEncode(enc, u.value) }\n", name)
+	g.write("%s", unmarshalDoc)
 	g.write("func (u *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return %s(dec, &u.value) }\n", name, unmarshalFn)
 	g.write("// %s decodes a %s by its %q member; it backs Unmarshalers.\n", unmarshalFn, iface, tag)
 	g.write("func %s(dec *jsontext.Decoder, out *%s) error {\n", unmarshalFn, iface)
 	g.write("raw, err := dec.ReadValue(); if err != nil { return err }\n")
 	g.write("if raw.Kind() == 'n' { *out = nil; return nil }\n")
 	g.write("if raw.Kind() != '{' { return fmt.Errorf(\"%s: expected object, got %%s\", raw.Kind()) }\n", name)
-	g.write("var probe struct{ Tag string `json:%q` }\n", tag)
-	g.write("if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", name)
-	g.write("switch probe.Tag {\n")
-	customIndex := -1
-	for i, m := range members {
-		if m.value == "" {
-			customIndex = i
-			continue
-		}
-		g.write("case %s: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", m.value, variantNames[i])
+	decode := func(variant string) string {
+		return fmt.Sprintf("var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variant)
 	}
-	if customIndex >= 0 {
-		g.write("default: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variantNames[customIndex])
+	tagExpr := "probe.Tag"
+	if defaultIndex >= 0 {
+		// A missing tag selects the default variant, so the probe tells absent from empty.
+		g.write("var probe struct{ Tag *string `json:%q` }\n", tag)
+		tagExpr = "*probe.Tag"
 	} else {
+		g.write("var probe struct{ Tag string `json:%q` }\n", tag)
+	}
+	g.write("if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", name)
+	if defaultIndex >= 0 {
+		g.write("if probe.Tag == nil { %sreturn nil }\n", decode(variantNames[defaultIndex]))
+	}
+	g.write("switch %s {\n", tagExpr)
+	for i, m := range members {
+		if m.kind == memberLiteral || m.kind == memberNested {
+			g.write("case %s: %s", m.value, decode(variantNames[i]))
+		}
+	}
+	if fallback == unknown {
 		g.write("default: *out = %s{Raw: raw.Clone()}\n", unknown)
+	} else {
+		// As in the SDK, an unrecognized tag does not stop a payload that
+		// fits the catch-all or default variant.
+		g.write("default: %s", decode(fallback))
 	}
 	g.write("}\nreturn nil\n}\n")
 
@@ -244,61 +378,179 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 		if err := g.reserve(unknown); err != nil {
 			return err
 		}
-		g.write("// %s carries a %s whose %q this SDK does not know. Raw is the\n// object as received and is encoded unchanged.\n", unknown, name, tag)
+		g.write("// %s holds %s values whose %q this SDK does not know. Raw is the\n// object as received and is encoded unchanged.\n", unknown, name, tag)
 		g.write("type %s struct { Raw jsontext.Value }\n", unknown)
 		g.write("func (%s) %s() {}\n", unknown, marker)
 		g.write("// Tag returns the %q member of Raw.\n", tag)
 		g.write("func (v %s) Tag() string { var p struct{ Tag string `json:%q` }; _ = json.Unmarshal(v.Raw, &p); return p.Tag }\n", unknown, tag)
+		g.write("%s", marshalDoc)
 		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return enc.WriteValue(v.Raw) }\n", unknown)
 	}
 
 	for i, m := range members {
-		vname := variantNames[i]
-		if err := g.reserve(vname); err != nil {
-			return err
+		if m.kind == memberOpen {
+			continue
 		}
-		if m.value == "" {
-			g.write("// %s carries a %s value with an unrecognized %q, keeping every member.\n", vname, name, tag)
+		vname := variantNames[i]
+		if !schemaNamed[i] {
+			if err := g.reserve(vname); err != nil {
+				return err
+			}
+		}
+		if m.object != nil {
+			skip := ""
+			if m.kind == memberLiteral {
+				skip = tag
+			}
+			if err := tagClash(vname, m.object, skip); err != nil {
+				return err
+			}
+		}
+		switch m.kind {
+		case memberCustom:
+			g.write("// %s holds %s values with an unrecognized %q, keeping every member.\n", vname, name, tag)
 			if err := g.structType(vname, m.object, ""); err != nil {
 				return fmt.Errorf("%s: %w", vname, err)
 			}
 			g.write("func (%s) %s() {}\n", vname, marker)
+			g.write("// Tag returns the %q member.\n", tag)
 			g.write("func (v %s) Tag() string { return v.%s }\n", vname, Name(tag))
-			continue
-		}
-		if m.nested != "" {
+		case memberDefault:
+			if schemaNamed[i] {
+				// The schema's own type is the variant; it is declared with the
+				// other object types and gains the variant methods here.
+				g.write("\n")
+			} else {
+				g.write("// %s is the %s variant without a %q member.\n", vname, name, tag)
+				if err := g.structType(vname, m.object, ""); err != nil {
+					return fmt.Errorf("%s: %w", vname, err)
+				}
+			}
+			g.write("func (%s) %s() {}\n", vname, marker)
+			g.write("// Tag returns \"\": %s is the %s variant without a %q member.\n", vname, name, tag)
+			g.write("func (%s) Tag() string { return \"\" }\n", vname)
+		case memberNested:
 			payload := Name(m.nested)
 			g.write("// %s is the %s variant with %s %s; its payload is the %s union\n// whose members are written alongside the discriminator.\n", vname, name, tag, m.value, payload)
 			g.write("type %s struct { Value %s }\n", vname, payload)
 			g.write("func (%s) %s() {}\n", vname, marker)
 			g.write("// Tag returns %s.\n", m.value)
 			g.write("func (%s) Tag() string { return %s }\n", vname, m.value)
+			g.write("%s", marshalDoc)
 			g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return union.SpliceTag(enc, %q, %s, v.Value) }\n", vname, tag, m.value)
+			g.write("%s", unmarshalDoc)
 			g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return union.UnspliceTag(dec, %q, %s, &v.Value) }\n", vname, tag, m.value)
-			continue
+		case memberLiteral:
+			variantDoc := fmt.Sprintf("%s is the %s variant with %s %s.", vname, name, tag, m.value)
+			if _, ok := g.absorbedBy(m.base, name, m.value); ok {
+				// The variant took over the schema type it extends: it keeps
+				// that type's comment and inherits its Zod rule, with the tag.
+				g.write("%s", doc(vname, g.docs[m.base], variantDoc))
+				g.variantRules = append(g.variantRules, variantRule{goName: vname, base: m.base, tag: tag, value: m.value})
+			} else {
+				g.write("// %s\n", variantDoc)
+			}
+			if err := g.structType(vname, m.object, tag); err != nil {
+				return fmt.Errorf("%s: %w", vname, err)
+			}
+			fields := lowerFirst(vname) + "Fields"
+			wire := lowerFirst(vname) + "Wire"
+			g.write("func (%s) %s() {}\n", vname, marker)
+			g.write("// Tag returns %s.\n", m.value)
+			g.write("func (%s) Tag() string { return %s }\n", vname, m.value)
+			g.write("type %s %s\n", fields, vname)
+			g.write("type %s struct { Tag string `json:%q`; %s `json:\",inline\"` }\n", wire, tag, fields)
+			g.write("%s", marshalDoc)
+			g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return json.MarshalEncode(enc, %s{%s, %s(v)}) }\n", vname, wire, m.value, fields)
+			g.write("%s", unmarshalDoc)
+			g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n", vname)
+			g.write("var w %s; if err := json.UnmarshalDecode(dec, &w); err != nil { return err }\n", wire)
+			g.write("if w.Tag != %s { return fmt.Errorf(\"%s: expected %s %s, got %%q\", w.Tag) }\n", m.value, vname, tag, strings.ReplaceAll(m.value, `"`, `\"`))
+			g.write("*v = %s(w.%s); return nil\n}\n", vname, fields)
 		}
-		g.write("// %s is the %s variant with %s %s.\n", vname, name, tag, m.value)
-		if err := g.structType(vname, m.object, tag); err != nil {
-			return fmt.Errorf("%s: %w", vname, err)
-		}
-		fields := lowerFirst(vname) + "Fields"
-		wire := lowerFirst(vname) + "Wire"
-		g.write("func (%s) %s() {}\n", vname, marker)
-		g.write("// Tag returns %s.\n", m.value)
-		g.write("func (%s) Tag() string { return %s }\n", vname, m.value)
-		g.write("type %s %s\n", fields, vname)
-		g.write("type %s struct { Tag string `json:%q`; %s `json:\",inline\"` }\n", wire, tag, fields)
-		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return json.MarshalEncode(enc, %s{%s, %s(v)}) }\n", vname, wire, m.value, fields)
-		g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n", vname)
-		g.write("var w %s; if err := json.UnmarshalDecode(dec, &w); err != nil { return err }\n", wire)
-		g.write("if w.Tag != %s { return fmt.Errorf(\"%s: expected %s %s, got %%q\", w.Tag) }\n", m.value, vname, tag, strings.ReplaceAll(m.value, `"`, `\"`))
-		g.write("*v = %s(w.%s); return nil\n}\n", vname, fields)
 	}
 	return nil
 }
 
-// memberLabel names a union alternative for generated identifiers.
-func (g *generator) memberLabel(m, expanded *tsdef.Type, siblings []*tsdef.Type) (string, error) {
+// defaultVariant reports whether the schema type ref can itself be a tagged
+// union's default variant: an object struct that nothing but this union
+// refers to. The variant methods it gains leave its JSON unchanged, since the
+// default variant has no tag.
+func (g *generator) defaultVariant(ref string) bool {
+	if g.refs[ref] != 1 {
+		return false
+	}
+	f, _, err := g.form(g.defs[ref])
+	return err == nil && f == formStruct
+}
+
+// tagClash reports a variant struct that would declare a field named Tag
+// beside its Tag method.
+func tagClash(variant string, object *tsdef.Type, skip string) error {
+	for _, f := range object.Fields {
+		if f.Name != skip && Name(f.Name) == "Tag" {
+			return fmt.Errorf("%s: field %s collides with the variant's Tag method", variant, f.Name)
+		}
+	}
+	return nil
+}
+
+// absorption records a schema type that a tagged union took over as the
+// variant for one of its tags.
+type absorption struct {
+	goName string // the type's Go name
+	union  string // Go name of the union
+	value  string // quoted tag literal
+}
+
+// absorbedBy reports whether base was taken over by union's variant for value.
+func (g *generator) absorbedBy(base, union, value string) (absorption, bool) {
+	a, ok := g.absorbed[base]
+	return a, ok && a.union == union && a.value == value
+}
+
+// variantRule is a Zod rule synthesized for an absorbed type: its own rule
+// with the tag the variant carries.
+type variantRule struct {
+	goName, base, tag, value string
+}
+
+// planVariants finds, before anything is emitted, the schema types that
+// tagged unions take over as variants: Base in `Base & { tag: "x" }` when
+// nothing else refers to Base. The variant keeps its usual name, which is often
+// Base's own (MCPServer + "http" = MCPServerHTTP); either way Base is not
+// declared a second time with the same members.
+func (g *generator) planVariants() error {
+	for _, d := range g.pending {
+		f, t, err := g.form(d.Type)
+		if err != nil || f != formUnion {
+			continue
+		}
+		_, members, ok, err := g.tagged(t)
+		if err != nil {
+			return fmt.Errorf("%s: %w", d.Name, err)
+		}
+		if !ok {
+			continue
+		}
+		for _, m := range members {
+			if m.kind != memberLiteral || m.base == "" || g.refs[m.base] != 1 {
+				continue
+			}
+			if bf, bt, err := g.form(g.defs[m.base]); err != nil || bf != formStruct || len(requiredLiterals(bt)) > 0 {
+				continue
+			}
+			g.absorbed[m.base] = absorption{goName: Name(m.base), union: d.Name, value: m.value}
+		}
+	}
+	return nil
+}
+
+// memberLabel names a union alternative for generated identifiers. Objects
+// are named by their literal members; an object without any is "Custom" when
+// it is a catch-all with an index signature and otherwise unnamed (""), left
+// for [labelUnions] to name by its members.
+func (g *generator) memberLabel(m, expanded *tsdef.Type) (string, error) {
 	switch m.Kind {
 	case "ref":
 		return Name(m.Name), nil
@@ -332,60 +584,106 @@ func (g *generator) memberLabel(m, expanded *tsdef.Type, siblings []*tsdef.Type)
 			return label.String(), nil
 		}
 	case "array":
-		element, err := g.memberLabel(m.Element, m.Element, nil)
+		element, err := g.memberLabel(m.Element, m.Element)
 		if err != nil {
 			return "", err
 		}
 		return element + "List", nil
 	}
 	if expanded.Kind == "object" {
-		label := literalLabel(expanded)
-		if label != "" {
+		if label := literalLabel(expanded); label != "" {
 			return label, nil
 		}
-		// Fall back to required members that no sibling declares.
-		for _, f := range expanded.Fields {
-			if f.Optional {
-				continue
-			}
-			unique := true
-			for _, s := range siblings {
-				if s == m {
-					continue
-				}
-				other, err := g.expand(s, map[string]bool{})
-				if err != nil || other.Kind != "object" {
-					continue
-				}
-				for _, sf := range other.Fields {
-					if sf.Name == f.Name {
-						unique = false
-					}
-				}
-			}
-			if unique {
-				label += Name(f.Name)
-			}
+		if expanded.Element != nil {
+			return "Custom", nil
 		}
-		if label != "" {
-			return label, nil
-		}
-		return "Object", nil
+		return "", nil
 	}
 	return "Variant", nil
 }
 
-func (g *generator) union(name string, t *tsdef.Type) error {
+// labelUnions completes the labels of union members: an unnamed object is
+// named by the required members no other member declares, and members that
+// share a label get the members that set them apart within that group
+// appended (Form, Form -> FormSession, FormRequest). Only if that is not
+// enough does a position number break the tie.
+func labelUnions(labels []string, expanded []*tsdef.Type) {
+	all := make([]int, len(labels))
+	for i := range all {
+		all[i] = i
+	}
+	for i, label := range labels {
+		if label == "" {
+			if labels[i] = fieldsLabel(i, all, expanded); labels[i] == "" {
+				labels[i] = "Object"
+			}
+		}
+	}
+	groups := map[string][]int{}
+	for i, label := range labels {
+		groups[label] = append(groups[label], i)
+	}
+	for label, group := range groups {
+		if len(group) > 1 {
+			for _, i := range group {
+				labels[i] = label + fieldsLabel(i, group, expanded)
+			}
+		}
+	}
+	used := map[string]bool{}
+	for i, label := range labels {
+		if used[label] {
+			labels[i] = label + strconv.Itoa(i+1)
+		}
+		used[labels[i]] = true
+	}
+}
+
+// fieldsLabel names member i by its required members that no other member of
+// group declares. An id member names what it identifies: sessionId gives
+// Session, since a type named …SessionID reads as an identifier.
+func fieldsLabel(i int, group []int, expanded []*tsdef.Type) string {
+	if expanded[i].Kind != "object" {
+		return ""
+	}
+	var label strings.Builder
+	for _, f := range expanded[i].Fields {
+		if f.Optional || declaredByOther(f.Name, i, group, expanded) {
+			continue
+		}
+		word := Name(f.Name)
+		if trimmed := strings.TrimSuffix(word, "ID"); trimmed != "" {
+			word = trimmed
+		}
+		label.WriteString(word)
+	}
+	return label.String()
+}
+
+// declaredByOther reports whether a member of group other than i declares field.
+func declaredByOther(field string, i int, group []int, expanded []*tsdef.Type) bool {
+	for _, j := range group {
+		if j == i || expanded[j].Kind != "object" {
+			continue
+		}
+		if fieldNamed(expanded[j], field) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 	tag, members, ok, err := g.tagged(t)
 	if err != nil {
 		return err
 	}
 	if ok {
-		return g.taggedUnion(name, tag, members)
+		return g.taggedUnion(name, sdkDoc, tag, members)
 	}
 	constraint := name + "Alternative"
 	table := lowerFirst(name) + "Alternatives"
-	for _, n := range []string{"Parse" + name, "New" + name, constraint, table} {
+	for _, n := range []string{"New" + name, constraint, table} {
 		if err := g.reserve(n); err != nil {
 			return err
 		}
@@ -394,20 +692,21 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 	// the same type become one type-set term.
 	var terms []string
 	rules := map[string][]string{}
-	used := map[string]bool{}
+	expanded := make([]*tsdef.Type, len(t.Members))
+	labels := make([]string, len(t.Members))
 	for i, m := range t.Members {
-		expanded, err := g.expand(m, map[string]bool{})
-		if err != nil {
+		var err error
+		if expanded[i], err = g.expand(m, map[string]bool{}); err != nil {
 			return err
 		}
-		label, err := g.memberLabel(m, expanded, t.Members)
-		if err != nil {
+		if labels[i], err = g.memberLabel(m, expanded[i]); err != nil {
 			return err
 		}
-		if used[label] {
-			label += strconv.Itoa(i + 1)
-		}
-		used[label] = true
+	}
+	labelUnions(labels, expanded)
+	for i, m := range t.Members {
+		label := labels[i]
+		expanded := expanded[i]
 		expr, err := g.expr(m, name+label)
 		if err != nil {
 			return err
@@ -420,28 +719,27 @@ func (g *generator) union(name string, t *tsdef.Type) error {
 			rules[key] = append(rules[key], rule)
 		}
 	}
-	g.write("// %s preserves the complete JSON payload, including future variants.\n", name)
-	g.write("// Use As to read one alternative and New%s to build one.\n", name)
+	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s preserves the complete JSON payload, including future variants.\nUse [%s.As] to read one alternative and [New%s] to build one.", name, name, name)))
 	g.write("type %s struct { raw jsontext.Value }\n", name)
-	g.write("// %s is the set of Go types a %s can hold.\n", constraint, name)
+	g.write("// %s is the set of Go types %s can hold.\n", constraint, name)
 	g.write("type %s interface { %s }\n", constraint, strings.Join(terms, " | "))
 	g.write("var %s = union.Table(\n", table)
 	for _, key := range terms {
 		g.write("union.Alt[%s](%s),\n", key, strings.Join(rules[key], ", "))
 	}
 	g.write(")\n")
-	g.write("// New%s encodes value as a %s, adding any literal members the alternative\n// requires and rejecting values that are not that alternative.\n", name, name)
+	g.write("// New%s encodes value, one of the %s types, adding any literal members\n// it requires and rejecting values that are not that alternative.\n", name, constraint)
 	g.write("func New%s[T %s](value T) (%s, error) { raw, err := union.New(%q, %s, value); return %s{raw: raw}, err }\n", name, constraint, name, name, table, name)
 	g.write("// As decodes the payload as the alternative T, or reports why it is not one.\n")
 	g.write("func (v %s) As[T %s]() (T, error) { return union.As[T](%q, %s, v.raw) }\n", name, constraint, name, table)
-	g.write("func (v %s) MarshalJSON() ([]byte,error) {if len(v.raw)==0{return []byte(\"null\"),nil};return v.raw.Clone(),nil}\n", name)
-	g.write("func (v *%s) UnmarshalJSON(b []byte) error {if !jsontext.Value(b).IsValid(){return fmt.Errorf(\"invalid %s JSON\")};v.raw=jsontext.Value(b).Clone();return nil}\n", name, name)
+	g.write("// RawJSON returns a copy of the payload as received or built.\n")
 	g.write("func (v %s) RawJSON() jsontext.Value {return v.raw.Clone()}\n", name)
 	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
 	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
+	g.write("%s", marshalDoc)
 	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteValue(jsontext.Value(\"null\"))};return enc.WriteValue(v.raw)}\n", name)
+	g.write("%s", unmarshalDoc)
 	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
-	g.write("func Parse%s(b []byte) (%s,error) {var v %s;err:=json.Unmarshal(b,&v);return v,err}\n", name, name, name)
 	return nil
 }
 
@@ -482,4 +780,15 @@ func (g *generator) altRule(expanded *tsdef.Type) string {
 		}
 	}
 	return "union.Rule{" + strings.Join(parts, ", ") + "}"
+}
+
+// isAbsorbed reports whether the schema type with the given Go name was taken
+// over by a tagged union, which declares it.
+func (g *generator) isAbsorbed(goName string) bool {
+	for _, a := range g.absorbed {
+		if a.goName == goName {
+			return true
+		}
+	}
+	return false
 }

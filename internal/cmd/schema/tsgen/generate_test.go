@@ -6,7 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
 )
@@ -33,6 +36,14 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type Names = string[];
  export type MoreNames = string[];
  export type Listy = Names | MoreNames | number;
+ export type ServerHttp = { url: string; };
+ export type ServerStdio = { command: string; };
+ export type Server = (ServerHttp & { type: "http" }) | ServerStdio;
+ export type ScopeA = { a: string; };
+ export type ScopeB = { b: string; };
+ export type Scoped = (ScopeA | ScopeB) & { x: number; };
+ export type Job = (Scoped & { kind: "scoped" }) | { kind: "plain"; y: number; };
+ export type Ask = (ScopeA | ScopeB) & { mode: "form"; };
  export const PROTOCOL_VERSION = 2;
  `))
 	if err != nil {
@@ -69,8 +80,44 @@ func TestGeneratedWireTypes(t *testing.T) {
 		t.Fatalf("generated wire tests: %v\n%s", err, out)
 	}
 }
+
+// TestNoNumberedTypes guards the pinned schemas against types told apart by a
+// number or a Variant suffix (MCPServerHTTP2, MCPServerHTTPVariant beside
+// MCPServerHTTP): the generator should either reuse the existing type or name
+// the difference. It also makes a change in which types are taken over by a
+// union visible, since that renames them.
+func TestNoNumberedTypes(t *testing.T) {
+	declared := regexp.MustCompile(`(?m)^type (\w+)`)
+	for _, version := range []string{"v1", "v2"} {
+		s, err := tsdef.ParseDir("../../../../schema/typescript/" + version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files, err := Generate(s, "schema")
+		if err != nil {
+			t.Fatal(err)
+		}
+		names := map[string]bool{}
+		for _, src := range files {
+			for _, m := range declared.FindAllSubmatch(src, -1) {
+				names[string(m[1])] = true
+			}
+		}
+		for name := range names {
+			if base := strings.TrimRightFunc(name, unicode.IsDigit); base != name && names[base] {
+				t.Errorf("%s: %s is %s with a number", version, name, base)
+			}
+			// A union's own interface is <Union>Variant; any other type with
+			// the suffix is a variant renamed because its name was taken.
+			if base, ok := strings.CutSuffix(name, "Variant"); ok && names[base] && !strings.Contains(string(files["unions.gen.go"]), "type "+name+" interface") {
+				t.Errorf("%s: %s is %s renamed to avoid a collision", version, name, base)
+			}
+		}
+	}
+}
+
 func TestGenerationErrors(t *testing.T) {
-	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type ParseX = string;`, `export type X = string | number; export type NewX = string;`, `export type X = string | number; export type XAlternative = string;`} {
+	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type NewX = string;`, `export type X = string | number; export type XAlternative = string;`} {
 		s, err := tsdef.Parse("fixture.ts", []byte(source))
 		if err != nil {
 			t.Fatal(err)
@@ -88,7 +135,7 @@ func TestName(t *testing.T) {
 	for input, want := range map[string]string{
 		"AGENT_METHODS": "AgentMethods", "PROTOCOL_VERSION": "ProtocolVersion",
 		"session_new": "SessionNew", "RequestId": "RequestID", "McpServerHttp": "MCPServerHTTP",
-		"URL": "URL", "utf8": "Utf8", "éclair": "Éclair",
+		"URL": "URL", "utf8": "UTF8", "utf16": "UTF16", "LlmProtocol": "LLMProtocol", "Utf8Text": "UTF8Text", "éclair": "Éclair",
 	} {
 		if got := Name(input); got != want {
 			t.Errorf("Name(%q) = %q; want %q", input, got, want)

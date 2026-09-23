@@ -74,6 +74,9 @@ func (g *generator) aliasDefinition(d *tsdef.Type) bool {
 }
 
 func (g *generator) definition(d tsdef.Definition) error {
+	if g.isAbsorbed(d.Name) {
+		return nil // declared by the tagged union that took it over as a variant
+	}
 	f, t, err := g.form(d.Type)
 	if err != nil {
 		return err
@@ -88,7 +91,7 @@ func (g *generator) definition(d tsdef.Definition) error {
 		file = fileUnions
 	}
 	g.use(file)
-	g.write("\n%s", comment(d.Comment))
+	g.write("\n")
 	switch f {
 	case formEnum:
 		kind, _ := literals(t)
@@ -96,19 +99,21 @@ func (g *generator) definition(d tsdef.Definition) error {
 		if t.Kind == "literal" {
 			members = []*tsdef.Type{t}
 		}
-		return g.enum(d.Name, kind, members, false)
+		return g.enum(d.Name, d.Comment, kind, members, false)
 	case formOpenEnum:
 		base, members, _ := openEnum(t)
 		kind, _ := literals(members[0])
 		if base.Kind == "number" && base.Number != "" {
 			kind = base.Number
 		}
-		return g.enum(d.Name, kind, members, true)
+		return g.enum(d.Name, d.Comment, kind, members, true)
 	case formStruct:
+		g.write("%s", doc(d.Name, d.Comment))
 		return g.structType(d.Name, t, "")
 	case formUnion:
-		return g.union(d.Name, t)
+		return g.union(d.Name, d.Comment, t)
 	}
+	g.write("%s", doc(d.Name, d.Comment))
 	expr, err := g.expr(t, d.Name+"Value")
 	if err != nil {
 		return err
@@ -130,18 +135,14 @@ func (g *generator) alias(name, expr string) {
 	g.write("type %s = %s\n", name, expr)
 }
 
-// enum emits a named scalar type with one constant per literal. Open enums
+// enum emits a documented named scalar type with one constant per literal. Open enums
 // also accept values outside the listed constants.
-func (g *generator) enum(typeName, kind string, members []*tsdef.Type, open bool) error {
+func (g *generator) enum(typeName, sdkDoc, kind string, members []*tsdef.Type, open bool) error {
+	var note string
 	if open {
-		g.write("// %s also accepts values outside the listed constants; use Known to check.\n", typeName)
+		note = typeName + " also accepts values outside the listed constants; use [" + typeName + ".Known] to check."
 	}
-	g.write("type %s %s\n", typeName, kind)
-	if open {
-		if err := g.reserve(typeName + "Values"); err != nil {
-			return err
-		}
-	}
+	g.write("%stype %s %s\n", doc(typeName, sdkDoc, note), typeName, kind)
 	var names []string
 	g.write("const (\n")
 	for _, m := range members {
@@ -154,10 +155,10 @@ func (g *generator) enum(typeName, kind string, members []*tsdef.Type, open bool
 				return err
 			}
 		}
-		if override, ok := literalNames[typeName][value]; ok {
-			label = override
-		}
 		name := typeName + Name(label)
+		if override, ok := literalNames[typeName][value]; ok {
+			name = typeName + override // used as written
+		}
 		if g.names[name] {
 			return fmt.Errorf("enum constant collision %s", name)
 		}
@@ -167,10 +168,8 @@ func (g *generator) enum(typeName, kind string, members []*tsdef.Type, open bool
 	}
 	g.write(")\n")
 	if open {
-		g.write("// %sValues lists the constants defined by the protocol.\n", typeName)
-		g.write("var %sValues = []%s{%s}\n", typeName, typeName, strings.Join(names, ", "))
 		g.write("// Known reports whether v is one of the protocol-defined constants.\n")
-		g.write("func (v %s) Known() bool { return slices.Contains(%sValues, v) }\n", typeName, typeName)
+		g.write("func (v %s) Known() bool {\nswitch v {\ncase %s:\nreturn true\n}\nreturn false\n}\n", typeName, strings.Join(names, ", "))
 	}
 	return nil
 }

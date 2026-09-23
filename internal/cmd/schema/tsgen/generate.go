@@ -18,6 +18,10 @@ import (
 
 type generator struct {
 	defs         map[string]*tsdef.Type
+	docs         map[string]string     // TypeScript name -> the definition's comment
+	refs         map[string]int        // TypeScript name -> references to it across the schema
+	absorbed     map[string]absorption // TypeScript name -> the tagged union that took the type over
+	variantRules []variantRule         // Zod rules for absorbed types, emitted with the others
 	pending      []tsdef.Definition
 	names        map[string]bool
 	aliases      map[string]bool     // Go names declared with "type X = ..."
@@ -66,13 +70,35 @@ func (g *generator) use(name string) {
 	g.out = buf
 }
 
+// countRefs adds the references t makes to named types into refs.
+func countRefs(t *tsdef.Type, refs map[string]int) {
+	if t == nil {
+		return
+	}
+	if t.Kind == "ref" {
+		refs[t.Name]++
+	}
+	for _, m := range t.Members {
+		countRefs(m, refs)
+	}
+	for _, f := range t.Fields {
+		countRefs(f.Type, refs)
+	}
+	countRefs(t.Element, refs)
+}
+
 // Files maps generated file names to their formatted Go source.
 type Files map[string][]byte
 
 // newGenerator registers every definition under its Go name so references
 // resolve before any declaration is emitted.
 func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
-	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
+	g := &generator{
+		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
+		absorbed: map[string]absorption{},
+		names:    map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
+		pkg: pkg, buffers: map[string]*bytes.Buffer{},
+	}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
 		if g.names[name] {
@@ -80,8 +106,13 @@ func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 		}
 		g.names[name] = true
 		g.defs[d.Name] = d.Type
+		g.docs[d.Name] = d.Comment
+		countRefs(d.Type, g.refs)
 		d.Name = name
 		g.pending = append(g.pending, d)
+	}
+	if err := g.planVariants(); err != nil {
+		return nil, err
 	}
 	return g, nil
 }
@@ -101,23 +132,8 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	}
 	g.use(fileMethods)
 	for _, c := range schema.Constants {
-		if len(c.Members) > 0 {
-			for _, m := range c.Members {
-				name := Name(c.Name) + Name(m.Name)
-				if err := g.reserve(name); err != nil {
-					return nil, err
-				}
-				g.write("const %s = %s\n", name, m.Value)
-			}
-		} else {
-			name := Name(c.Name)
-			if c.Name == "PROTOCOL_VERSION" {
-				name = "CurrentProtocolVersion"
-			}
-			if err := g.reserve(name); err != nil {
-				return nil, err
-			}
-			g.write("const %s = %s\n", name, c.Value)
+		if err := g.constant(c); err != nil {
+			return nil, err
 		}
 	}
 	for i := 0; i < len(g.pending); i++ {
@@ -149,13 +165,54 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	return files, nil
 }
 
+// constantNames renames SDK constants whose derived name would read poorly.
+var constantNames = map[string]string{"PROTOCOL_VERSION": "CurrentProtocolVersion"}
+
+// constantName is the Go name of an SDK constant or constant table.
+func constantName(c string) string {
+	if override, ok := constantNames[c]; ok {
+		return override
+	}
+	return Name(c)
+}
+
+// ConstantName is the Go name of a member of an SDK constant table, such as
+// AgentMethodsSessionNew for AGENT_METHODS.session_new.
+func ConstantName(table, member string) string {
+	return constantName(table) + Name(member)
+}
+
+// constant emits an SDK constant. A table of members, such as AGENT_METHODS,
+// becomes one const block named by [ConstantName].
+func (g *generator) constant(c tsdef.Constant) error {
+	name := constantName(c.Name)
+	if len(c.Members) == 0 {
+		if err := g.reserve(name); err != nil {
+			return err
+		}
+		g.write("\n// %s is the SDK's %s constant.\nconst %s = %s\n", name, c.Name, name, c.Value)
+		return nil
+	}
+	g.write("\n// The %s constants mirror the SDK's %s table.\nconst (\n", name, c.Name)
+	for _, m := range c.Members {
+		member := ConstantName(c.Name, m.Name)
+		if err := g.reserve(member); err != nil {
+			return err
+		}
+		g.write("%s = %s\n", member, m.Value)
+	}
+	g.write(")\n")
+	return nil
+}
+
 // flush formats the buffered source into files[name] and resets the buffer.
 func (g *generator) flush(files Files, name string) error {
 	buf := g.buffers[name]
 	if buf.Len() == 0 {
 		return nil
 	}
-	imports, err := usedImports(buf.Bytes())
+	body := g.polishComments(buf.Bytes())
+	imports, err := usedImports(body)
 	if err != nil {
 		return fmt.Errorf("scan %s: %w", name, err)
 	}
@@ -171,7 +228,7 @@ func (g *generator) flush(files Files, name string) error {
 		}
 		src.WriteString(")\n\n")
 	}
-	src.Write(buf.Bytes())
+	src.Write(body)
 	result, err := format.Source(src.Bytes())
 	if err != nil {
 		return fmt.Errorf("format %s: %w", name, err)
@@ -187,7 +244,7 @@ func (g *generator) write(f string, a ...any) { fmt.Fprintf(g.out, f, a...) }
 // import paths; flush imports exactly those a file uses.
 var importPaths = map[string]string{
 	"json": "encoding/json/v2", "jsontext": "encoding/json/jsontext", "fmt": "fmt",
-	"reflect": "reflect", "regexp": "regexp", "slices": "slices",
+	"reflect": "reflect", "regexp": "regexp",
 	"union": UnionRuntime, "zod": ZodRuntime, "meta": MetaRuntime,
 }
 
@@ -219,7 +276,28 @@ func comment(s string) string {
 	return "// " + strings.ReplaceAll(s, "\n", "\n// ") + "\n"
 }
 
-// Name maps SDK identifiers to exported Go identifiers using common initialisms.
+// initialisms are the words Name writes in all capitals, following Go's
+// convention that an initialism keeps one case (MCPServer, not McpServer):
+// staticcheck's list plus the protocol's own. The façade method tables name
+// their Go methods by hand and are tested against Name. Nes (next edit
+// suggestions) is left out on purpose: it sits mid-name in most identifiers,
+// where an all-capitals run is hard to read.
+var initialisms = map[string]bool{
+	"acl": true, "amqp": true, "api": true, "ascii": true, "cpu": true, "css": true, "db": true,
+	"dns": true, "eof": true, "gid": true, "guid": true, "html": true, "http": true, "https": true,
+	"id": true, "ip": true, "json": true, "qps": true, "ram": true, "rpc": true, "rtp": true,
+	"sip": true, "sla": true, "smtp": true, "sql": true, "ssh": true, "tcp": true, "tls": true,
+	"ts": true, "ttl": true, "udp": true, "ui": true, "uid": true, "uri": true, "url": true,
+	"utf": true, "uuid": true, "vm": true, "xml": true, "xmpp": true, "xsrf": true, "xss": true,
+	// The protocol's own.
+	"acp": true, "fs": true, "llm": true, "mcp": true, "mime": true, "sse": true,
+}
+
+// spellings fixes the case of words that are neither initialisms nor
+// capitalized like ordinary words.
+var spellings = map[string]string{"openai": "OpenAI"}
+
+// Name maps SDK identifiers to exported Go identifiers using [initialisms].
 func Name(s string) string {
 	var words []string
 	var word []rune
@@ -235,7 +313,7 @@ func Name(s string) string {
 			flush()
 			continue
 		}
-		if len(word) > 0 && unicode.IsUpper(r) && (unicode.IsLower(rs[i-1]) || (i+1 < len(rs) && unicode.IsLower(rs[i+1]) && unicode.IsUpper(rs[i-1]))) {
+		if len(word) > 0 && unicode.IsUpper(r) && (unicode.IsLower(rs[i-1]) || unicode.IsDigit(rs[i-1]) || (i+1 < len(rs) && unicode.IsLower(rs[i+1]) && unicode.IsUpper(rs[i-1]))) {
 			flush()
 		}
 		word = append(word, r)
@@ -243,14 +321,19 @@ func Name(s string) string {
 	flush()
 	for i, w := range words {
 		lower := strings.ToLower(w)
-		switch lower {
-		case "id", "rpc", "url", "uri", "http", "https", "json", "api", "mcp", "acp":
+		// A trailing version number stays attached: utf16 is UTF16.
+		letters := strings.TrimRightFunc(lower, unicode.IsDigit)
+		if initialisms[letters] {
 			words[i] = strings.ToUpper(lower)
-		default:
-			runes := []rune(lower)
-			runes[0] = unicode.ToUpper(runes[0])
-			words[i] = string(runes)
+			continue
 		}
+		if spelled, ok := spellings[lower]; ok {
+			words[i] = spelled
+			continue
+		}
+		runes := []rune(lower)
+		runes[0] = unicode.ToUpper(runes[0])
+		words[i] = string(runes)
 	}
 	result := strings.Join(words, "")
 	if result == "" {

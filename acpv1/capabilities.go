@@ -69,7 +69,7 @@ func ClientCapabilitiesOf(client Client) *schema.ClientCapabilities {
 	_, read := client.(FileReader)
 	_, write := client.(FileWriter)
 	if read || write {
-		caps.Fs = &schema.FileSystemCapabilities{ReadTextFile: &read, WriteTextFile: &write}
+		caps.FS = &schema.FileSystemCapabilities{ReadTextFile: &read, WriteTextFile: &write}
 	}
 	if _, ok := client.(TerminalHandler); ok {
 		caps.Terminal = new(true)
