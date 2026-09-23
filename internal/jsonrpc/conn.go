@@ -297,7 +297,7 @@ func (c *Connection) readLoop() error {
 			if len(msg.ID) > 0 {
 				c.trySend(wireMessage{
 					ID:    msg.ID.Clone(),
-					Error: InvalidRequest(nil, "message has no method or result").toWire(),
+					Error: InvalidRequest("message has no method or result").toWire(),
 				})
 			}
 		}
@@ -384,7 +384,7 @@ func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCau
 	default:
 		data, marshalErr := json.Marshal(result)
 		if marshalErr != nil {
-			response.Error = InternalError(nil, marshalErr.Error()).toWire()
+			response.Error = InternalError(marshalErr.Error()).toWire()
 		} else {
 			response.Result = data
 		}
@@ -401,7 +401,7 @@ func (c *Connection) callRequest(ctx context.Context, method string, params json
 	defer func() {
 		if r := recover(); r != nil {
 			result = nil
-			err = InternalError(nil, fmt.Sprintf("panic in handler for %s: %v", method, r))
+			err = InternalError(fmt.Sprintf("panic in handler for %s: %v", method, r))
 		}
 	}()
 	return c.request(ctx, method, params)
@@ -420,9 +420,9 @@ func toRequestError(ctx context.Context, err error) *RequestError {
 				return cancelled
 			}
 		}
-		return RequestCancelled(nil)
+		return RequestCancelled("")
 	}
-	return InternalError(nil, err.Error())
+	return InternalError(err.Error())
 }
 
 func (c *Connection) handleNotification(msg wireMessage) {
@@ -460,7 +460,7 @@ func (c *Connection) cancelIncoming(params jsontext.Value) {
 	}
 	key := IDKey(payload.RequestID)
 	if entry, ok := c.incoming.Load(key); ok {
-		entry.(context.CancelCauseFunc)(RequestCancelled(map[string]jsontext.Value{
+		entry.(context.CancelCauseFunc)(RequestCancelled("").WithData(map[string]jsontext.Value{
 			"requestId": payload.RequestID.Clone(),
 		}))
 	}

@@ -373,7 +373,7 @@ authenticated := acp.Middleware{
     Request: func(next acp.RequestHandler) acp.RequestHandler {
         return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
             if method != schema.AgentMethodsInitialize && !isAuthenticated(ctx) {
-                return nil, acp.ErrAuthRequired(nil)
+                return nil, acp.AuthRequired("")
             }
             return next(ctx, method, params)
         }

@@ -70,7 +70,7 @@ func (ts *terminals) CreateTerminal(_ context.Context, params *acp1.CreateTermin
 	}
 	t.cmd.Stdout, t.cmd.Stderr = t, t
 	if err := t.cmd.Start(); err != nil {
-		return nil, acp.ErrInternalError(err.Error())
+		return nil, acp.InternalError(err.Error())
 	}
 	go func() {
 		_ = t.cmd.Wait()
@@ -103,7 +103,7 @@ func (ts *terminals) get(id acp1.TerminalID) (*terminal, error) {
 	if t, ok := ts.byID[id]; ok {
 		return t, nil
 	}
-	return nil, acp.ErrResourceNotFound(fmt.Sprintf("terminal %s", id))
+	return nil, acp.ResourceNotFound(fmt.Sprintf("terminal %s", id))
 }
 
 func (ts *terminals) TerminalOutput(_ context.Context, params *acp1.TerminalOutputRequest) (*acp1.TerminalOutputResponse, error) {

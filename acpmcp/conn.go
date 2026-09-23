@@ -232,5 +232,5 @@ func toRequestError(err error) error {
 		}
 		return re
 	}
-	return acp.ErrInternalError(err.Error())
+	return acp.InternalError(err.Error())
 }

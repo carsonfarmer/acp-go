@@ -80,7 +80,7 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acp1.Reques
 func (c *exampleClient) ReadTextFile(_ context.Context, params *acp1.ReadTextFileRequest) (*acp1.ReadTextFileResponse, error) {
 	content, err := os.ReadFile(params.Path)
 	if err != nil {
-		return nil, acp.ErrResourceNotFound(params.Path)
+		return nil, acp.ResourceNotFound(params.Path).WithData(map[string]string{"uri": params.Path})
 	}
 	return &acp1.ReadTextFileResponse{Content: string(content)}, nil
 }

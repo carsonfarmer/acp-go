@@ -154,7 +154,7 @@ func (a *splitAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*a
 	if text, _ := acp2.TextOf(params.Prompt[0]); text == "bad" {
 		close(a.firstArrived)
 		<-a.reject
-		return nil, acp.ErrInvalidParams(nil, "unsupported content")
+		return nil, acp.InvalidParams("unsupported content")
 	}
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
 	go func() {

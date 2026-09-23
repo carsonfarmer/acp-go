@@ -59,7 +59,7 @@ func (d *dialer) lookup(connectionID string) (*conn, error) {
 	if c := d.conns[connectionID]; c != nil {
 		return c, nil
 	}
-	return nil, acp.ErrResourceNotFound("mcp connection " + connectionID)
+	return nil, acp.ResourceNotFound("mcp connection " + connectionID)
 }
 
 func (d *dialer) message(ctx context.Context, connectionID, method string, params map[string]jsontext.Value) (jsontext.Value, error) {

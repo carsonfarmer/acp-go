@@ -20,7 +20,7 @@ func decodeParams[T any](validated json.Options, raw jsontext.Value) (*T, error)
 	}
 	params := new(T)
 	if err := json.Unmarshal(raw, params, validated); err != nil {
-		return nil, jsonrpc.InvalidParams(nil, err.Error())
+		return nil, jsonrpc.InvalidParams(err.Error())
 	}
 	return params, nil
 }

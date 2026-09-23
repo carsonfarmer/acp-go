@@ -36,7 +36,7 @@ func (a *exampleAgent) SetSessionMode(ctx context.Context, params *acp1.SetSessi
 		return nil, err
 	}
 	if params.ModeID != askMode && params.ModeID != autoMode {
-		return nil, acp.ErrInvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
+		return nil, acp.InvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
 	}
 	sess.mu.Lock()
 	sess.mode = params.ModeID

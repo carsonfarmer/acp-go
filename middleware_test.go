@@ -16,7 +16,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	request := mw.Request(func(context.Context, string, jsontext.Value) (any, error) { return nil, nil })
 	failing := mw.Request(func(context.Context, string, jsontext.Value) (any, error) {
-		return nil, ErrMethodNotFound("x/y")
+		return nil, MethodNotFound("x/y")
 	})
 	notification := mw.Notification(func(context.Context, string, jsontext.Value) error { return nil })
 	request(t.Context(), "session/new", nil)

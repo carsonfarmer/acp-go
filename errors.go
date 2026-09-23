@@ -39,50 +39,40 @@ const (
 	ErrorCodeResourceNotFound = jsonrpc.CodeResourceNotFound
 )
 
-// ErrParseError reports invalid JSON (-32700).
-func ErrParseError(data any, detail ...string) *RequestError {
-	return jsonrpc.ParseError(data, detail...)
-}
+// The constructors below build the standard errors. Each takes a detail
+// that follows the standard message ("Invalid params: unknown mode") and may
+// be empty; use [RequestError.WithData] to attach a "data" member:
+//
+//	return nil, acp.InvalidParams(fmt.Sprintf("unknown mode %q", id))
 
-// ErrInvalidRequest reports a malformed request object (-32600).
-func ErrInvalidRequest(data any, detail ...string) *RequestError {
-	return jsonrpc.InvalidRequest(data, detail...)
-}
+// ParseError reports invalid JSON (-32700).
+func ParseError(detail string) *RequestError { return jsonrpc.ParseError(detail) }
 
-// ErrMethodNotFound reports an unknown or unsupported method (-32601).
+// InvalidRequest reports a malformed request object (-32600).
+func InvalidRequest(detail string) *RequestError { return jsonrpc.InvalidRequest(detail) }
+
+// MethodNotFound reports an unknown or unsupported method (-32601).
 //
 // The connection returns this automatically when an optional method's
 // interface is not implemented.
-func ErrMethodNotFound(method string) *RequestError {
-	return jsonrpc.MethodNotFound(method)
-}
+func MethodNotFound(method string) *RequestError { return jsonrpc.MethodNotFound(method) }
 
-// ErrInvalidParams reports parameters that failed validation (-32602).
-func ErrInvalidParams(data any, detail ...string) *RequestError {
-	return jsonrpc.InvalidParams(data, detail...)
-}
+// InvalidParams reports parameters that failed validation (-32602).
+func InvalidParams(detail string) *RequestError { return jsonrpc.InvalidParams(detail) }
 
-// ErrInternalError reports a handler failure (-32603).
-func ErrInternalError(data any, detail ...string) *RequestError {
-	return jsonrpc.InternalError(data, detail...)
-}
+// InternalError reports a handler failure (-32603).
+func InternalError(detail string) *RequestError { return jsonrpc.InternalError(detail) }
 
-// ErrRequestCancelled reports a request abandoned before completion (-32800).
+// RequestCancelled reports a request abandoned before completion (-32800).
 //
 // The connection returns this automatically when a handler's context is
 // cancelled, either by the peer's $/cancel_request or by shutdown.
-func ErrRequestCancelled(data any, detail ...string) *RequestError {
-	return jsonrpc.RequestCancelled(data, detail...)
-}
+func RequestCancelled(detail string) *RequestError { return jsonrpc.RequestCancelled(detail) }
 
-// ErrAuthRequired reports that the caller must authenticate first (-32000).
+// AuthRequired reports that the caller must authenticate first (-32000).
 //
 // Agents return this from NewSession when no credentials are available yet.
-func ErrAuthRequired(data any, detail ...string) *RequestError {
-	return jsonrpc.AuthRequired(data, detail...)
-}
+func AuthRequired(detail string) *RequestError { return jsonrpc.AuthRequired(detail) }
 
-// ErrResourceNotFound reports a missing resource such as a file (-32002).
-func ErrResourceNotFound(uri ...string) *RequestError {
-	return jsonrpc.ResourceNotFound(uri...)
-}
+// ResourceNotFound reports a missing resource such as a file (-32002).
+func ResourceNotFound(detail string) *RequestError { return jsonrpc.ResourceNotFound(detail) }

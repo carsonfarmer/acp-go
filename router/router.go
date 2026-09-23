@@ -73,7 +73,7 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 		// A batch or an undecodable first message: there is no id to answer
 		// with, so reject with a null id as upstream does.
 		return rejectAndClose(ctx, transport, jsontext.Value("null"),
-			acp.ErrInvalidRequest(nil, "first ACP message must be an initialize request"))
+			acp.InvalidRequest("first ACP message must be an initialize request"))
 	}
 	if msg.Method == "" || len(msg.ID) == 0 {
 		// Notifications and response-shaped messages get no answer.
@@ -81,29 +81,29 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 	}
 	if msg.Method != initializeMethod {
 		return rejectAndClose(ctx, transport, msg.ID,
-			acp.ErrInvalidRequest(nil, "first ACP request must be initialize"))
+			acp.InvalidRequest("first ACP request must be initialize"))
 	}
 
 	requested, ok := protocolVersionOf(msg.Params)
 	if !ok {
 		return rejectAndClose(ctx, transport, msg.ID,
-			acp.ErrInvalidParams(nil, "initialize.protocolVersion must be a valid ACP protocol version"))
+			acp.InvalidParams("initialize.protocolVersion must be a valid ACP protocol version"))
 	}
 	selected, ok := r.highestCompatible(requested)
 	if !ok {
-		return rejectAndClose(ctx, transport, msg.ID, acp.ErrInvalidRequest(nil,
+		return rejectAndClose(ctx, transport, msg.ID, acp.InvalidRequest(
 			fmt.Sprintf("unsupported ACP protocol version %d; this endpoint supports %s", requested, r.supported())))
 	}
 
 	params, err := rewriteInitializeParams(msg.Params, requested, selected)
 	if err != nil {
 		return rejectAndClose(ctx, transport, msg.ID,
-			acp.ErrInvalidParams(nil, "invalid initialize params: "+err.Error()))
+			acp.InvalidParams("invalid initialize params: "+err.Error()))
 	}
 	msg.Params = params
 	rewritten, err := json.Marshal(&msg)
 	if err != nil {
-		return rejectAndClose(ctx, transport, msg.ID, acp.ErrInternalError(nil, err.Error()))
+		return rejectAndClose(ctx, transport, msg.ID, acp.InternalError(err.Error()))
 	}
 
 	routed := &replayTransport{first: rewritten, Transport: transport}

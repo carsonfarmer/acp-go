@@ -60,7 +60,7 @@ func (a *agent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.P
 	tools := a.tools[params.SessionID]
 	a.mu.Unlock()
 	if tools == nil {
-		return nil, acp.ErrInvalidParams("this session has no MCP server")
+		return nil, acp.InvalidParams("this session has no MCP server")
 	}
 	text := acp1.JoinTexts(params.Prompt)
 	result, err := tools.CallTool(ctx, &mcp.CallToolParams{Name: "word_count", Arguments: map[string]any{"text": text}})

@@ -69,7 +69,7 @@ func (UnimplementedClient) SessionUpdate(context.Context, *SessionNotification) 
 
 // RequestPermission answers "method not found".
 func (UnimplementedClient) RequestPermission(context.Context, *RequestPermissionRequest) (*RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound(schema.ClientMethodsSessionRequestPermission)
+	return nil, acp.MethodNotFound(schema.ClientMethodsSessionRequestPermission)
 }
 
 // initialize sends initialize, filling in a zero protocol version. The

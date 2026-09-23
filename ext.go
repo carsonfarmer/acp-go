@@ -111,7 +111,7 @@ func (r *ExtRouter) OnExtNotification[P any](method string, fn func(context.Cont
 func (r *ExtRouter) ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error) {
 	handler, ok := r.methods[method]
 	if !ok {
-		return nil, ErrMethodNotFound(method)
+		return nil, MethodNotFound(method)
 	}
 	return handler(ctx, method, params)
 }

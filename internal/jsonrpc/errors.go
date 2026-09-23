@@ -42,22 +42,33 @@ func (e *RequestError) Error() string {
 	return fmt.Sprintf("jsonrpc error %d: %s", e.Code, e.Message)
 }
 
-// suffix appends ": detail" to a base message, mirroring the reference SDKs.
-func suffix(base string, detail []string) string {
-	if len(detail) > 0 && detail[0] != "" {
-		return base + ": " + detail[0]
+// WithData returns a copy of e whose "data" member is data:
+//
+//	return nil, acp.ResourceNotFound(path).WithData(map[string]string{"uri": path})
+func (e *RequestError) WithData(data any) *RequestError {
+	c := *e
+	c.Data = data
+	return &c
+}
+
+// message appends ": detail" to a base message, mirroring the reference SDKs.
+func message(base, detail string) string {
+	if detail != "" {
+		return base + ": " + detail
 	}
 	return base
 }
 
-// ParseError reports invalid JSON received by the peer (-32700).
-func ParseError(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeParseError, Message: suffix("Parse error", detail), Data: data}
+// ParseError reports invalid JSON received by the peer (-32700). A non-empty
+// detail follows the standard message.
+func ParseError(detail string) *RequestError {
+	return &RequestError{Code: CodeParseError, Message: message("Parse error", detail)}
 }
 
-// InvalidRequest reports a malformed request object (-32600).
-func InvalidRequest(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeInvalidRequest, Message: suffix("Invalid request", detail), Data: data}
+// InvalidRequest reports a malformed request object (-32600). A non-empty
+// detail follows the standard message.
+func InvalidRequest(detail string) *RequestError {
+	return &RequestError{Code: CodeInvalidRequest, Message: message("Invalid request", detail)}
 }
 
 // MethodNotFound reports an unknown or unsupported method (-32601).
@@ -69,40 +80,39 @@ func MethodNotFound(method string) *RequestError {
 	}
 }
 
-// InvalidParams reports parameters that failed validation (-32602).
-func InvalidParams(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeInvalidParams, Message: suffix("Invalid params", detail), Data: data}
+// InvalidParams reports parameters that failed validation (-32602). A
+// non-empty detail follows the standard message.
+func InvalidParams(detail string) *RequestError {
+	return &RequestError{Code: CodeInvalidParams, Message: message("Invalid params", detail)}
 }
 
-// InternalError reports a handler failure (-32603).
-func InternalError(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeInternalError, Message: suffix("Internal error", detail), Data: data}
+// InternalError reports a handler failure (-32603). A non-empty detail
+// follows the standard message.
+func InternalError(detail string) *RequestError {
+	return &RequestError{Code: CodeInternalError, Message: message("Internal error", detail)}
 }
 
-// RequestCancelled reports that a request was cancelled before completing (-32800).
+// RequestCancelled reports that a request was cancelled before completing
+// (-32800). A non-empty detail follows the standard message.
 //
 // See the [request cancellation RFD].
 //
 // [request cancellation RFD]: https://agentclientprotocol.com/protocol/rfds/request-cancellation
-func RequestCancelled(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeRequestCancelled, Message: suffix("Request cancelled", detail), Data: data}
+func RequestCancelled(detail string) *RequestError {
+	return &RequestError{Code: CodeRequestCancelled, Message: message("Request cancelled", detail)}
 }
 
-// AuthRequired reports that the caller must authenticate first (-32000).
-func AuthRequired(data any, detail ...string) *RequestError {
-	return &RequestError{Code: CodeAuthRequired, Message: suffix("Authentication required", detail), Data: data}
+// AuthRequired reports that the caller must authenticate first (-32000). A
+// non-empty detail follows the standard message.
+func AuthRequired(detail string) *RequestError {
+	return &RequestError{Code: CodeAuthRequired, Message: message("Authentication required", detail)}
 }
 
-// ResourceNotFound reports a missing resource such as a file (-32002).
-func ResourceNotFound(uri ...string) *RequestError {
-	if len(uri) > 0 && uri[0] != "" {
-		return &RequestError{
-			Code:    CodeResourceNotFound,
-			Message: "Resource not found: " + uri[0],
-			Data:    map[string]string{"uri": uri[0]},
-		}
-	}
-	return &RequestError{Code: CodeResourceNotFound, Message: "Resource not found"}
+// ResourceNotFound reports a missing resource such as a file (-32002). A
+// non-empty detail follows the standard message; attach the resource's URI
+// with [RequestError.WithData] when the peer should be able to read it.
+func ResourceNotFound(detail string) *RequestError {
+	return &RequestError{Code: CodeResourceNotFound, Message: message("Resource not found", detail)}
 }
 
 // wireError is the JSON-RPC error object as it appears on the wire.

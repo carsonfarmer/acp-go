@@ -10,7 +10,7 @@ import (
 // ErrTurnInProgress reports a prompt on a session whose previous turn has not
 // ended yet. It is an invalid-request error, so an agent can return it to the
 // client as is.
-var ErrTurnInProgress = jsonrpc.InvalidRequest(nil, "session already has a prompt turn in progress")
+var ErrTurnInProgress = jsonrpc.InvalidRequest("session already has a prompt turn in progress")
 
 // Turn buffers the session updates of one prompt turn for a single reader and
 // holds the turn's result once it ends. The buffer is unbounded so that the

@@ -43,7 +43,7 @@ func (h *host) connect(ctx context.Context, serverID string) (string, error) {
 	server := h.servers[serverID]
 	h.mu.Unlock()
 	if server == nil {
-		return "", acp.ErrResourceNotFound("mcp server " + serverID)
+		return "", acp.ResourceNotFound("mcp server " + serverID)
 	}
 	id := rand.Text()
 	c := newConn(id, h.peer, func() {
@@ -54,7 +54,7 @@ func (h *host) connect(ctx context.Context, serverID string) (string, error) {
 	// The session outlives this request; the connection's close ends it.
 	session, err := server.Connect(context.WithoutCancel(ctx), transport{c}, nil)
 	if err != nil {
-		return "", acp.ErrInternalError(err.Error())
+		return "", acp.InternalError(err.Error())
 	}
 	h.mu.Lock()
 	h.conns[id] = &hostConn{conn: c, session: session}
@@ -68,7 +68,7 @@ func (h *host) lookup(connectionID string) (*hostConn, error) {
 	if c := h.conns[connectionID]; c != nil {
 		return c, nil
 	}
-	return nil, acp.ErrResourceNotFound("mcp connection " + connectionID)
+	return nil, acp.ResourceNotFound("mcp connection " + connectionID)
 }
 
 func (h *host) message(ctx context.Context, connectionID, method string, params map[string]jsontext.Value) (jsontext.Value, error) {

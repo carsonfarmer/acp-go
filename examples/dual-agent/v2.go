@@ -100,7 +100,7 @@ func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionR
 		return response, nil // continue without a replay
 	case acp2.ReplayFromStart:
 	default:
-		return nil, acp.ErrInvalidParams("unsupported replay cursor")
+		return nil, acp.InvalidParams("unsupported replay cursor")
 	}
 
 	session, err := a.Lookup(ctx, params.SessionID)

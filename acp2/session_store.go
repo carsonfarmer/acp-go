@@ -132,7 +132,7 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 		return session, err
 	}
 	if !ok {
-		return session, acp.ErrResourceNotFound(fmt.Sprintf("session %s", id))
+		return session, acp.ResourceNotFound(fmt.Sprintf("session %s", id))
 	}
 	return session, nil
 }
@@ -238,7 +238,7 @@ func (m *SessionManager[T]) describeSessions(ctx context.Context, add func(Sessi
 		}
 		reporter, ok := any(session).(SessionInfoReporter)
 		if !ok {
-			return acp.ErrInternalError(nil, "session state does not implement SessionInfoReporter")
+			return acp.InternalError("session state does not implement SessionInfoReporter")
 		}
 		info := reporter.SessionInfo()
 		info.SessionID = id

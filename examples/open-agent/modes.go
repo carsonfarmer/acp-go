@@ -35,7 +35,7 @@ func (a *openAgent) SetSessionMode(ctx context.Context, params *acp1.SetSessionM
 		return nil, err
 	}
 	if !slices.ContainsFunc(modes, func(m acp1.SessionMode) bool { return m.ID == params.ModeID }) {
-		return nil, acp.ErrInvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
+		return nil, acp.InvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
 	}
 	sess.setMode(params.ModeID)
 	a.save(ctx, params.SessionID, sess)

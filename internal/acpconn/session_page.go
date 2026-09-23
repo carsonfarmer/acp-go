@@ -48,10 +48,10 @@ func decodeSessionCursor(token string) (SessionPosition, error) {
 	var p SessionPosition
 	data, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return p, jsonrpc.InvalidParams(nil, "invalid cursor")
+		return p, jsonrpc.InvalidParams("invalid cursor")
 	}
 	if err := json.Unmarshal(data, &p); err != nil {
-		return p, jsonrpc.InvalidParams(nil, "invalid cursor")
+		return p, jsonrpc.InvalidParams("invalid cursor")
 	}
 	return p, nil
 }
