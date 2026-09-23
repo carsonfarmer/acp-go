@@ -69,6 +69,10 @@ type Method struct {
 	// handler's signature, that the dispatch calls instead of the interface.
 	// It lets the connection observe a method before the handler sees it.
 	Via string
+	// CallVia names a hand-written method on the calling connection, with the
+	// outgoing call's signature, that the call goes through instead of
+	// sending directly. It lets the connection fill in or observe the call.
+	CallVia string
 }
 
 func (m Method) notification() bool { return m.Response == "" }
@@ -347,9 +351,12 @@ func (g *emitter) outgoing(s side) {
 		for _, m := range group.Methods {
 			constant := g.constants[s.constants+" "+m.Wire]
 			g.write("%sfunc (c *%s) %s {\n", doc(group.stability(m.callDoc())), s.caller, signature(m))
-			if m.notification() {
+			switch {
+			case m.CallVia != "":
+				g.write("\treturn c.%s(ctx, params)\n}\n\n", m.CallVia)
+			case m.notification():
 				g.write("\treturn c.conn.SendNotification(ctx, schema.%s, params)\n}\n\n", constant)
-			} else {
+			default:
 				g.write("\treturn acpconn.Call[%s](ctx, c.conn, schema.%s, params)\n}\n\n", m.Response, constant)
 			}
 		}

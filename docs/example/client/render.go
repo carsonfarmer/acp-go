@@ -21,6 +21,7 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 			fmt.Printf("\n💭 %s", text)
 		}
 	case acp1.SessionUpdateToolCall:
+		c.toolTitles[update.ToolCallID] = update.Title
 		fmt.Printf("\n🔧 %s", update.Title)
 		if update.Status != nil {
 			fmt.Printf(" (%s)", *update.Status)
@@ -28,7 +29,8 @@ func (c *exampleClient) render(update acp1.SessionUpdate) {
 		fmt.Println()
 		c.renderContent(update.Content)
 	case acp1.SessionUpdateToolCallUpdate:
-		fmt.Printf("🔧 %s", update.ToolCallID)
+		// Updates name the tool call by its id; show the title it started with.
+		fmt.Printf("🔧 %s", c.toolTitles[update.ToolCallID])
 		if update.Status != nil {
 			fmt.Printf(": %s", *update.Status)
 		}

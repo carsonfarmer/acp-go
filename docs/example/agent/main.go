@@ -11,11 +11,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"slices"
-	"strings"
 	"sync"
 
 	acp "github.com/ironpark/go-acp"
@@ -60,9 +57,8 @@ func (a *exampleAgent) ping(_ context.Context, params *pingParams) (*pingResult,
 }
 
 func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
-	if caps := params.ClientCapabilities; caps != nil && caps.Terminal != nil {
-		a.terminal = *caps.Terminal
-	}
+	// Getters read optional fields as their zero value when absent.
+	a.terminal = params.GetClientCapabilities().GetTerminal()
 	// CapabilitiesOf advertises exactly the optional methods implemented.
 	return &acp1.InitializeResponse{
 		ProtocolVersion:   acp1.ProtocolVersion,
@@ -72,9 +68,9 @@ func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequ
 }
 
 func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	sess, ok := a.Session(params.SessionID)
-	if !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	sess, err := a.Lookup(params.SessionID)
+	if err != nil {
+		return nil, err
 	}
 
 	// The embedded manager's Cancel cancels this context.
@@ -84,9 +80,8 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (
 	}
 	defer done()
 
-	// Texts skips images, resources and other non-text blocks.
-	prompt := strings.Join(slices.Collect(acp1.Texts(params.Prompt)), "")
-	if err := a.runTurn(ctx, params.SessionID, sess, prompt); err != nil {
+	// JoinTexts skips images, resources and other non-text blocks.
+	if err := a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt)); err != nil {
 		if context.Cause(ctx) == acp.ErrTurnCancelled {
 			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
 		}

@@ -4,6 +4,7 @@ package tsgen
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
@@ -21,7 +22,10 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		return nil
 	}
 	g.write("type %s struct {\n", name)
+	g.structs[name] = true
+	payload := g.out != g.buffers[fileEnvelope]
 	names := map[string]bool{}
+	var pointers []getter
 	for _, f := range t.Fields {
 		if f.Name == skip {
 			continue
@@ -61,7 +65,16 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			text = metaDoc(f.Comment)
 		}
 		g.write("%s%s %s `json:%q`\n", comment(text), field, expr, tag)
+		if payload && strings.HasPrefix(expr, "*") {
+			pointers = append(pointers, getter{typ: name, field: field, elem: strings.TrimPrefix(expr, "*")})
+		}
 	}
+	for _, p := range pointers {
+		if names["Get"+p.field] {
+			return fmt.Errorf("getter Get%s collides with a field", p.field)
+		}
+	}
+	g.getters = append(g.getters, pointers...)
 	if t.Element != nil {
 		element, err := g.expr(t.Element, name+"AdditionalProperty")
 		if err != nil {
@@ -84,4 +97,47 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { %stype plain %s; return json.MarshalEncode(enc, plain(v)) }\n", name, set, name)
 	}
 	return nil
+}
+
+// getter is a pointer field that gets a nil-safe accessor.
+type getter struct {
+	typ, field, elem string // struct, field and pointed-to type
+}
+
+// emitGetters writes a GetX method for every pointer field of a payload
+// struct, protobuf style. A pointer to a struct is returned as is, so calls
+// chain through absent objects; any other pointer is dereferenced, giving the
+// zero value when it is nil. The receiver may be nil too.
+func (g *generator) emitGetters() {
+	if len(g.getters) == 0 {
+		return
+	}
+	g.use(fileGetters)
+	// Group by type; within a type, fields keep their declaration order.
+	slices.SortStableFunc(g.getters, func(a, b getter) int { return strings.Compare(a.typ, b.typ) })
+	for _, p := range g.getters {
+		if g.isStruct(p.elem) {
+			g.write("// Get%[2]s returns %[2]s, or nil if x is nil.\n", p.typ, p.field)
+			g.write("func (x *%s) Get%s() *%s {\nif x == nil {\nreturn nil\n}\nreturn x.%s\n}\n\n", p.typ, p.field, p.elem, p.field)
+			continue
+		}
+		g.write("// Get%[2]s returns the value of %[2]s, or the zero value if x or %[2]s is nil.\n", p.typ, p.field)
+		g.write("func (x *%s) Get%s() %s {\nif x == nil || x.%s == nil {\nvar zero %s\nreturn zero\n}\nreturn *x.%s\n}\n\n", p.typ, p.field, p.elem, p.field, p.elem, p.field)
+	}
+}
+
+// isStruct reports whether a Go type expression names a struct, directly or
+// through aliases.
+func (g *generator) isStruct(expr string) bool {
+	for range len(g.aliasTargets) + 1 {
+		if g.structs[expr] {
+			return true
+		}
+		target, ok := g.aliasTargets[expr]
+		if !ok {
+			return false
+		}
+		expr = target
+	}
+	return false
 }

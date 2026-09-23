@@ -14,6 +14,9 @@ import (
 // terminal, a file read, and a file edit that needs permission in ask mode.
 // Each plan update replaces the last, so the agent resends the whole plan as
 // each step finishes and the next starts.
+//
+// A tool call id must be unique within the session, across turns, so each
+// tool call gets a generated one.
 func (a *exampleAgent) runTurn(ctx context.Context, sessionID acp1.SessionID, sess *session, prompt string) error {
 	stream := acp1.NewSessionStream(a.client, sessionID)
 	plan := []acp1.PlanEntry{
@@ -52,7 +55,7 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acp1.SessionID, se
 // output in the tool call as it runs. Clients without the terminal
 // capability cannot, so the agent says so instead.
 func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, sess *session, command string, args ...string) error {
-	id := acp1.ToolCallID("run_" + command)
+	id := acp1.GenerateToolCallID()
 	title := "Running " + strings.Join(append([]string{command}, args...), " ")
 	if err := stream.StartToolCall(ctx, id, title, acp1.ToolKindExecute); err != nil {
 		return err
@@ -79,6 +82,8 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 		_ = terminal.Kill(context.WithoutCancel(ctx)) // the turn was cancelled
 		return err
 	}
+	// No exit code means a signal ended it, so ExitCode is checked for nil
+	// rather than read with GetExitCode, which would give 0.
 	if exit.ExitCode == nil || *exit.ExitCode != 0 {
 		return stream.FailToolCall(ctx, id, acp1.ToolTerminal(terminal.ID))
 	}
@@ -86,7 +91,7 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 }
 
 func readProject(ctx context.Context, stream *acp1.SessionStream) error {
-	id := acp1.ToolCallID("read_project")
+	id := acp1.GenerateToolCallID()
 	if err := stream.StartToolCall(ctx, id, "Reading project files", acp1.ToolKindRead); err != nil {
 		return err
 	}
@@ -99,7 +104,7 @@ func readProject(ctx context.Context, stream *acp1.SessionStream) error {
 // editConfig proposes a change to config.json and reports it as a diff. In
 // ask mode it asks the user first. The example does not write the file.
 func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStream, sess *session) error {
-	id := acp1.ToolCallID("edit_config")
+	id := acp1.GenerateToolCallID()
 	path := filepath.Join(sess.cwd, "config.json")
 	if err := stream.StartToolCall(ctx, id, "Modifying configuration", acp1.ToolKindEdit, acp1.ToolCallLocation{Path: path}); err != nil {
 		return err

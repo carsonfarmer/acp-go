@@ -32,6 +32,7 @@ import (
 // their own updates. An agent that asks for permission or files would get
 // "method not found".
 type echoClient struct {
+	acp1.UnimplementedClient
 	loading atomic.Bool
 }
 
@@ -39,21 +40,17 @@ func (c *echoClient) SessionUpdate(_ context.Context, params *acp1.SessionNotifi
 	if !c.loading.Load() {
 		return nil
 	}
-	if chunk, ok := params.Update.As[acp1.SessionUpdateUserMessageChunk](); ok {
-		if text, ok := acp1.TextOf(chunk.Content); ok {
+	switch update := params.Update.Variant().(type) {
+	case acp1.SessionUpdateUserMessageChunk:
+		if text, ok := acp1.TextOf(update.Content); ok {
 			fmt.Printf("   history >> %s\n", text)
 		}
-	}
-	if chunk, ok := params.Update.As[acp1.SessionUpdateAgentMessageChunk](); ok {
-		if text, ok := acp1.TextOf(chunk.Content); ok {
+	case acp1.SessionUpdateAgentMessageChunk:
+		if text, ok := acp1.TextOf(update.Content); ok {
 			fmt.Printf("   history << %s\n", text)
 		}
 	}
 	return nil
-}
-
-func (*echoClient) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
 }
 
 func main() {
@@ -106,7 +103,7 @@ func run(ctx context.Context, url string, ws, reconnect bool, opts []acp.HTTPCli
 	if agent, initialized, err = connect(ctx, url, ws, opts, client); err != nil {
 		return err
 	}
-	if caps := initialized.AgentCapabilities; caps == nil || caps.LoadSession == nil || !*caps.LoadSession {
+	if !initialized.GetAgentCapabilities().GetLoadSession() {
 		return errors.New("the agent cannot load sessions")
 	}
 	// The replay arrives as session updates before LoadSession returns.
@@ -133,7 +130,7 @@ func connect(ctx context.Context, url string, ws bool, opts []acp.HTTPClientOpti
 		}
 	}
 	agent := acp1.ConnectAgent(ctx, transport, func(*acp1.ClientSideConnection) acp1.Client { return client })
-	initialized, err := agent.Initialize(ctx, &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion})
+	initialized, err := agent.Initialize(ctx, &acp1.InitializeRequest{})
 	if err != nil {
 		agent.Close()
 		return nil, nil, fmt.Errorf("initialize: %w", err)

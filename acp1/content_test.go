@@ -45,3 +45,14 @@ func TestToolContentHelpers(t *testing.T) {
 		}
 	}
 }
+
+func TestJoinTexts(t *testing.T) {
+	blocks := []acp1.ContentBlock{
+		acp1.TextBlock("a"),
+		acp1.NewContentBlock(schema.ContentBlockImage{Data: "x", MIMEType: "image/png"}),
+		acp1.TextBlock("b"),
+	}
+	if got := acp1.JoinTexts(blocks); got != "ab" {
+		t.Fatalf("JoinTexts = %q, want %q", got, "ab")
+	}
+}

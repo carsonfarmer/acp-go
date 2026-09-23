@@ -39,6 +39,9 @@ type exampleClient struct {
 	// input is shared by the prompt loop and permission requests, so input
 	// typed ahead is not lost in a discarded buffer.
 	input *bufio.Reader
+	// toolTitles maps each tool call to its title, for rendering its updates.
+	// Only the prompt loop renders, so it needs no lock.
+	toolTitles map[acp1.ToolCallID]string
 }
 
 // SessionUpdate receives every update the agent sends. This client renders
@@ -49,11 +52,7 @@ func (c *exampleClient) SessionUpdate(context.Context, *acp1.SessionNotification
 }
 
 func (c *exampleClient) RequestPermission(_ context.Context, params *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	title := ""
-	if params.ToolCall.Title != nil {
-		title = *params.ToolCall.Title
-	}
-	fmt.Printf("\n🔐 Permission requested: %s\n", title)
+	fmt.Printf("\n🔐 Permission requested: %s\n", params.ToolCall.GetTitle())
 	c.renderContent(params.ToolCall.Content) // the change the agent proposes
 	for i, option := range params.Options {
 		fmt.Printf("   %d. %s (%s)\n", i+1, option.Name, option.Kind)
@@ -126,7 +125,11 @@ func run(ctx context.Context, command []string, verbose bool) error {
 		cmd.Stderr = io.Discard // agent logs would interleave with the conversation
 	}
 
-	client := &exampleClient{terminals: &terminals{}, input: bufio.NewReader(os.Stdin)}
+	client := &exampleClient{
+		terminals:  &terminals{},
+		input:      bufio.NewReader(os.Stdin),
+		toolTitles: map[acp1.ToolCallID]string{},
+	}
 	agent, err := acp1.SpawnAgent(ctx, cmd, func(*acp1.ClientSideConnection) acp1.Client {
 		return client
 	})
@@ -136,7 +139,6 @@ func run(ctx context.Context, command []string, verbose bool) error {
 	defer agent.Close()
 
 	initialized, err := agent.Initialize(ctx, &acp1.InitializeRequest{
-		ProtocolVersion:    acp1.ProtocolVersion,
 		ClientCapabilities: acp1.ClientCapabilitiesOf(client),
 		ClientInfo:         &acp1.Implementation{Name: "example-client", Version: "0.1.0"},
 	})

@@ -87,6 +87,23 @@ func TestGenerateEmitsInterfacesCallsAndDispatch(t *testing.T) {
 	}
 }
 
+func TestCallViaRoutesTheOutgoingCall(t *testing.T) {
+	s := spec()
+	s.Agent[0].Methods[0].CallVia = "ping"
+	files, err := Generate(s, parse(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods := string(files["methods.gen.go"])
+	if want := "(*PingResponse, error) {\n\treturn c.ping(ctx, params)\n}"; !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q\n%s", want, methods)
+	}
+	// The dispatch still reaches the handler.
+	if want := "acpconn.Request(ctx, schema.Validated, params, c.agent.Ping)"; !strings.Contains(methods, want) {
+		t.Errorf("methods.gen.go lacks %q", want)
+	}
+}
+
 func TestValidationRejectsDrift(t *testing.T) {
 	cases := map[string]func(*Spec){
 		"uncovered method constant": func(s *Spec) { s.Unhandled = nil },

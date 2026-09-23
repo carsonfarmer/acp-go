@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"sync"
 
@@ -63,7 +62,7 @@ func (a *agent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.P
 	if tools == nil {
 		return nil, acp.ErrInvalidParams("this session has no MCP server")
 	}
-	text := strings.Join(slices.Collect(acp1.Texts(params.Prompt)), " ")
+	text := acp1.JoinTexts(params.Prompt)
 	result, err := tools.CallTool(ctx, &mcp.CallToolParams{Name: "word_count", Arguments: map[string]any{"text": text}})
 	if err != nil {
 		return nil, err
@@ -78,15 +77,11 @@ func (a *agent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.P
 func (a *agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
 
 // client provides MCP servers through the embedded HostV1, which answers the
-// agent's mcp/connect, mcp/message and mcp/disconnect.
+// agent's mcp/connect, mcp/message and mcp/disconnect. The turns read their
+// own updates, so UnimplementedClient covers the rest.
 type client struct {
+	acp1.UnimplementedClient
 	*acpmcp.HostV1
-}
-
-func (client) SessionUpdate(context.Context, *acp1.SessionNotification) error { return nil }
-
-func (client) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
 }
 
 type countInput struct {
@@ -122,12 +117,12 @@ func main() {
 			return c
 		})
 
-	initialized, err := conn.Initialize(ctx, &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion})
+	initialized, err := conn.Initialize(ctx, &acp1.InitializeRequest{})
 	if err != nil {
 		log.Fatal(err)
 	}
 	// Offer the server only to an agent that can reach it over ACP.
-	if caps := initialized.AgentCapabilities; caps == nil || caps.MCPCapabilities == nil || caps.MCPCapabilities.ACP == nil || !*caps.MCPCapabilities.ACP {
+	if !initialized.GetAgentCapabilities().GetMCPCapabilities().GetACP() {
 		log.Fatal("the agent does not support MCP-over-ACP")
 	}
 	session, err := conn.StartSession(ctx, &acp1.NewSessionRequest{

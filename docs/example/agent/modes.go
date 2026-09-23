@@ -35,9 +35,9 @@ func (a *exampleAgent) NewSession(ctx context.Context, params *acp1.NewSessionRe
 // SetSessionMode switches the session's mode; implementing it makes
 // session/set_mode available.
 func (a *exampleAgent) SetSessionMode(_ context.Context, params *acp1.SetSessionModeRequest) (*acp1.SetSessionModeResponse, error) {
-	sess, ok := a.Session(params.SessionID)
-	if !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	sess, err := a.Lookup(params.SessionID)
+	if err != nil {
+		return nil, err
 	}
 	if params.ModeID != askMode && params.ModeID != autoMode {
 		return nil, acp.ErrInvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))

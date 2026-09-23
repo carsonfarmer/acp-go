@@ -304,9 +304,10 @@ func (c *ClientSideConnection) ExtNotification(ctx context.Context, method strin
 // --- Outgoing calls from ClientSideConnection to the peer ---
 
 // Initialize negotiates the protocol version and exchanges capabilities. It is
-// the first call on every connection.
+// the first call on every connection. A zero ProtocolVersion, or nil params, sends
+// [ProtocolVersion].
 func (c *ClientSideConnection) Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
-	return acpconn.Call[InitializeResponse](ctx, c.conn, schema.AgentMethodsInitialize, params)
+	return c.initialize(ctx, params)
 }
 
 // NewSession creates a session. It may fail with an auth-required error.

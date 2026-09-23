@@ -51,9 +51,9 @@ func (a *echoAgent) Initialize(_ context.Context, _ *acp1.InitializeRequest) (*a
 }
 
 func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	h, ok := a.Session(params.SessionID)
-	if !ok {
-		return nil, acp.ErrResourceNotFound("session " + string(params.SessionID))
+	h, err := a.Lookup(params.SessionID)
+	if err != nil {
+		return nil, err
 	}
 	stream := acp1.NewSessionStream(a.client, params.SessionID)
 	for text := range acp1.Texts(params.Prompt) {
@@ -71,9 +71,9 @@ func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 // LoadSession replays the session's history before answering, as the
 // protocol asks.
 func (a *echoAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionRequest) (*acp1.LoadSessionResponse, error) {
-	h, ok := a.Session(params.SessionID)
-	if !ok {
-		return a.SessionManager.LoadSession(ctx, params) // not found
+	h, err := a.Lookup(params.SessionID)
+	if err != nil {
+		return nil, err
 	}
 	h.mu.Lock()
 	turns := slices.Clone(h.turns)

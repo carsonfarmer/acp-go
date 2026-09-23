@@ -34,7 +34,7 @@ agent, _ := acp1.SpawnAgent(ctx, cmd, func(conn *acp1.ClientSideConnection) acp1
     client = &myClient{HostV1: acpmcp.NewHostV1(conn)}
     return client
 })
-init, _ := agent.Initialize(ctx, &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion})
+init, _ := agent.Initialize(ctx, &acp1.InitializeRequest{})
 // Offer it only if init.AgentCapabilities.MCPCapabilities.ACP is true.
 session, _ := agent.StartSession(ctx, &acp1.NewSessionRequest{
     Cwd:        cwd,

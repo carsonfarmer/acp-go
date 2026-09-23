@@ -2,6 +2,7 @@ package acp1
 
 import (
 	"iter"
+	"strings"
 
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
@@ -18,9 +19,7 @@ func TextOf(block ContentBlock) (string, bool) {
 	return text.Text, ok
 }
 
-// Texts yields the text of each text block in blocks, skipping other kinds:
-//
-//	prompt := strings.Join(slices.Collect(acp1.Texts(params.Prompt)), "")
+// Texts yields the text of each text block in blocks, skipping other kinds.
 func Texts(blocks []ContentBlock) iter.Seq[string] {
 	return func(yield func(string) bool) {
 		for _, block := range blocks {
@@ -29,6 +28,18 @@ func Texts(blocks []ContentBlock) iter.Seq[string] {
 			}
 		}
 	}
+}
+
+// JoinTexts concatenates the text blocks in blocks, skipping other kinds,
+// such as a prompt's text:
+//
+//	prompt := acp1.JoinTexts(params.Prompt)
+func JoinTexts(blocks []ContentBlock) string {
+	var b strings.Builder
+	for text := range Texts(blocks) {
+		b.WriteString(text)
+	}
+	return b.String()
 }
 
 // ToolText wraps text as tool call output.

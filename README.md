@@ -97,8 +97,7 @@ if err != nil {
 }
 defer agent.Close()
 
-agent.Initialize(ctx, &acp1.InitializeRequest{
-    ProtocolVersion:    acp1.ProtocolVersion,
+agent.Initialize(ctx, &acp1.InitializeRequest{ // a zero ProtocolVersion sends acp1.ProtocolVersion
     ClientCapabilities: acp1.ClientCapabilitiesOf(client),
 })
 session, _ := agent.StartSession(ctx, &acp1.NewSessionRequest{Cwd: cwd})
@@ -114,7 +113,8 @@ response, err := turn.Wait() // or: text, response, err := turn.Text()
 ended. The agent's stderr goes to the parent's unless `cmd.Stderr` is set. `acp1.Pipe` connects
 an agent and a client in memory, which is handy in tests.
 
-`Client` requires only `SessionUpdate` and `RequestPermission`. `SessionUpdate` sees every update,
+`Client` requires only `SessionUpdate` and `RequestPermission`; a client whose agent never asks for
+permission can embed `acp1.UnimplementedClient` for both. `SessionUpdate` sees every update,
 including those outside a `Turn`; notifications are handled in order on the read loop, so a handler
 must not wait on a call to the agent. File system, terminal and elicitation support come from
 `acp1.FileReader`, `acp1.FileWriter`, `acp1.TerminalHandler` and `acp1.ElicitationHandler`;
@@ -302,7 +302,8 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 ```
 
 Override any of those by declaring the method on the agent itself; the manager checks that a loaded
-or resumed session exists, and replaying its history is the agent's job. `CloseSession` cancels the
+or resumed session exists, and replaying its history is the agent's job. `Lookup(id)` returns a
+session's state or the resource-not-found error to return as is. `CloseSession` cancels the
 running turn and keeps the session to resume; `DeleteSession` removes it. `acp2.SessionManager`
 serves the v2 session baseline the same way. `acp.SessionStore[ID, T]`,
 `acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building blocks; each façade
@@ -326,9 +327,11 @@ stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) //
 stream.WithMeta(meta).SendText(ctx, "…")                                       // _meta on each notification
 ```
 
-`acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts` (an iterator over a prompt's text blocks) and
+`acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts` (an iterator over a prompt's text blocks),
+`acp1.JoinTexts` (their concatenation) and
 `acp1.ToolText` cover the common text content, and `acp1.ToolDiff` and `acp1.ToolTerminal` the
-other tool output. The v2
+other tool output. Tool call ids must be unique within a session; `acp1.GenerateToolCallID` and
+`acp1.GenerateMessageID` mint random ones, like `GenerateSessionID`. The v2
 `SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
 `Idle` for the explicit turn state.
 
@@ -354,6 +357,21 @@ A tag this SDK does not know never fails the message. It decodes into the union'
 variant (such as `acp1.SessionUpdateUnknown`) whose `Raw` field holds the object as
 received and is encoded unchanged. Handle it in a `default` case, or ignore it as the
 protocol recommends.
+
+### Optional Fields
+
+Optional fields are pointers (`omitzero`), so an explicit `false` or `""` survives encoding. Every
+pointer field also has a nil-safe getter, protobuf style: a pointer to a struct comes back as is, so
+calls chain through absent objects, and any other pointer is dereferenced, giving the zero value when
+the field or the receiver is nil:
+
+```go
+if init.GetAgentCapabilities().GetMCPCapabilities().GetACP() { ... }
+title := params.ToolCall.GetTitle() // "" when absent
+```
+
+Read the field itself when absence means something the zero value does not: a terminal's `nil`
+`ExitCode` means a signal ended it, not exit code 0.
 
 ### Connection Options
 

@@ -28,6 +28,9 @@ type generator struct {
 	unmarshalers []string            // json.UnmarshalFromFunc entries for variant interfaces
 	openTags     map[string]openTags // Go union name -> tags known to its Unknown variant
 	usesMeta     bool                // some struct has a _meta field typed as Meta
+	structs      map[string]bool     // Go names declared as structs
+	aliasTargets map[string]string   // Go alias name -> the type expression it names
+	getters      []getter            // pointer fields of payload structs, emitted last
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -43,6 +46,7 @@ const (
 	fileTypes    = "types.gen.go"    // object structs and aliases
 	fileUnions   = "unions.gen.go"   // tagged and raw payload unions, plus the shared helpers
 	fileEnvelope = "envelope.gen.go" // JSON-RPC envelope types: requests, responses, ids, errors
+	fileGetters  = "getters.gen.go"  // nil-safe getters for pointer fields
 	fileZod      = "zod.gen.go"      // Zod rule tables and Validated/Decode/Validate
 )
 
@@ -97,6 +101,7 @@ func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
 		absorbed: map[string]*absorption{}, decls: map[string]Decl{},
 		names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
+		structs: map[string]bool{}, aliasTargets: map[string]string{},
 		pkg: pkg, buffers: map[string]*bytes.Buffer{},
 	}
 	for _, d := range schema.Types {
@@ -187,6 +192,7 @@ func generate(schema *tsdef.Schema, pkg string) (*generator, error) {
 		g.use(fileUnions)
 		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
 	}
+	g.emitGetters()
 	g.use(fileZod)
 	if err := g.zod(schema); err != nil {
 		return nil, err

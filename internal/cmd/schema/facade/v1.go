@@ -28,12 +28,13 @@ implemented the peer receives "method not found".
 See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#agent)`,
 			Methods: []Method{
 				{
-					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse",
+					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", CallVia: "initialize",
 					Doc: `Initialize negotiates the protocol version and exchanges capabilities.
 
 See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)`,
 					CallDoc: `Initialize negotiates the protocol version and exchanges capabilities. It is
-the first call on every connection.`,
+the first call on every connection. A zero ProtocolVersion, or nil params, sends
+[ProtocolVersion].`,
 				},
 				{
 					Wire: "session/new", Name: "NewSession", Params: "NewSessionRequest", Response: "NewSessionResponse",

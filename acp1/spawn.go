@@ -15,7 +15,7 @@ import (
 //	agent, err := acp1.SpawnAgent(ctx, exec.Command("my-agent"), func(*acp1.ClientSideConnection) acp1.Client {
 //		return &myClient{}
 //	})
-//	init, err := agent.Initialize(ctx, &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion})
+//	init, err := agent.Initialize(ctx, &acp1.InitializeRequest{})
 //
 // Set Dir, Env or Stderr on cmd before the call; a nil Stderr is sent to the
 // parent's stderr. The process is killed when ctx is done, and the connection

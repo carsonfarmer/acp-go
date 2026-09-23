@@ -19,6 +19,13 @@ func NewMemoryStore[T any]() *MemoryStore[T] { return acp.NewMemoryStore[Session
 // GenerateSessionID returns a random id of the form "session_<32 hex chars>".
 func GenerateSessionID() SessionID { return SessionID(acp.GenerateSessionID()) }
 
+// GenerateMessageID returns a random id of the form "message_<32 hex chars>".
+func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message")) }
+
+// GenerateToolCallID returns a random id of the form "call_<32 hex chars>".
+// Tool call ids must be unique within a session, across its turns.
+func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
+
 // SessionFactory creates the state for a new session along with its id.
 // Use [GenerateSessionID] unless the agent has its own id scheme.
 type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) (SessionID, T, error)
@@ -60,6 +67,16 @@ func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
 // Session returns the state for a session id.
 func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
 
+// Lookup returns the state for a session id, or a resource-not-found error to
+// return as is when there is no such session.
+func (m *SessionManager[T]) Lookup(id SessionID) (T, error) {
+	session, ok := m.store.Get(id)
+	if !ok {
+		return session, acp.ErrResourceNotFound(fmt.Sprintf("session %s", id))
+	}
+	return session, nil
+}
+
 // BeginTurn starts a prompt turn on a session. Run the turn's work with the
 // returned context, which [SessionManager.Cancel] cancels with
 // [acp.ErrTurnCancelled], and call done when Prompt returns. A v1 session runs
@@ -100,8 +117,8 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 // LoadSession reports whether the session exists. Replaying its history is the
 // agent's job; override this method to do it.
 func (m *SessionManager[T]) LoadSession(_ context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	return &LoadSessionResponse{}, nil
 }
@@ -120,8 +137,8 @@ func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsReque
 // DeleteSession cancels the session's turn in progress and removes the session
 // from the store.
 func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)
 	m.store.Delete(params.SessionID)
@@ -132,8 +149,8 @@ func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessi
 // replay. Override it to restore state the store does not
 // hold.
 func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	return &ResumeSessionResponse{}, nil
 }
@@ -141,8 +158,8 @@ func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessi
 // CloseSession cancels the session's turn in progress. The session stays in
 // the store, so a client can resume it later; DeleteSession removes it.
 func (m *SessionManager[T]) CloseSession(_ context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)
 	return &CloseSessionResponse{}, nil

@@ -16,7 +16,7 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
-	turns  acpconn.Turns[SessionID, SessionUpdate, *StopReason]
+	turns  acpconn.Turns[SessionID, SessionUpdate, StopReason]
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
@@ -39,9 +39,47 @@ func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessi
 	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
 		if state, ok := n.Update.As[schema.SessionUpdateStateUpdate](); ok {
 			if idle, ok := state.Value.As[schema.StateUpdateIdle](); ok {
-				c.turns.End(n.SessionID, t, idle.StopReason, nil)
+				var reason StopReason
+				if idle.StopReason != nil {
+					reason = *idle.StopReason
+				}
+				c.turns.End(n.SessionID, t, reason, nil)
 			}
 		}
 	}
 	return c.client.SessionUpdate(ctx, n)
+}
+
+// UnimplementedClient provides the methods every [Client] needs for a client
+// that only reads its turns: it drops session updates, which each [Turn] still
+// collects, and answers permission requests with "method not found". Embed it
+// and declare either method to override it:
+//
+//	type myClient struct{ acp2.UnimplementedClient }
+//
+// session/request_permission is part of every client in the protocol, so
+// embed this only for agents that never ask.
+type UnimplementedClient struct{}
+
+// SessionUpdate ignores the update.
+func (UnimplementedClient) SessionUpdate(context.Context, *UpdateSessionNotification) error {
+	return nil
+}
+
+// RequestPermission answers "method not found".
+func (UnimplementedClient) RequestPermission(context.Context, *RequestPermissionRequest) (*RequestPermissionResponse, error) {
+	return nil, acp.ErrMethodNotFound(schema.ClientMethodsSessionRequestPermission)
+}
+
+// initialize sends initialize, filling in a zero protocol version. The
+// generated [ClientSideConnection.Initialize] goes through it.
+func (c *ClientSideConnection) initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
+	request := InitializeRequest{}
+	if params != nil {
+		request = *params
+	}
+	if request.ProtocolVersion == 0 {
+		request.ProtocolVersion = ProtocolVersion
+	}
+	return acpconn.Call[InitializeResponse](ctx, c.conn, schema.AgentMethodsInitialize, &request)
 }

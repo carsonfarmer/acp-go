@@ -3,17 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 	"sync/atomic"
 
-	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acp2"
 )
 
 // v2Client prints the history a session/resume replays; each Turn collects
-// its own updates.
+// its own updates. The agent never asks for permission.
 type v2Client struct {
+	acp2.UnimplementedClient
 	replaying atomic.Bool
 }
 
@@ -23,17 +21,13 @@ func (c *v2Client) SessionUpdate(_ context.Context, params *acp2.UpdateSessionNo
 	}
 	switch update := params.Update.Variant().(type) {
 	case acp2.SessionUpdateUserMessage:
-		fmt.Printf("   history >> %s\n", strings.Join(slices.Collect(acp2.Texts(update.Content)), ""))
+		fmt.Printf("   history >> %s\n", acp2.JoinTexts(update.Content))
 	case acp2.SessionUpdateAgentMessageChunk:
 		if text, ok := acp2.TextOf(update.Content); ok {
 			fmt.Printf("   history << %s\n", text)
 		}
 	}
 	return nil
-}
-
-func (*v2Client) RequestPermission(context.Context, *acp2.RequestPermissionRequest) (*acp2.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
 }
 
 // promptV2 runs one turn in a new session: the prompt response only accepts
@@ -77,6 +71,6 @@ func turnV2(ctx context.Context, session *acp2.ClientSession, prompt string) err
 	if err != nil {
 		return err
 	}
-	fmt.Printf("<< %s\nstop reason: %s\n", text, *reason)
+	fmt.Printf("<< %s\nstop reason: %s\n", text, reason)
 	return nil
 }

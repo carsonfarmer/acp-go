@@ -453,3 +453,19 @@ func TestDistinguishedLabels(t *testing.T) {
 		t.Fatal("FormB payload read as FormA")
 	}
 }
+
+func TestGetters(t *testing.T) {
+	// A nil receiver and a nil struct pointer chain to the zero value.
+	var holder *Holder
+	if holder.GetOptions().GetEnabled() || holder.GetOptions().GetLabel() != "" || holder.GetStatus() != "" {
+		t.Fatal("getters on nil did not return zero values")
+	}
+	enabled, label, status := true, "x", StatusDone
+	holder = &Holder{Options: &Options{Enabled: &enabled, Label: &label}, Status: &status}
+	if !holder.GetOptions().GetEnabled() || holder.GetOptions().GetLabel() != "x" || holder.GetStatus() != StatusDone {
+		t.Fatal("getters did not return the set values")
+	}
+	if holder.GetOptions() != holder.Options {
+		t.Fatal("a struct getter must return the field's pointer")
+	}
+}

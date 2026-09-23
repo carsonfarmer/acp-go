@@ -55,7 +55,7 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		if err != nil || text != "Hello, world" {
 			t.Fatalf("idleFirst=%v: got %q %v", idleFirst, text, err)
 		}
-		if reason == nil || *reason != schema.StopReasonEndTurn {
+		if reason != schema.StopReasonEndTurn {
 			t.Fatalf("idleFirst=%v: got %v", idleFirst, reason)
 		}
 		// The next prompt starts a new turn once this one has ended.
@@ -135,7 +135,7 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	}
 	for _, tr := range []*acp2.Turn{turn, joinedTurn} {
 		reason, err := tr.Wait()
-		if err != nil || reason == nil || *reason != schema.StopReasonCancelled {
+		if err != nil || reason != schema.StopReasonCancelled {
 			t.Fatalf("got %v %v", reason, err)
 		}
 	}
@@ -195,7 +195,7 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 	if err != nil || text != "done" {
 		t.Fatalf("turn ended early: %q %v", text, err)
 	}
-	if reason == nil || *reason != schema.StopReasonEndTurn {
+	if reason != schema.StopReasonEndTurn {
 		t.Fatalf("got %v", reason)
 	}
 }

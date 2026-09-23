@@ -19,6 +19,13 @@ func NewMemoryStore[T any]() *MemoryStore[T] { return acp.NewMemoryStore[Session
 // GenerateSessionID returns a random id of the form "session_<32 hex chars>".
 func GenerateSessionID() SessionID { return SessionID(acp.GenerateSessionID()) }
 
+// GenerateMessageID returns a random id of the form "message_<32 hex chars>".
+func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message")) }
+
+// GenerateToolCallID returns a random id of the form "call_<32 hex chars>".
+// Tool call ids must be unique within a session, across its turns.
+func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
+
 // SessionFactory creates the state for a new session along with its id.
 // Use [GenerateSessionID] unless the agent has its own id scheme.
 type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) (SessionID, T, error)
@@ -62,6 +69,16 @@ func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
 
 // Session returns the state for a session id.
 func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
+
+// Lookup returns the state for a session id, or a resource-not-found error to
+// return as is when there is no such session.
+func (m *SessionManager[T]) Lookup(id SessionID) (T, error) {
+	session, ok := m.store.Get(id)
+	if !ok {
+		return session, acp.ErrResourceNotFound(fmt.Sprintf("session %s", id))
+	}
+	return session, nil
+}
 
 // JoinTurn returns the session's foreground work in progress, or starts it.
 // In v2 a prompt may contribute to work that is already running, so a prompt
@@ -115,8 +132,8 @@ func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsReque
 // DeleteSession cancels the session's turn in progress and removes the session
 // from the store.
 func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)
 	m.store.Delete(params.SessionID)
@@ -127,8 +144,8 @@ func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessi
 // replay. Replaying history when the request's ReplayFrom asks
 // for it is the agent's job; override this method to do it.
 func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	return &ResumeSessionResponse{}, nil
 }
@@ -136,8 +153,8 @@ func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessi
 // CloseSession cancels the session's turn in progress. The session stays in
 // the store, so a client can resume it later; DeleteSession removes it.
 func (m *SessionManager[T]) CloseSession(_ context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
-	if _, ok := m.store.Get(params.SessionID); !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	if _, err := m.Lookup(params.SessionID); err != nil {
+		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)
 	return &CloseSessionResponse{}, nil

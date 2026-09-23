@@ -70,10 +70,10 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*T
 // watch ends t if the connection closes first. The agent's idle update ends
 // it in [ClientSideConnection.sessionUpdate], and Settle when every prompt
 // that joined it was rejected.
-func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, *StopReason]) {
+func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, StopReason]) {
 	select {
 	case <-s.conn.Done():
-		s.conn.turns.End(s.ID, t, nil, errConnectionClosed)
+		s.conn.turns.End(s.ID, t, "", errConnectionClosed)
 	case <-t.Done():
 	}
 }
@@ -87,7 +87,7 @@ func (s *ClientSession) Cancel(ctx context.Context) error {
 // Turn is a session's foreground work, from the prompt that started it until
 // the agent reports idle. Prompts that join it share it.
 type Turn struct {
-	t *acpconn.Turn[SessionUpdate, *StopReason]
+	t *acpconn.Turn[SessionUpdate, StopReason]
 }
 
 // Updates yields the turn's session updates in order and stops when the turn
@@ -96,8 +96,8 @@ type Turn struct {
 func (t *Turn) Updates() iter.Seq[SessionUpdate] { return t.t.Updates() }
 
 // Wait blocks until the turn ends and returns the stop reason from the
-// agent's idle update, or nil if it gave none.
-func (t *Turn) Wait() (*StopReason, error) { return t.t.Wait() }
+// agent's idle update, or "" if it gave none.
+func (t *Turn) Wait() (StopReason, error) { return t.t.Wait() }
 
 // Done is closed once the turn ends.
 func (t *Turn) Done() <-chan struct{} { return t.t.Done() }
@@ -105,7 +105,7 @@ func (t *Turn) Done() <-chan struct{} { return t.t.Done() }
 // Text consumes the turn's updates and returns the text of the agent's
 // messages in order, applying chunks and full-message updates by message id,
 // with the same stop reason and error as Wait.
-func (t *Turn) Text() (string, *StopReason, error) {
+func (t *Turn) Text() (string, StopReason, error) {
 	var order []MessageID
 	texts := map[MessageID]*strings.Builder{}
 	message := func(id MessageID) *strings.Builder {
@@ -127,9 +127,7 @@ func (t *Turn) Text() (string, *StopReason, error) {
 			if u.Content != nil {
 				b := message(u.MessageID)
 				b.Reset()
-				for text := range Texts(u.Content) {
-					b.WriteString(text)
-				}
+				b.WriteString(JoinTexts(u.Content))
 			}
 		}
 	}

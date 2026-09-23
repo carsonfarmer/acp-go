@@ -21,6 +21,7 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type Message = (Text & { kind: "text" }) | (Detail & { kind: "detail" }) | { kind: string; [key: string]: unknown; };
  export type Shape = { form: "circle"; r: number } | { form: "square"; side: number };
  export type Options = { enabled?: boolean; count: number | null; tags?: Array<string>; label?: string; };
+ export type Holder = { options?: Options; status?: Status; };
  export type Status = "pending" | "done";
  export type Kind = "read" | "write" | string;
  export type Ident = string;
@@ -58,7 +59,7 @@ func TestGeneratedWireTypes(t *testing.T) {
 		t.Fatal(err)
 	}
 	// No validators, so no zod file; the other kinds are all present.
-	want := []string{"methods.gen.go", "enums.gen.go", "types.gen.go", "unions.gen.go"}
+	want := []string{"methods.gen.go", "enums.gen.go", "types.gen.go", "unions.gen.go", "getters.gen.go"}
 	if len(a) != len(want) {
 		t.Fatalf("generated %d files, want %v", len(a), want)
 	}

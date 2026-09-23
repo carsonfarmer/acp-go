@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sync"
-	"sync/atomic"
 
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acp2"
@@ -20,8 +18,7 @@ import (
 // that session/resume can replay it.
 type v2Agent struct {
 	*acp2.SessionManager[*v2Session]
-	client   acp2.Client
-	messages atomic.Int64
+	client acp2.Client
 }
 
 // v2Session is a session's conversation so far.
@@ -57,12 +54,11 @@ func (a *v2Agent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.In
 }
 
 func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
-	session, ok := a.Session(params.SessionID)
-	if !ok {
-		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
+	session, err := a.Lookup(params.SessionID)
+	if err != nil {
+		return nil, err
 	}
-	userMessage := a.nextMessageID("user")
-	reply := a.nextMessageID("agent")
+	userMessage, reply := acp2.GenerateMessageID(), acp2.GenerateMessageID()
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
 
 	// The agent must echo the user message it accepted, then report the
@@ -74,10 +70,7 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2
 	if err := stream.Running(ctx); err != nil {
 		return nil, err
 	}
-	var text string
-	for prompt := range acp2.Texts(params.Prompt) {
-		text += "v2 echo: " + prompt
-	}
+	text := "v2 echo: " + acp2.JoinTexts(params.Prompt)
 	if err := stream.SendText(ctx, reply, text); err != nil {
 		return nil, err
 	}
@@ -121,8 +114,4 @@ func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionR
 		}
 	}
 	return response, nil
-}
-
-func (a *v2Agent) nextMessageID(role string) acp2.MessageID {
-	return acp2.MessageID(fmt.Sprintf("%s_%d", role, a.messages.Add(1)))
 }

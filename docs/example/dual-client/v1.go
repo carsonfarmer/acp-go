@@ -4,18 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acp1"
 )
 
-// v1Client only receives updates; each Turn collects its own.
-type v1Client struct{}
-
-func (v1Client) SessionUpdate(context.Context, *acp1.SessionNotification) error { return nil }
-
-func (v1Client) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
-}
+// v1Client only receives updates, and each Turn collects its own, so
+// UnimplementedClient covers it.
+type v1Client struct{ acp1.UnimplementedClient }
 
 // promptV1 runs one turn in a new session: the prompt response ends it.
 func promptV1(ctx context.Context, agent *acp1.RemoteAgent, cwd, prompt string) error {

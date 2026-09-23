@@ -79,8 +79,7 @@ if err != nil {
 }
 defer agent.Close()
 
-agent.Initialize(ctx, &acp1.InitializeRequest{
-    ProtocolVersion:    acp1.ProtocolVersion,
+agent.Initialize(ctx, &acp1.InitializeRequest{ // ProtocolVersion이 0이면 acp1.ProtocolVersion을 보냄
     ClientCapabilities: acp1.ClientCapabilitiesOf(client),
 })
 session, _ := agent.StartSession(ctx, &acp1.NewSessionRequest{Cwd: cwd})
@@ -96,7 +95,8 @@ response, err := turn.Wait() // 또는: text, response, err := turn.Text()
 끝났는지 알려 줍니다. `cmd.Stderr`를 지정하지 않으면 에이전트의 stderr는 부모 프로세스로 전달됩니다.
 `acp1.Pipe`는 에이전트와 클라이언트를 메모리에서 연결하므로 테스트에 유용합니다.
 
-`Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다.
+`Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다. 에이전트가 권한을
+묻지 않는다면 `acp1.UnimplementedClient`를 임베드해 둘 다 채울 수 있습니다.
 `SessionUpdate`는 `Turn` 밖의 업데이트까지 모두 받습니다. 알림은 읽기 루프에서 순서대로 처리되므로,
 핸들러 안에서 에이전트 호출의 응답을 기다리면 교착 상태가 됩니다.
 파일 시스템·터미널·elicitation 지원은 `acp1.FileReader`, `acp1.FileWriter`,
@@ -245,7 +245,8 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 ```
 
 에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 매니저는 로드하거나 이어 여는 세션이
-있는지만 확인하고, 기록 재생은 에이전트가 맡습니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수
+있는지만 확인하고, 기록 재생은 에이전트가 맡습니다. `Lookup(id)`는 세션 상태를 돌려주거나, 없으면 그대로
+반환하면 되는 resource-not-found 오류를 돌려줍니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수
 있게 남기며, `DeleteSession`은 세션을 지웁니다. `acp2.SessionManager`도 같은 방식으로 v2 세션 기본 메서드를
 제공합니다.
 
@@ -264,7 +265,10 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 ```
 
 흔한 텍스트 콘텐츠는 `acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts`(프롬프트의 텍스트 블록 iterator),
-`acp1.ToolText`로, 그 밖의 도구 출력은 `acp1.ToolDiff`와 `acp1.ToolTerminal`로 다룹니다. v2 `SessionStream`은
+`acp1.JoinTexts`(그 텍스트를 이어 붙인 문자열),
+`acp1.ToolText`로, 그 밖의 도구 출력은 `acp1.ToolDiff`와 `acp1.ToolTerminal`로 다룹니다. tool call id는 세션
+안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 무작위 id를
+만듭니다. v2 `SessionStream`은
 메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
 
 ### 미들웨어
@@ -300,6 +304,20 @@ update := acp1.NewSessionUpdate(acp1.SessionUpdatePlan{Entries: entries})
 이 SDK가 모르는 태그가 와도 메시지가 실패하지 않습니다. 스키마가 정의한 `Custom` variant가 있으면 그쪽으로,
 없으면 생성된 `…Unknown` variant(예: `acp1.SessionUpdateUnknown`)로 디코드되며, `Raw` 필드에 받은 객체가
 그대로 담겨 다시 인코딩할 때도 바뀌지 않습니다. `default` 케이스에서 처리하거나, 프로토콜 권고대로 무시하면 됩니다.
+
+### 선택 필드
+
+선택 필드는 포인터(`omitzero`)라서 명시적인 `false`나 `""`도 인코딩에서 살아남습니다. 모든 포인터 필드에는
+protobuf처럼 nil-safe getter도 생성됩니다. 구조체 포인터는 그대로 돌려주므로 없는 객체를 거쳐도 호출을 이어 갈
+수 있고, 그 밖의 포인터는 역참조해 필드나 receiver가 nil이면 zero value를 돌려줍니다:
+
+```go
+if init.GetAgentCapabilities().GetMCPCapabilities().GetACP() { ... }
+title := params.ToolCall.GetTitle() // 없으면 ""
+```
+
+값이 없다는 사실이 zero value와 다른 의미일 때는 필드를 직접 읽으세요. 예를 들어 터미널의 `ExitCode`가 nil이면
+종료 코드 0이 아니라 시그널로 끝났다는 뜻입니다.
 
 ### 연결 옵션
 

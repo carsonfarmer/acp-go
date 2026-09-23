@@ -27,10 +27,11 @@ optional interfaces for the rest; unimplemented methods are answered with
 "method not found".`,
 			Methods: []Method{
 				{
-					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse",
+					Wire: "initialize", Name: "Initialize", Params: "InitializeRequest", Response: "InitializeResponse", CallVia: "initialize",
 					Doc: `Initialize negotiates the protocol version and exchanges capabilities.`,
 					CallDoc: `Initialize negotiates the protocol version and exchanges capabilities. It is
-the first call on every connection. An agent that only speaks v1 answers
+the first call on every connection. A zero ProtocolVersion, or nil params, sends
+[ProtocolVersion]. An agent that only speaks v1 answers
 with ProtocolVersion 1 and a v1-shaped response; reconnect with the v1
 package in that case.`,
 				},

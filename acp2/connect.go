@@ -21,7 +21,7 @@ type RemoteAgent struct {
 //
 //	agent := acp2.ConnectAgent(ctx, acp.NewHTTPClientTransport("https://host/acp"), newClient)
 //	defer agent.Close()
-//	init, err := agent.Initialize(ctx, &acp2.InitializeRequest{ProtocolVersion: acp2.ProtocolVersion})
+//	init, err := agent.Initialize(ctx, &acp2.InitializeRequest{})
 //
 // The agent owns transport from then on: it is closed when the connection
 // stops, which for Streamable HTTP deletes the connection on the server.

@@ -14,7 +14,6 @@ import (
 	"log"
 	"strings"
 
-	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acp1"
 )
 
@@ -43,15 +42,6 @@ func (a *shoutAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*a
 
 func (a *shoutAgent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
 
-// quietClient only receives updates; each Turn collects its own.
-type quietClient struct{}
-
-func (quietClient) SessionUpdate(context.Context, *acp1.SessionNotification) error { return nil }
-
-func (quietClient) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
-}
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // stops both sides
@@ -59,9 +49,10 @@ func main() {
 	// Pipe starts both connections; each side gets its peer's calls.
 	_, agent := acp1.Pipe(ctx,
 		func(c *acp1.AgentSideConnection) acp1.Agent { return &shoutAgent{client: c} },
-		func(*acp1.ClientSideConnection) acp1.Client { return quietClient{} })
+		// Each Turn collects its own updates, so the client needs no code.
+		func(*acp1.ClientSideConnection) acp1.Client { return acp1.UnimplementedClient{} })
 
-	if _, err := agent.Initialize(ctx, &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion}); err != nil {
+	if _, err := agent.Initialize(ctx, &acp1.InitializeRequest{}); err != nil {
 		log.Fatal(err)
 	}
 	session, err := agent.StartSession(ctx, &acp1.NewSessionRequest{Cwd: "/"})
