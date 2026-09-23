@@ -8,6 +8,7 @@ import (
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
+	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
 // ClientSideConnection is the client's view of an ACP connection.
@@ -19,6 +20,7 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
+	turns  acpconn.Turns[SessionID, SessionUpdate, *PromptResponse]
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
@@ -40,8 +42,20 @@ var _ Agent = (*ClientSideConnection)(nil)
 func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
-	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
+	c.conn = acpconn.NewConnection(c.handleRequest, c.routeNotification, reader, writer, opts)
 	return c
+}
+
+// routeNotification copies each session update to the session's [Turn] in
+// progress before the client sees it, then dispatches as generated.
+func (c *ClientSideConnection) routeNotification(ctx context.Context, method string, params jsontext.Value) error {
+	if method != schema.ClientMethodsSessionUpdate {
+		return c.handleNotification(ctx, method, params)
+	}
+	return acpconn.Notify(ctx, schema.Validated, params, func(ctx context.Context, n *SessionNotification) error {
+		c.turns.Deliver(n.SessionID, n.Update)
+		return c.client.SessionUpdate(ctx, n)
+	})
 }
 
 // Start processes messages until the peer disconnects or ctx is cancelled.

@@ -31,7 +31,7 @@ func applySendOptions(opts []SendOption) sendOptions {
 // It removes the boilerplate of naming the session and building a
 // [SessionUpdate] variant for each chunk:
 //
-//	stream := acp.NewSessionStream(client, sessionID)
+//	stream := acpv1.NewSessionStream(client, sessionID)
 //	stream.SendText(ctx, "Reading the file…")
 //	stream.StartToolCall(ctx, toolID, "Read file", schema.ToolKindRead)
 //	stream.CompleteToolCall(ctx, toolID)
@@ -54,7 +54,7 @@ func (s *SessionStream) SessionID() SessionID { return s.sessionID }
 func (s *SessionStream) SendText(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentMessageChunk{
-		Content:   textBlock(text),
+		Content:   TextBlock(text),
 		MessageID: o.messageID,
 	}))
 }
@@ -64,7 +64,7 @@ func (s *SessionStream) SendText(ctx context.Context, text string, opts ...SendO
 func (s *SessionStream) SendThought(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentThoughtChunk{
-		Content:   textBlock(text),
+		Content:   TextBlock(text),
 		MessageID: o.messageID,
 	}))
 }
@@ -74,7 +74,7 @@ func (s *SessionStream) SendThought(ctx context.Context, text string, opts ...Se
 func (s *SessionStream) SendUserMessage(ctx context.Context, text string, opts ...SendOption) error {
 	o := applySendOptions(opts)
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateUserMessageChunk{
-		Content:   textBlock(text),
+		Content:   TextBlock(text),
 		MessageID: o.messageID,
 	}))
 }
@@ -165,8 +165,4 @@ func (s *SessionStream) Send(ctx context.Context, update SessionUpdate) error {
 		SessionID: s.sessionID,
 		Update:    update,
 	})
-}
-
-func textBlock(text string) ContentBlock {
-	return schema.NewContentBlock(schema.ContentBlockText{Text: text})
 }

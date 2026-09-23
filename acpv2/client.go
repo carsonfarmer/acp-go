@@ -5,9 +5,11 @@ import (
 	"encoding/json/jsontext"
 	acp "github.com/ironpark/go-acp"
 	"io"
+	"sync"
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
+	schema "github.com/ironpark/go-acp/schema/v2"
 )
 
 // ClientSideConnection is the client's view of an ACP v2 connection. It serves
@@ -16,6 +18,8 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
+	turns  acpconn.Turns[SessionID, SessionUpdate, *TurnResult]
+	idle   sync.Map // SessionID -> chan *StopReason, while a turn runs
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
@@ -27,8 +31,32 @@ var _ Agent = (*ClientSideConnection)(nil)
 func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
-	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
+	c.conn = acpconn.NewConnection(c.handleRequest, c.routeNotification, reader, writer, opts)
 	return c
+}
+
+// routeNotification copies each session update to the session's [Turn] in
+// progress before the client sees it, and signals the turn when the agent
+// reports idle. Everything else is dispatched as generated.
+func (c *ClientSideConnection) routeNotification(ctx context.Context, method string, params jsontext.Value) error {
+	if method != schema.ClientMethodsSessionUpdate {
+		return c.handleNotification(ctx, method, params)
+	}
+	return acpconn.Notify(ctx, schema.Validated, params, func(ctx context.Context, n *UpdateSessionNotification) error {
+		if c.turns.Deliver(n.SessionID, n.Update) != nil {
+			if state, ok := n.Update.Variant().(schema.SessionUpdateStateUpdate); ok {
+				if idle, ok := state.Value.Variant().(schema.StateUpdateIdle); ok {
+					if ch, ok := c.idle.Load(n.SessionID); ok {
+						select {
+						case ch.(chan *StopReason) <- idle.StopReason:
+						default:
+						}
+					}
+				}
+			}
+		}
+		return c.client.SessionUpdate(ctx, n)
+	})
 }
 
 // Start processes messages until the peer disconnects or ctx is cancelled.
