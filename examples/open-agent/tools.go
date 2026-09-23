@@ -49,25 +49,27 @@ var (
 	}}
 )
 
-// tools returns the tools the client can run for the model.
-func (a *openAgent) tools() []tool {
+// offeredTools returns the tools the client can run for the model, by the
+// capabilities in its initialize request.
+func offeredTools(params *acp1.InitializeRequest) []tool {
+	caps := params.GetClientCapabilities()
 	var tools []tool
-	if a.readFiles {
+	if caps.GetFS().GetReadTextFile() {
 		tools = append(tools, readFileTool)
 	}
-	if a.writeFiles {
+	if caps.GetFS().GetWriteTextFile() {
 		tools = append(tools, writeFileTool)
 	}
-	if a.terminal {
+	if caps.GetTerminal() {
 		tools = append(tools, runCommandTool)
 	}
 	return tools
 }
 
-func (a *openAgent) systemPrompt(sess *session, tools []tool) message {
+func (a *openAgent) systemPrompt(sess *session) message {
 	var b strings.Builder
 	fmt.Fprintf(&b, "You are open-agent, a coding assistant working in the project at %s on %s.\n", sess.cwd, runtime.GOOS)
-	if len(tools) == 0 {
+	if len(a.tools) == 0 {
 		b.WriteString("You have no tools in this session, so answer from the conversation alone.\n")
 	} else {
 		b.WriteString("Use your tools to inspect and change the project instead of guessing. The user may reject a change or a command; if so, do not retry it.\n")
@@ -86,12 +88,12 @@ func (a *openAgent) systemPrompt(sess *session, tools []tool) message {
 // next request would be rejected for.
 func (a *openAgent) runTurn(ctx context.Context, sessionID acp1.SessionID, sess *session, prompt string) (acp1.StopReason, error) {
 	stream := acp1.NewSessionStream(a.client, sessionID)
-	tools := a.tools()
+	system := a.systemPrompt(sess)
 	sess.commit(message{Role: "user", Content: prompt})
 
 	for range maxModelCalls {
-		messages := append([]message{a.systemPrompt(sess, tools)}, sess.messages()...)
-		reply, err := a.llm.stream(ctx, messages, tools,
+		messages := append([]message{system}, sess.messages()...)
+		reply, err := a.llm.stream(ctx, messages, a.tools,
 			func(text string) error { return stream.SendText(ctx, text) },
 			func(text string) error { return stream.SendThought(ctx, text) },
 		)
@@ -115,7 +117,7 @@ func (a *openAgent) runTurn(ctx context.Context, sessionID acp1.SessionID, sess 
 
 		exchange := []message{reply.message}
 		for _, call := range reply.message.ToolCalls {
-			result, err := a.runTool(ctx, stream, sess, tools, call)
+			result, err := a.runTool(ctx, stream, sess, call)
 			if err != nil {
 				return "", err
 			}
@@ -155,14 +157,18 @@ type action struct {
 //
 // The ACP tool call id is generated rather than taken from the model: it must
 // be unique in the session, and the model's ids are only unique per message.
-func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, sess *session, tools []tool, call toolCall) (string, error) {
+func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, sess *session, call toolCall) (string, error) {
 	id := acp1.GenerateToolCallID()
-	act, err := a.parseTool(sess, tools, call)
+	act, err := a.parseTool(sess, call)
 	if err != nil {
-		if err := stream.StartToolCall(ctx, id, call.Function.Name, acp1.ToolKindOther); err != nil {
-			return "", err
+		// A call that cannot be parsed still shows, as a tool call that fails.
+		act = &action{
+			title: call.Function.Name,
+			kind:  acp1.ToolKindOther,
+			run: func(context.Context, *acp1.SessionStream, acp1.ToolCallID) (string, []acp1.ToolCallContent, error) {
+				return "", nil, err
+			},
 		}
-		return "Error: " + err.Error(), stream.FailToolCall(ctx, id, acp1.ToolText(err.Error()))
 	}
 
 	if err := stream.StartToolCall(ctx, id, act.title, act.kind, act.locations...); err != nil {
@@ -187,20 +193,19 @@ func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, ses
 // parseTool decodes the model's arguments into an action. A model can call a
 // tool it was not offered, which the client may not support, so that is an
 // error too.
-func (a *openAgent) parseTool(sess *session, tools []tool, call toolCall) (*action, error) {
-	if !slices.ContainsFunc(tools, func(t tool) bool { return t.Function.Name == call.Function.Name }) {
+func (a *openAgent) parseTool(sess *session, call toolCall) (*action, error) {
+	if !slices.ContainsFunc(a.tools, func(t tool) bool { return t.Function.Name == call.Function.Name }) {
 		return nil, fmt.Errorf("unknown tool %q", call.Function.Name)
 	}
-	args := []byte(call.Function.Arguments)
 	switch call.Function.Name {
 	case readFileTool.Function.Name:
-		var params struct {
+		params, err := decodeArgs[struct {
 			Path  string  `json:"path"`
 			Line  *uint32 `json:"line"`
 			Limit *uint32 `json:"limit"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return nil, fmt.Errorf("invalid arguments: %w", err)
+		}](call)
+		if err != nil {
+			return nil, err
 		}
 		path := sess.resolve(params.Path)
 		return &action{
@@ -213,12 +218,12 @@ func (a *openAgent) parseTool(sess *session, tools []tool, call toolCall) (*acti
 		}, nil
 
 	case writeFileTool.Function.Name:
-		var params struct {
+		params, err := decodeArgs[struct {
 			Path    string `json:"path"`
 			Content string `json:"content"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return nil, fmt.Errorf("invalid arguments: %w", err)
+		}](call)
+		if err != nil {
+			return nil, err
 		}
 		path := sess.resolve(params.Path)
 		return &action{
@@ -231,11 +236,11 @@ func (a *openAgent) parseTool(sess *session, tools []tool, call toolCall) (*acti
 		}, nil
 
 	case runCommandTool.Function.Name:
-		var params struct {
+		params, err := decodeArgs[struct {
 			Command string `json:"command"`
-		}
-		if err := json.Unmarshal(args, &params); err != nil {
-			return nil, fmt.Errorf("invalid arguments: %w", err)
+		}](call)
+		if err != nil {
+			return nil, err
 		}
 		return &action{
 			title: params.Command,
@@ -246,6 +251,15 @@ func (a *openAgent) parseTool(sess *session, tools []tool, call toolCall) (*acti
 		}, nil
 	}
 	panic("unreachable: every offered tool is handled")
+}
+
+// decodeArgs decodes the JSON arguments of a tool call.
+func decodeArgs[T any](call toolCall) (T, error) {
+	var args T
+	if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+		return args, fmt.Errorf("invalid arguments: %w", err)
+	}
+	return args, nil
 }
 
 func (a *openAgent) readFile(ctx context.Context, stream *acp1.SessionStream, path string, line, limit *uint32) (string, []acp1.ToolCallContent, error) {
@@ -277,7 +291,7 @@ func (a *openAgent) writeFile(ctx context.Context, stream *acp1.SessionStream, s
 	}
 	diff := []acp1.ToolCallContent{acp1.ToolDiff(path, oldText, content)}
 
-	if err := a.allow(ctx, stream, sess, id, "Write "+path, acp1.ToolKindEdit, diff, acp1.ToolCallLocation{Path: path}); err != nil {
+	if err := a.allow(ctx, stream, sess, id, diff...); err != nil {
 		return "", diff, err
 	}
 	if _, err := a.client.WriteTextFile(ctx, &acp1.WriteTextFileRequest{
@@ -293,7 +307,7 @@ func (a *openAgent) writeFile(ctx context.Context, stream *acp1.SessionStream, s
 // runCommand runs a shell command in a terminal the client owns and embeds
 // the terminal in the tool call, so the client shows the output as it runs.
 func (a *openAgent) runCommand(ctx context.Context, stream *acp1.SessionStream, sess *session, id acp1.ToolCallID, command string) (string, []acp1.ToolCallContent, error) {
-	if err := a.allow(ctx, stream, sess, id, command, acp1.ToolKindExecute, []acp1.ToolCallContent{acp1.ToolText(command)}); err != nil {
+	if err := a.allow(ctx, stream, sess, id, acp1.ToolText(command)); err != nil {
 		return "", nil, err
 	}
 
@@ -351,7 +365,9 @@ var errRejected = errors.New("the user rejected this")
 
 // allow asks the user whether the tool call may go ahead, showing content,
 // and returns errRejected if not. Auto mode allows everything without asking.
-func (a *openAgent) allow(ctx context.Context, stream *acp1.SessionStream, sess *session, id acp1.ToolCallID, title string, kind acp1.ToolKind, content []acp1.ToolCallContent, locations ...acp1.ToolCallLocation) error {
+// The client already has the tool call's title, kind and locations from its
+// start, so the request only adds the content.
+func (a *openAgent) allow(ctx context.Context, stream *acp1.SessionStream, sess *session, id acp1.ToolCallID, content ...acp1.ToolCallContent) error {
 	if sess.currentMode() == autoMode {
 		return nil
 	}
@@ -359,10 +375,7 @@ func (a *openAgent) allow(ctx context.Context, stream *acp1.SessionStream, sess 
 		SessionID: stream.SessionID(),
 		ToolCall: acp1.ToolCallUpdate{
 			ToolCallID: id,
-			Title:      &title,
-			Kind:       &kind,
 			Status:     new(acp1.ToolCallStatusPending),
-			Locations:  locations,
 			Content:    content,
 		},
 		Options: []acp1.PermissionOption{

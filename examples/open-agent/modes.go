@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acp1"
@@ -41,12 +42,10 @@ func (a *openAgent) SetSessionMode(_ context.Context, params *acp1.SetSessionMod
 	if err != nil {
 		return nil, err
 	}
-	if params.ModeID != askMode && params.ModeID != autoMode {
+	if !slices.ContainsFunc(modes, func(m acp1.SessionMode) bool { return m.ID == params.ModeID }) {
 		return nil, acp.ErrInvalidParams(fmt.Sprintf("unknown mode %q", params.ModeID))
 	}
-	sess.mu.Lock()
-	sess.mode = params.ModeID
-	sess.mu.Unlock()
+	sess.setMode(params.ModeID)
 	return &acp1.SetSessionModeResponse{}, nil
 }
 
@@ -54,4 +53,10 @@ func (s *session) currentMode() acp1.SessionModeID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.mode
+}
+
+func (s *session) setMode(mode acp1.SessionModeID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mode = mode
 }

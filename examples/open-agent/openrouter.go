@@ -174,16 +174,16 @@ func (c *openRouter) stream(ctx context.Context, messages []message, tools []too
 	for scanner.Scan() {
 		// Blank lines end events, and lines starting with ":" are comments,
 		// such as OpenRouter's ": OPENROUTER PROCESSING" keep-alive.
-		data, ok := strings.CutPrefix(scanner.Text(), "data:")
+		data, ok := bytes.CutPrefix(scanner.Bytes(), []byte("data:"))
 		if !ok {
 			continue
 		}
-		data = strings.TrimSpace(data)
-		if data == "[DONE]" {
+		data = bytes.TrimSpace(data)
+		if string(data) == "[DONE]" {
 			break
 		}
 		var event chunk
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
+		if err := json.Unmarshal(data, &event); err != nil {
 			return nil, fmt.Errorf("reading stream: %w", err)
 		}
 		if event.Error != nil {

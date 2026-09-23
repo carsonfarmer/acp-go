@@ -69,16 +69,12 @@ type openAgent struct {
 	client *acp1.AgentSideConnection
 	llm    *openRouter
 
-	// What the client can do for the agent, from its initialize request.
-	// The agent offers the model only the tools the client can run.
-	readFiles, writeFiles, terminal bool
+	// The tools offered to the model: only those the client can run.
+	tools []tool
 }
 
 func (a *openAgent) Initialize(_ context.Context, params *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
-	caps := params.GetClientCapabilities()
-	a.readFiles = caps.GetFS().GetReadTextFile()
-	a.writeFiles = caps.GetFS().GetWriteTextFile()
-	a.terminal = caps.GetTerminal()
+	a.tools = offeredTools(params)
 	return &acp1.InitializeResponse{
 		ProtocolVersion:   acp1.ProtocolVersion,
 		AgentCapabilities: acp1.CapabilitiesOf(a),
