@@ -40,7 +40,7 @@ var _ Client = (*AgentSideConnection)(nil)
 func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...acp.Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
-	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
+	c.conn = acpconn.NewAgentConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
 	return c
 }
 

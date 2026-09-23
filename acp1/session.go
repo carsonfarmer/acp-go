@@ -42,17 +42,25 @@ func (c *ClientSideConnection) Session(id SessionID) *ClientSession {
 	return &ClientSession{ID: id, conn: c}
 }
 
-// Prompt starts a turn and returns at once; the turn ends when the agent
-// answers the prompt. A v1 session runs one turn at a time, so Prompt fails
-// with [acp.ErrTurnInProgress] until the previous turn has ended. Cancelling ctx abandons the request; use
+// Prompt starts a turn and returns once the prompt is on its way; the turn
+// ends when the agent answers the prompt. A [ClientSession.Cancel] after
+// Prompt returns reaches the agent after the prompt. A v1 session runs one
+// turn at a time, so Prompt fails with [acp.ErrTurnInProgress] until the
+// previous turn has ended. Cancelling ctx abandons the request; use
 // [ClientSession.Cancel] to stop the turn the way the protocol intends.
 func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, error) {
 	t, err := s.conn.turns.Begin(s.ID)
 	if err != nil {
 		return nil, err
 	}
+	wait, err := acpconn.StartCall[PromptResponse](ctx, s.conn.conn, schema.AgentMethodsSessionPrompt,
+		&PromptRequest{SessionID: s.ID, Prompt: content})
+	if err != nil {
+		s.conn.turns.End(s.ID, t, nil, err)
+		return nil, err
+	}
 	go func() {
-		response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content})
+		response, err := wait()
 		s.conn.turns.End(s.ID, t, response, err)
 	}()
 	return &Turn{t: t}, nil

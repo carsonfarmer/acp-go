@@ -60,8 +60,9 @@ type wireMessage struct {
 type Connection struct {
 	transport Transport
 
-	request      RequestHandler
-	notification NotificationHandler
+	request        RequestHandler
+	notification   NotificationHandler
+	requestContext func(ctx context.Context, method string, params jsontext.Value) context.Context
 
 	pending  sync.Map // idKey -> *pendingResponse
 	incoming sync.Map // idKey -> context.CancelCauseFunc
@@ -100,6 +101,14 @@ func WithErrorHandler(h func(error)) Option {
 // WithMiddleware adds middleware to the incoming handler chain.
 func WithMiddleware(mw ...Middleware) Option {
 	return func(c *Connection) { c.middlewares = append(c.middlewares, mw...) }
+}
+
+// WithRequestContext sets a function that derives each incoming request's
+// context. It runs on the read loop in arrival order, before the request's
+// handler starts, so it sees every request before any message read after it;
+// it must not block.
+func WithRequestContext(fn func(ctx context.Context, method string, params jsontext.Value) context.Context) Option {
+	return func(c *Connection) { c.requestContext = fn }
 }
 
 // WithWriteQueueSize sets the outgoing queue depth. Default: 100.
@@ -269,7 +278,13 @@ func (c *Connection) readLoop() error {
 
 		switch {
 		case msg.Method != "" && len(msg.ID) > 0:
-			if !c.goUnlessClosed(&c.handlerWg, func() { c.handleRequest(msg) }) {
+			// The request's context is registered here rather than in its
+			// handler goroutine, so a cancellation read after the request
+			// always finds it.
+			ctx, cancel := c.acceptRequest(msg)
+			if !c.goUnlessClosed(&c.handlerWg, func() { c.handleRequest(ctx, cancel, msg) }) {
+				c.incoming.Delete(IDKey(msg.ID))
+				cancel(nil)
 				return c.ctx.Err()
 			}
 		case msg.Method != "":
@@ -342,12 +357,20 @@ func (c *Connection) trySend(msg wireMessage) {
 	}
 }
 
-func (c *Connection) handleRequest(msg wireMessage) {
-	key := IDKey(msg.ID)
+// acceptRequest creates an incoming request's context and registers it for
+// $/cancel_request.
+func (c *Connection) acceptRequest(msg wireMessage) (context.Context, context.CancelCauseFunc) {
 	ctx, cancel := context.WithCancelCause(c.ctx)
-	c.incoming.Store(key, cancel)
+	c.incoming.Store(IDKey(msg.ID), cancel)
+	if c.requestContext != nil {
+		ctx = c.requestContext(ctx, msg.Method, msg.Params)
+	}
+	return ctx, cancel
+}
+
+func (c *Connection) handleRequest(ctx context.Context, cancel context.CancelCauseFunc, msg wireMessage) {
 	defer func() {
-		c.incoming.Delete(key)
+		c.incoming.Delete(IDKey(msg.ID))
 		cancel(nil)
 	}()
 
@@ -485,21 +508,20 @@ func (c *Connection) failPending(err error) {
 // When ctx is cancelled the connection sends $/cancel_request for the
 // outstanding id and returns ctx.Err().
 func (c *Connection) SendRequest(ctx context.Context, method string, params any) (jsontext.Value, error) {
-	if c.requestTimeout > 0 {
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
-			defer cancel()
-		}
+	wait, err := c.StartRequest(ctx, method, params)
+	if err != nil {
+		return nil, err
 	}
+	return wait()
+}
 
-	id := jsontext.Value(strconv.FormatInt(c.nextRequestID.Add(1), 10))
-	key := IDKey(id)
-	pending := &pendingResponse{result: make(chan responseResult, 1)}
-	c.pending.Store(key, pending)
-	defer c.pending.Delete(key)
-
-	msg := wireMessage{ID: id, Method: method}
+// StartRequest sends a request and returns a function that waits for its
+// response. The request is queued before StartRequest returns, so a message
+// sent after it, such as a notification that refers to it, reaches the peer
+// after the request. Call wait exactly once; it waits as [Connection.SendRequest]
+// does.
+func (c *Connection) StartRequest(ctx context.Context, method string, params any) (wait func() (jsontext.Value, error), err error) {
+	msg := wireMessage{Method: method}
 	if params != nil {
 		data, err := json.Marshal(params)
 		if err != nil {
@@ -507,22 +529,39 @@ func (c *Connection) SendRequest(ctx context.Context, method string, params any)
 		}
 		msg.Params = data
 	}
+
+	cancel := context.CancelFunc(func() {})
+	if c.requestTimeout > 0 {
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			ctx, cancel = context.WithTimeout(ctx, c.requestTimeout)
+		}
+	}
+	msg.ID = jsontext.Value(strconv.FormatInt(c.nextRequestID.Add(1), 10))
+	key := IDKey(msg.ID)
+	pending := &pendingResponse{result: make(chan responseResult, 1)}
+	c.pending.Store(key, pending)
 	if err := c.send(msg); err != nil {
+		c.pending.Delete(key)
+		cancel()
 		return nil, err
 	}
 
-	select {
-	case result := <-pending.result:
-		if result.err != nil {
-			return nil, result.err
+	return func() (jsontext.Value, error) {
+		defer cancel()
+		defer c.pending.Delete(key)
+		select {
+		case result := <-pending.result:
+			if result.err != nil {
+				return nil, result.err
+			}
+			return result.data, nil
+		case <-ctx.Done():
+			c.sendCancelRequest(msg.ID)
+			return nil, ctx.Err()
+		case <-c.ctx.Done():
+			return nil, context.Cause(c.ctx)
 		}
-		return result.data, nil
-	case <-ctx.Done():
-		c.sendCancelRequest(id)
-		return nil, ctx.Err()
-	case <-c.ctx.Done():
-		return nil, context.Cause(c.ctx)
-	}
+	}, nil
 }
 
 // sendCancelRequest asks the peer to abandon an outstanding request. It is

@@ -3,6 +3,7 @@ package acp2_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp2"
@@ -197,5 +198,86 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 	}
 	if reason != schema.StopReasonEndTurn {
 		t.Fatalf("got %v", reason)
+	}
+}
+
+// lateJoinAgent starts its turn only after the client's session/cancel has
+// been handled, as an agent busy loading the session might.
+type lateJoinAgent struct {
+	*acp2.SessionManager[struct{}]
+	client     acp2.Client
+	received   chan struct{}
+	cancelSeen chan struct{}
+}
+
+func (*lateJoinAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
+	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion}, nil
+}
+
+func (a *lateJoinAgent) CancelSession(ctx context.Context, params *acp2.CancelSessionNotification) error {
+	defer close(a.cancelSeen)
+	return a.SessionManager.CancelSession(ctx, params)
+}
+
+func (a *lateJoinAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+	close(a.received)
+	<-a.cancelSeen
+	turn, done, _ := a.JoinTurn(ctx, params.SessionID)
+	stream := acp2.NewSessionStream(a.client, params.SessionID)
+	go func() {
+		defer done()
+		_ = stream.Running(turn)
+		reason := schema.StopReasonEndTurn
+		select {
+		case <-turn.Done():
+			if context.Cause(turn) == acp.ErrTurnCancelled {
+				reason = schema.StopReasonCancelled
+			}
+		case <-time.After(2 * time.Second):
+		}
+		_ = stream.Idle(context.Background(), reason)
+	}()
+	return &acp2.PromptResponse{MessageID: "user_1"}, nil
+}
+
+// TestCancelBeforeJoinTurnCancelsTheTurn has session/cancel arrive after the
+// prompt but before the agent starts its turn; the turn must still end as
+// cancelled.
+func TestCancelBeforeJoinTurnCancelsTheTurn(t *testing.T) {
+	agent := &lateJoinAgent{
+		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[struct{}](),
+			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, struct{}, error) {
+				return acp2.GenerateSessionID(), struct{}{}, nil
+			}),
+		received:   make(chan struct{}),
+		cancelSeen: make(chan struct{}),
+	}
+	_, conn := acp2.Pipe(t.Context(), func(c *acp2.AgentSideConnection) acp2.Agent {
+		agent.client = c
+		return agent
+	}, func(*acp2.ClientSideConnection) acp2.Client { return newTestClient() })
+
+	session, err := conn.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prompted := make(chan *acp2.Turn, 1)
+	go func() {
+		turn, _, err := session.Prompt(t.Context(), acp2.TextBlock("work"))
+		if err != nil {
+			t.Error(err)
+		}
+		prompted <- turn
+	}()
+	<-agent.received
+	if err := session.Cancel(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	turn := <-prompted
+	if turn == nil {
+		t.FailNow()
+	}
+	if reason, err := turn.Wait(); err != nil || reason != schema.StopReasonCancelled {
+		t.Fatalf("got %v %v, want cancelled", reason, err)
 	}
 }

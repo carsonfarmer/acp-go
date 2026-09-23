@@ -410,6 +410,11 @@ v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MC
 `(*Turn, MessageID, error)`를 돌려주며 진행 중인 턴에 합류하고, `SessionManager.JoinTurn`은 에이전트에게 진행 중인
 턴의 context를 넘겨줍니다.
 
+프롬프트 뒤에 보낸 `session/cancel`은 항상 그 프롬프트의 턴에 닿습니다. `ClientSession.Prompt`는 프롬프트를
+전송 대기열에 넣은 뒤에야 돌아오므로 그 뒤의 `Cancel`은 프롬프트 다음에 전송되고, 에이전트 핸들러가
+`BeginTurn`이나 `JoinTurn`을 부르기 전에 도착한 cancel도 그 턴을 `acp.ErrTurnCancelled`로 취소된 채 시작하게
+합니다.
+
 ## 예제
 
 완전한 작동 예제는 [examples](../examples/README.ko.md) 디렉토리를 참조하세요:

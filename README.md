@@ -467,6 +467,11 @@ time: `ClientSession.Prompt` and `SessionManager.BeginTurn` both refuse a second
 returns `(*Turn, MessageID, error)` once the message is accepted and joins the running turn, and
 `SessionManager.JoinTurn` hands the agent the running turn's context.
 
+A `session/cancel` sent after a prompt always reaches that prompt's turn. `ClientSession.Prompt`
+returns only once the prompt is queued, so a `Cancel` after it follows it on the wire, and a cancel
+that arrives before the agent's handler calls `BeginTurn` or `JoinTurn` still starts that turn
+cancelled with `acp.ErrTurnCancelled`.
+
 ## Contributing
 
 This is an unofficial implementation. For protocol specification changes, please contribute to the [official repository](https://github.com/zed-industries/agent-client-protocol).

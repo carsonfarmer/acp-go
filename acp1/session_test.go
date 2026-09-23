@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
@@ -139,5 +140,75 @@ func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
 	response, err := turn.Wait()
 	if err != nil || response.StopReason != schema.StopReasonCancelled {
 		t.Fatalf("got %+v %v", response, err)
+	}
+}
+
+// slowStartAgent does a little work, as a store lookup would, before it
+// starts the turn, then waits briefly for a cancel.
+type slowStartAgent struct {
+	*acp1.SessionManager[struct{}]
+}
+
+func (slowStartAgent) Initialize(context.Context, *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
+	return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion}, nil
+}
+
+func (a slowStartAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
+	time.Sleep(time.Millisecond)
+	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	select {
+	case <-ctx.Done():
+		if context.Cause(ctx) == acp.ErrTurnCancelled {
+			return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+		}
+		return nil, ctx.Err()
+	case <-time.After(100 * time.Millisecond):
+		return &acp1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+	}
+}
+
+// TestCancelRightAfterPromptCancelsTheTurn sends session/cancel as soon as
+// Prompt returns, before the agent has started the turn. The cancel follows
+// the prompt, so it must still end that turn as cancelled, while a cancel
+// sent with no prompt outstanding must not affect the next turn.
+func TestCancelRightAfterPromptCancelsTheTurn(t *testing.T) {
+	agent := slowStartAgent{acp1.NewSessionManager(acp1.NewMemoryStore[struct{}](),
+		func(context.Context, *acp1.NewSessionRequest) (acp1.SessionID, struct{}, error) {
+			return acp1.GenerateSessionID(), struct{}{}, nil
+		})}
+	_, conn := acp1.Pipe(t.Context(), func(*acp1.AgentSideConnection) acp1.Agent { return agent },
+		func(*acp1.ClientSideConnection) acp1.Client { return newTestClient() })
+	session, err := conn.StartSession(t.Context(), &acp1.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := range 20 {
+		turn, err := session.Prompt(t.Context(), acp1.TextBlock("work"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := session.Cancel(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		response, err := turn.Wait()
+		if err != nil || response.StopReason != schema.StopReasonCancelled {
+			t.Fatalf("turn %d: got %+v %v, want cancelled", i, response, err)
+		}
+	}
+
+	if err := session.Cancel(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	turn, err := session.Prompt(t.Context(), acp1.TextBlock("work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response, err := turn.Wait(); err != nil || response.StopReason != schema.StopReasonEndTurn {
+		t.Fatalf("turn after a stray cancel: got %+v %v, want end_turn", response, err)
 	}
 }

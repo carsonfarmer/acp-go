@@ -64,6 +64,23 @@ func Call[R any](ctx context.Context, conn *jsonrpc.Connection, method string, p
 	return DecodeResult[R](raw)
 }
 
+// StartCall sends a request like [Call] but returns once it is queued, with a
+// function that waits for and decodes the response. A message sent after
+// StartCall returns reaches the peer after the request.
+func StartCall[R any](ctx context.Context, conn *jsonrpc.Connection, method string, params any) (func() (*R, error), error) {
+	wait, err := conn.StartRequest(ctx, method, params)
+	if err != nil {
+		return nil, err
+	}
+	return func() (*R, error) {
+		raw, err := wait()
+		if err != nil {
+			return nil, err
+		}
+		return DecodeResult[R](raw)
+	}, nil
+}
+
 // DecodeResult decodes a response result, treating null or empty as the zero
 // value.
 func DecodeResult[R any](raw jsontext.Value) (*R, error) {
