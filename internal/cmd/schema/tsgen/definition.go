@@ -230,6 +230,9 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 				}
 				merged := &tsdef.Type{Kind: tsdef.KindObject, Fields: append([]tsdef.Field(nil), base.Fields...), Element: base.Element}
 				if a.Element != nil {
+					if merged.Element != nil && !reflect.DeepEqual(merged.Element, a.Element) {
+						return nil, fmt.Errorf("intersection merges conflicting index signatures")
+					}
 					merged.Element = a.Element
 				}
 				for _, f := range a.Fields {
@@ -238,13 +241,14 @@ func (g *generator) expand(t *tsdef.Type, seen map[string]bool) (*tsdef.Type, er
 						if old.Name == f.Name {
 							found = true
 							f.Optional = f.Optional && old.Optional
-							if !reflect.DeepEqual(f.Type, old.Type) {
-								if f.Type.Kind == tsdef.KindLiteral && old.Type.Kind == tsdef.KindString {
-								} else if old.Type.Kind == tsdef.KindLiteral && f.Type.Kind == tsdef.KindString {
-									f.Type = old.Type
-								} else {
-									return nil, fmt.Errorf("unsupported intersection for property %s", f.Name)
-								}
+							// A literal narrows a string: the literal is kept.
+							switch {
+							case reflect.DeepEqual(f.Type, old.Type):
+							case f.Type.Kind == tsdef.KindLiteral && old.Type.Kind == tsdef.KindString:
+							case old.Type.Kind == tsdef.KindLiteral && f.Type.Kind == tsdef.KindString:
+								f.Type = old.Type
+							default:
+								return nil, fmt.Errorf("unsupported intersection for property %s", f.Name)
 							}
 							merged.Fields[i] = f
 							break

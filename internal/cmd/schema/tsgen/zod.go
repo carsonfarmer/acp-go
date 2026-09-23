@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -42,17 +41,12 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 	if len(schema.Validators) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(schema.Validators))
-	for k := range schema.Validators {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 	type entry struct {
 		key  string
 		rule *tsdef.Zod
 	}
 	var entries []entry
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(schema.Validators)) {
 		z := schema.Validators[k]
 		if open, ok := g.openTags[Name(strings.TrimPrefix(k, "z"))]; ok {
 			z = &tsdef.Zod{Kind: "openTags", Tag: open.tag, Tags: open.values, Inner: z}
@@ -61,7 +55,7 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 	}
 
 	defs := append([]tsdef.Definition(nil), schema.Types...)
-	sort.Slice(defs, func(i, j int) bool { return defs[i].Name < defs[j].Name })
+	slices.SortFunc(defs, func(a, b tsdef.Definition) int { return strings.Compare(a.Name, b.Name) })
 	var types, unmarshalers []string
 	register := func(goName, key string) {
 		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", goName, key))

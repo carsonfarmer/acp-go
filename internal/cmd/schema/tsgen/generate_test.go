@@ -118,7 +118,7 @@ func TestNoNumberedTypes(t *testing.T) {
 }
 
 func TestGenerationErrors(t *testing.T) {
-	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type NewX = string;`, `export type X = string | number; export type XAlternative = string;`} {
+	for _, source := range []string{`export type X = Missing;`, `export type X = { url: string; URL: number; };`, `export type X = {a:string} & {a:number};`, `export type X = {a:string; [k: string]: string} & {b:string; [k: string]: number};`, `export type State = "ready"; export type StateReady = string;`, `export type X = string | number; export type NewX = string;`, `export type X = string | number; export type XAlternative = string;`} {
 		s, err := tsdef.Parse("fixture.ts", []byte(source))
 		if err != nil {
 			t.Fatal(err)

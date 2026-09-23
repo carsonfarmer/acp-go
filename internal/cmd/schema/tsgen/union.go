@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -766,7 +765,7 @@ func (g *generator) altRule(expanded *tsdef.Type) string {
 			parts = append(parts, "NotNull: []string{"+strings.Join(notNull, ", ")+"}")
 		}
 		if len(tags) > 0 {
-			sort.Strings(tags)
+			slices.Sort(tags)
 			parts = append(parts, "Tags: []union.Tag{"+strings.Join(tags, ", ")+"}")
 		}
 	}
