@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 		_ = acp1.NewAgentSideConnection(newV1, acp.NewStdioTransport(os.Stdin, os.Stdout)).Start(ctx)
 		os.Exit(0)
 	case "both":
-		_ = router.New().WithV1(newV1).WithV2(newV2).ServeStdio(ctx, os.Stdin, os.Stdout)
+		_ = router.New().WithV1(newV1).WithV2(newV2).Serve(ctx, acp.NewStdioTransport(os.Stdin, os.Stdout))
 		os.Exit(0)
 	}
 	os.Exit(m.Run())

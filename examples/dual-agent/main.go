@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 
+	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
 	"github.com/ironpark/acp-go/acp2"
 	"github.com/ironpark/acp-go/router"
@@ -24,7 +25,7 @@ func main() {
 	r := router.New().
 		WithV1(func(c *acp1.AgentSideConnection) acp1.Agent { return &v1Agent{client: c} }).
 		WithV2(func(c *acp2.AgentSideConnection) acp2.Agent { return newV2Agent(c) })
-	if err := r.ServeStdio(context.Background(), os.Stdin, os.Stdout); err != nil {
+	if err := r.Serve(context.Background(), acp.NewStdioTransport(os.Stdin, os.Stdout)); err != nil {
 		log.Fatal(err)
 	}
 }

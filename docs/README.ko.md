@@ -173,7 +173,7 @@ trace, ok, err := params.Meta.Get[Trace]("trace")
 r := router.New().
     WithV1(func(c *acp1.AgentSideConnection) acp1.Agent { return &v1Agent{client: c} }).
     WithV2(func(c *acp2.AgentSideConnection) acp2.Agent { return &v2Agent{client: c} })
-err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
+err := r.Serve(ctx, acp.NewStdioTransport(os.Stdin, os.Stdout))
 ```
 
 라우터는 첫 메시지(`initialize`여야 함)를 읽어 요청 버전 이하 중 가장 높은 설정 버전을 고르고,

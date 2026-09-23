@@ -175,7 +175,7 @@ trace, ok, err := params.Meta.Get[Trace]("trace")
 r := router.New().
     WithV1(func(c *acp1.AgentSideConnection) acp1.Agent { return &v1Agent{client: c} }).
     WithV2(func(c *acp2.AgentSideConnection) acp2.Agent { return &v2Agent{client: c} })
-err := r.ServeStdio(ctx, os.Stdin, os.Stdout)
+err := r.Serve(ctx, acp.NewStdioTransport(os.Stdin, os.Stdout))
 ```
 
 The router reads the first message, which must be `initialize`, picks the highest configured

@@ -57,11 +57,6 @@ func (r *ProtocolRouter) WithV2(newAgent func(*acp2.AgentSideConnection) acp2.Ag
 	return r
 }
 
-// ServeStdio serves one connection over newline-delimited JSON.
-func (r *ProtocolRouter) ServeStdio(ctx context.Context, reader io.Reader, writer io.Writer, opts ...acp.Option) error {
-	return r.Serve(ctx, acp.NewStdioTransport(reader, writer), opts...)
-}
-
 // Serve routes one connection and runs it until the peer disconnects or ctx
 // is cancelled. opts configure whichever façade is selected.
 func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opts ...acp.Option) error {

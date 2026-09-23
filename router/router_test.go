@@ -67,7 +67,7 @@ func serve(t *testing.T, r *router.ProtocolRouter) *peer {
 	clientIn, agentOut := io.Pipe()
 	p := &peer{t: t, out: clientOut, in: bufio.NewReader(clientIn), served: make(chan error, 1)}
 	ctx, cancel := context.WithCancel(t.Context())
-	go func() { p.served <- r.ServeStdio(ctx, agentIn, agentOut) }()
+	go func() { p.served <- r.Serve(ctx, acp.NewStdioTransport(agentIn, agentOut)) }()
 	t.Cleanup(func() {
 		cancel()
 		_ = clientOut.Close()
