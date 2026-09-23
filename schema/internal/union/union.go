@@ -9,6 +9,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/ironpark/acp-go/schema/internal/zod"
 )
@@ -143,6 +144,103 @@ func New[T any](union string, rules Rules, value T) (jsontext.Value, error) {
 		return raw, nil
 	}
 	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
+}
+
+// tagReader is a pooled decoder for ReadTag, reset onto each payload.
+type tagReader struct {
+	buf bytes.Buffer
+	dec jsontext.Decoder
+}
+
+var tagReaders = sync.Pool{New: func() any { return new(tagReader) }}
+
+// maxPooledTag is the largest buffer a tagReader returns to the pool with.
+const maxPooledTag = 64 << 10
+
+// ReadTag reads the string discriminator member tag of the JSON object raw
+// without decoding the other members. present is false when the member is
+// absent or null; any other non-string value is an error. Every member is
+// still scanned, so duplicate names are rejected unless opts allow them, and
+// then the last one wins, as when unmarshaling.
+func ReadTag(raw jsontext.Value, tag string, opts ...jsontext.Options) (value string, present bool, err error) {
+	r := tagReaders.Get().(*tagReader)
+	defer func() {
+		if r.buf.Cap() > maxPooledTag {
+			return // keep one large payload from pinning its buffer
+		}
+		r.buf.Reset()
+		r.dec.Reset(&r.buf)
+		tagReaders.Put(r)
+	}()
+	// Only the options that change how the object scans are passed on:
+	// options from a decoder inside an unmarshal call would forbid Reset.
+	var dup, invalid bool
+	for _, o := range opts {
+		if v, ok := json.GetOption(o, jsontext.AllowDuplicateNames); ok {
+			dup = v
+		}
+		if v, ok := json.GetOption(o, jsontext.AllowInvalidUTF8); ok {
+			invalid = v
+		}
+	}
+	r.buf.Write(raw)
+	r.dec.Reset(&r.buf, jsontext.AllowDuplicateNames(dup), jsontext.AllowInvalidUTF8(invalid))
+	dec := &r.dec
+	if tok, err := dec.ReadToken(); err != nil {
+		return "", false, err
+	} else if tok.Kind() != '{' {
+		return "", false, fmt.Errorf("expected object, got %s", tok.Kind())
+	}
+	for dec.PeekKind() != '}' {
+		name, err := dec.ReadValue()
+		if err != nil {
+			return "", false, err
+		}
+		if !isName(name, tag) {
+			if err := dec.SkipValue(); err != nil {
+				return "", false, err
+			}
+			continue
+		}
+		member, err := dec.ReadValue()
+		if err != nil {
+			return "", false, err
+		}
+		switch member.Kind() {
+		case 'n':
+			value, present = "", false
+		case '"':
+			if value, err = unquote(member); err != nil {
+				return "", false, err
+			}
+			present = true
+		default:
+			return "", false, fmt.Errorf("member %q: expected string, got %s", tag, member.Kind())
+		}
+	}
+	if _, err := dec.ReadToken(); err != nil {
+		return "", false, err
+	}
+	return value, present, nil
+}
+
+// isName reports whether the quoted member name is name, without allocating
+// unless the name is escaped.
+func isName(quoted jsontext.Value, name string) bool {
+	if bytes.IndexByte(quoted, '\\') < 0 {
+		return string(quoted[1:len(quoted)-1]) == name
+	}
+	unquoted, err := unquote(quoted)
+	return err == nil && unquoted == name
+}
+
+// unquote decodes a JSON string the decoder has already validated.
+func unquote(quoted jsontext.Value) (string, error) {
+	if bytes.IndexByte(quoted, '\\') < 0 {
+		return string(quoted[1 : len(quoted)-1]), nil
+	}
+	b, err := jsontext.AppendUnquote(nil, quoted)
+	return string(b), err
 }
 
 // SpliceTag writes payload as an object with the discriminator as its first member.

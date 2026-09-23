@@ -66,3 +66,31 @@ func TestSpliceTag(t *testing.T) {
 		t.Fatal("wrong discriminator accepted")
 	}
 }
+
+func TestReadTag(t *testing.T) {
+	cases := []struct {
+		raw     string
+		value   string
+		present bool
+		fails   bool
+	}{
+		{raw: `{"a":{"type":"x"},"type":"text","b":[1]}`, value: "text", present: true},
+		{raw: `{"a":1}`},
+		{raw: `{"type":null}`},
+		{raw: `{"type":"text"}`, value: "text", present: true},
+		{raw: `{"type":1}`, fails: true},
+		{raw: `{"type":"a","type":"b"}`, fails: true},
+		{raw: `[]`, fails: true},
+		{raw: `{"type":"a",}`, fails: true},
+	}
+	for _, c := range cases {
+		value, present, err := ReadTag(jsontext.Value(c.raw), "type")
+		if (err != nil) != c.fails || value != c.value || present != c.present {
+			t.Errorf("ReadTag(%s) = %q, %v, %v; want %q, %v, fails %v", c.raw, value, present, err, c.value, c.present, c.fails)
+		}
+	}
+	value, _, err := ReadTag(jsontext.Value(`{"type":"a","type":"b"}`), "type", jsontext.AllowDuplicateNames(true))
+	if err != nil || value != "b" {
+		t.Errorf("duplicate names allowed: got %q, %v; want the last one", value, err)
+	}
+}

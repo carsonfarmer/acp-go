@@ -76,13 +76,11 @@ func unmarshalRequestPermissionSubjectVariant(dec *jsontext.Decoder, out *Reques
 	if raw.Kind() != '{' {
 		return fmt.Errorf("RequestPermissionSubject: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("RequestPermissionSubject: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "tool_call":
 		var v RequestPermissionSubjectToolCall
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -269,13 +267,11 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ToolCallContent: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ToolCallContent: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "content":
 		var v ToolCallContentContent
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -529,13 +525,11 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ContentBlock: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ContentBlock: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "text":
 		var v ContentBlockText
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -924,13 +918,11 @@ func unmarshalDiffChangeVariant(dec *jsontext.Decoder, out *DiffChangeVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("DiffChange: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"operation"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "operation", dec.Options())
+	if err != nil {
 		return fmt.Errorf("DiffChange: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "add":
 		var v DiffChangeAdd
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1350,13 +1342,11 @@ func unmarshalElicitationPropertySchemaVariant(dec *jsontext.Decoder, out *Elici
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ElicitationPropertySchema: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ElicitationPropertySchema: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "string":
 		var v ElicitationPropertySchemaString
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1777,13 +1767,11 @@ func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectIte
 	if raw.Kind() != '{' {
 		return fmt.Errorf("MultiSelectItems: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag *string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("MultiSelectItems: %w", err)
 	}
-	if probe.Tag == nil {
+	if !present {
 		var v TitledMultiSelectItems
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
@@ -1791,7 +1779,7 @@ func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectIte
 		*out = v
 		return nil
 	}
-	switch *probe.Tag {
+	switch tag {
 	case "string":
 		var v MultiSelectItemsString
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2033,13 +2021,11 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("AuthMethod: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("AuthMethod: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "terminal":
 		var v AuthMethodTerminal
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2247,13 +2233,11 @@ func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConf
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionConfigOption: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SessionConfigOption: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "select":
 		var v SessionConfigOptionSelect
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2502,13 +2486,11 @@ func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("NesSuggestion: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"kind"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "kind", dec.Options())
+	if err != nil {
 		return fmt.Errorf("NesSuggestion: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "edit":
 		var v NesSuggestionEdit
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2802,13 +2784,11 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionUpdate: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"sessionUpdate"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "sessionUpdate", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SessionUpdate: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "user_message_chunk":
 		var v SessionUpdateUserMessageChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -3918,13 +3898,11 @@ func unmarshalStateUpdateVariant(dec *jsontext.Decoder, out *StateUpdateVariant)
 	if raw.Kind() != '{' {
 		return fmt.Errorf("StateUpdate: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"state"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "state", dec.Options())
+	if err != nil {
 		return fmt.Errorf("StateUpdate: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "running":
 		var v StateUpdateRunning
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -4153,13 +4131,11 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 	if raw.Kind() != '{' {
 		return fmt.Errorf("PlanUpdateContent: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("PlanUpdateContent: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "items":
 		var v PlanUpdateContentItems
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -4397,13 +4373,11 @@ func unmarshalAvailableCommandInputVariant(dec *jsontext.Decoder, out *Available
 	if raw.Kind() != '{' {
 		return fmt.Errorf("AvailableCommandInput: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("AvailableCommandInput: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "text":
 		var v AvailableCommandInputText
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -4540,13 +4514,11 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 	if raw.Kind() != '{' {
 		return fmt.Errorf("MCPServer: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("MCPServer: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "http":
 		var v MCPServerHTTP
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -4786,13 +4758,11 @@ func unmarshalReplayFromVariant(dec *jsontext.Decoder, out *ReplayFromVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ReplayFrom: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ReplayFrom: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "start":
 		var v ReplayFromStart
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -4928,13 +4898,11 @@ func unmarshalSetSessionConfigOptionRequestVariant(dec *jsontext.Decoder, out *S
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SetSessionConfigOptionRequest: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SetSessionConfigOptionRequest: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "id":
 		var v SetSessionConfigOptionRequestID
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -5126,13 +5094,11 @@ func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *Reques
 	if raw.Kind() != '{' {
 		return fmt.Errorf("RequestPermissionOutcome: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"outcome"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "outcome", dec.Options())
+	if err != nil {
 		return fmt.Errorf("RequestPermissionOutcome: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "cancelled":
 		var v RequestPermissionOutcomeCancelled
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -5308,13 +5274,11 @@ func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *Creat
 	if raw.Kind() != '{' {
 		return fmt.Errorf("CreateElicitationResponse: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"action"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "action", dec.Options())
+	if err != nil {
 		return fmt.Errorf("CreateElicitationResponse: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "accept":
 		var v CreateElicitationResponseAccept
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {

@@ -345,19 +345,14 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	decode := func(variant string) string {
 		return fmt.Sprintf("var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variant)
 	}
-	tagExpr := "probe.Tag"
 	if defaultIndex >= 0 {
-		// A missing tag selects the default variant, so the probe tells absent from empty.
-		g.write("var probe struct{ Tag *string `json:%q` }\n", tag)
-		tagExpr = "*probe.Tag"
+		// A missing tag selects the default variant, so absent is told from empty.
+		g.write("tag, present, err := union.ReadTag(raw, %q, dec.Options()); if err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", tag, name)
+		g.write("if !present { %sreturn nil }\n", decode(variantNames[defaultIndex]))
 	} else {
-		g.write("var probe struct{ Tag string `json:%q` }\n", tag)
+		g.write("tag, _, err := union.ReadTag(raw, %q, dec.Options()); if err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", tag, name)
 	}
-	g.write("if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", name)
-	if defaultIndex >= 0 {
-		g.write("if probe.Tag == nil { %sreturn nil }\n", decode(variantNames[defaultIndex]))
-	}
-	g.write("switch %s {\n", tagExpr)
+	g.write("switch tag {\n")
 	for i, m := range members {
 		if m.kind == memberLiteral || m.kind == memberNested {
 			g.write("case %s: %s", m.value, decode(variantNames[i]))
@@ -380,7 +375,7 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 		g.write("type %s struct { Raw jsontext.Value }\n", unknown)
 		g.write("func (%s) %s() {}\n", unknown, marker)
 		g.write("// Tag returns the %q member of Raw.\n", tag)
-		g.write("func (v %s) Tag() string { var p struct{ Tag string `json:%q` }; _ = json.Unmarshal(v.Raw, &p); return p.Tag }\n", unknown, tag)
+		g.write("func (v %s) Tag() string { tag, _, _ := union.ReadTag(v.Raw, %q); return tag }\n", unknown, tag)
 		g.write("%s", marshalDoc)
 		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return enc.WriteValue(v.Raw) }\n", unknown)
 	}

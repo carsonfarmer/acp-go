@@ -76,13 +76,11 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ToolCallContent: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ToolCallContent: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "content":
 		var v ToolCallContentContent
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -114,13 +112,7 @@ type ToolCallContentUnknown struct{ Raw jsontext.Value }
 func (ToolCallContentUnknown) toolCallContentVariant() {}
 
 // Tag returns the "type" member of Raw.
-func (v ToolCallContentUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"type"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
-}
+func (v ToolCallContentUnknown) Tag() string { tag, _, _ := union.ReadTag(v.Raw, "type"); return tag }
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ToolCallContentUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -331,13 +323,11 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ContentBlock: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ContentBlock: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "text":
 		var v ContentBlockText
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -381,13 +371,7 @@ type ContentBlockUnknown struct{ Raw jsontext.Value }
 func (ContentBlockUnknown) contentBlockVariant() {}
 
 // Tag returns the "type" member of Raw.
-func (v ContentBlockUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"type"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
-}
+func (v ContentBlockUnknown) Tag() string { tag, _, _ := union.ReadTag(v.Raw, "type"); return tag }
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ContentBlockUnknown) MarshalJSONTo(enc *jsontext.Encoder) error { return enc.WriteValue(v.Raw) }
@@ -790,13 +774,11 @@ func unmarshalElicitationPropertySchemaVariant(dec *jsontext.Decoder, out *Elici
 	if raw.Kind() != '{' {
 		return fmt.Errorf("ElicitationPropertySchema: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("ElicitationPropertySchema: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "string":
 		var v ElicitationPropertySchemaString
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1215,13 +1197,11 @@ func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectIte
 	if raw.Kind() != '{' {
 		return fmt.Errorf("MultiSelectItems: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag *string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("MultiSelectItems: %w", err)
 	}
-	if probe.Tag == nil {
+	if !present {
 		var v TitledMultiSelectItems
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
@@ -1229,7 +1209,7 @@ func unmarshalMultiSelectItemsVariant(dec *jsontext.Decoder, out *MultiSelectIte
 		*out = v
 		return nil
 	}
-	switch *probe.Tag {
+	switch tag {
 	case "string":
 		var v MultiSelectItemsString
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1472,13 +1452,11 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 	if raw.Kind() != '{' {
 		return fmt.Errorf("AuthMethod: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag *string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("AuthMethod: %w", err)
 	}
-	if probe.Tag == nil {
+	if !present {
 		var v AuthMethodAgent
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
@@ -1486,7 +1464,7 @@ func unmarshalAuthMethodVariant(dec *jsontext.Decoder, out *AuthMethodVariant) e
 		*out = v
 		return nil
 	}
-	switch *probe.Tag {
+	switch tag {
 	case "terminal":
 		var v AuthMethodTerminal
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1625,13 +1603,11 @@ func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConf
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionConfigOption: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SessionConfigOption: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "select":
 		var v SessionConfigOptionSelect
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1658,11 +1634,8 @@ func (SessionConfigOptionUnknown) sessionConfigOptionVariant() {}
 
 // Tag returns the "type" member of Raw.
 func (v SessionConfigOptionUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"type"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
+	tag, _, _ := union.ReadTag(v.Raw, "type")
+	return tag
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -1871,13 +1844,11 @@ func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("NesSuggestion: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"kind"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "kind", dec.Options())
+	if err != nil {
 		return fmt.Errorf("NesSuggestion: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "edit":
 		var v NesSuggestionEdit
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -1915,13 +1886,7 @@ type NesSuggestionUnknown struct{ Raw jsontext.Value }
 func (NesSuggestionUnknown) nesSuggestionVariant() {}
 
 // Tag returns the "kind" member of Raw.
-func (v NesSuggestionUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"kind"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
-}
+func (v NesSuggestionUnknown) Tag() string { tag, _, _ := union.ReadTag(v.Raw, "kind"); return tag }
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v NesSuggestionUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -2169,13 +2134,11 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SessionUpdate: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"sessionUpdate"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "sessionUpdate", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SessionUpdate: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "user_message_chunk":
 		var v SessionUpdateUserMessageChunk
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -2286,11 +2249,8 @@ func (SessionUpdateUnknown) sessionUpdateVariant() {}
 
 // Tag returns the "sessionUpdate" member of Raw.
 func (v SessionUpdateUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"sessionUpdate"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
+	tag, _, _ := union.ReadTag(v.Raw, "sessionUpdate")
+	return tag
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3100,13 +3060,11 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 	if raw.Kind() != '{' {
 		return fmt.Errorf("PlanUpdateContent: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("PlanUpdateContent: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "items":
 		var v PlanUpdateContentItems
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -3138,13 +3096,7 @@ type PlanUpdateContentUnknown struct{ Raw jsontext.Value }
 func (PlanUpdateContentUnknown) planUpdateContentVariant() {}
 
 // Tag returns the "type" member of Raw.
-func (v PlanUpdateContentUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"type"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
-}
+func (v PlanUpdateContentUnknown) Tag() string { tag, _, _ := union.ReadTag(v.Raw, "type"); return tag }
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v PlanUpdateContentUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -3346,13 +3298,11 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 	if raw.Kind() != '{' {
 		return fmt.Errorf("MCPServer: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag *string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("MCPServer: %w", err)
 	}
-	if probe.Tag == nil {
+	if !present {
 		var v MCPServerStdio
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
@@ -3360,7 +3310,7 @@ func unmarshalMCPServerVariant(dec *jsontext.Decoder, out *MCPServerVariant) err
 		*out = v
 		return nil
 	}
-	switch *probe.Tag {
+	switch tag {
 	case "http":
 		var v MCPServerHTTP
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -3592,13 +3542,11 @@ func unmarshalSetSessionConfigOptionRequestVariant(dec *jsontext.Decoder, out *S
 	if raw.Kind() != '{' {
 		return fmt.Errorf("SetSessionConfigOptionRequest: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag *string `json:"type"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, present, err := union.ReadTag(raw, "type", dec.Options())
+	if err != nil {
 		return fmt.Errorf("SetSessionConfigOptionRequest: %w", err)
 	}
-	if probe.Tag == nil {
+	if !present {
 		var v SetSessionConfigOptionRequestUntagged
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
 			return err
@@ -3606,7 +3554,7 @@ func unmarshalSetSessionConfigOptionRequestVariant(dec *jsontext.Decoder, out *S
 		*out = v
 		return nil
 	}
-	switch *probe.Tag {
+	switch tag {
 	case "boolean":
 		var v SetSessionConfigOptionRequestBoolean
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -3745,13 +3693,11 @@ func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *Reques
 	if raw.Kind() != '{' {
 		return fmt.Errorf("RequestPermissionOutcome: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"outcome"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "outcome", dec.Options())
+	if err != nil {
 		return fmt.Errorf("RequestPermissionOutcome: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "cancelled":
 		var v RequestPermissionOutcomeCancelled
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
@@ -3778,11 +3724,8 @@ func (RequestPermissionOutcomeUnknown) requestPermissionOutcomeVariant() {}
 
 // Tag returns the "outcome" member of Raw.
 func (v RequestPermissionOutcomeUnknown) Tag() string {
-	var p struct {
-		Tag string `json:"outcome"`
-	}
-	_ = json.Unmarshal(v.Raw, &p)
-	return p.Tag
+	tag, _, _ := union.ReadTag(v.Raw, "outcome")
+	return tag
 }
 
 // MarshalJSONTo implements [json.MarshalerTo].
@@ -3927,13 +3870,11 @@ func unmarshalCreateElicitationResponseVariant(dec *jsontext.Decoder, out *Creat
 	if raw.Kind() != '{' {
 		return fmt.Errorf("CreateElicitationResponse: expected object, got %s", raw.Kind())
 	}
-	var probe struct {
-		Tag string `json:"action"`
-	}
-	if err := json.Unmarshal(raw, &probe, json.JoinOptions(dec.Options(), json.RejectUnknownMembers(false))); err != nil {
+	tag, _, err := union.ReadTag(raw, "action", dec.Options())
+	if err != nil {
 		return fmt.Errorf("CreateElicitationResponse: %w", err)
 	}
-	switch probe.Tag {
+	switch tag {
 	case "accept":
 		var v CreateElicitationResponseAccept
 		if err := json.Unmarshal(raw, &v, dec.Options()); err != nil {
