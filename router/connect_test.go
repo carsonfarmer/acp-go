@@ -66,7 +66,7 @@ func TestConnectPrefersV2(t *testing.T) {
 		WithV2(func(*acp2.AgentSideConnection) acp2.Agent {
 			return &v2Agent{initialized: make(chan *acp2.InitializeRequest, 1)}
 		})
-	url, connections := remoteAgent(t, func(ctx context.Context, tr acp.Transport) error { return r.Serve(ctx, tr) })
+	url, connections := remoteAgent(t, r.Serve)
 
 	connectEach(t, url, connections, 1, func(t *testing.T, agent *router.Agent) {
 		if agent.V2 == nil || agent.V2Init.ProtocolVersion != 2 {

@@ -38,12 +38,14 @@ const (
 
 // ProtocolRouter routes each connection to a v1 or v2 agent implementation.
 type ProtocolRouter struct {
-	v1 func(*acp1.AgentSideConnection) acp1.Agent
-	v2 func(*acp2.AgentSideConnection) acp2.Agent
+	v1   func(*acp1.AgentSideConnection) acp1.Agent
+	v2   func(*acp2.AgentSideConnection) acp2.Agent
+	opts []acp.Option
 }
 
-// New creates a router with no protocol versions configured.
-func New() *ProtocolRouter { return &ProtocolRouter{} }
+// New creates a router with no protocol versions configured. opts configure
+// the connection of whichever façade a client is routed to.
+func New(opts ...acp.Option) *ProtocolRouter { return &ProtocolRouter{opts: opts} }
 
 // WithV1 configures the ACP v1 agent implementation.
 func (r *ProtocolRouter) WithV1(newAgent func(*acp1.AgentSideConnection) acp1.Agent) *ProtocolRouter {
@@ -58,8 +60,11 @@ func (r *ProtocolRouter) WithV2(newAgent func(*acp2.AgentSideConnection) acp2.Ag
 }
 
 // Serve routes one connection and runs it until the peer disconnects or ctx
-// is cancelled. opts configure whichever façade is selected.
-func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opts ...acp.Option) error {
+// is cancelled. Its signature is the one [acphttp.NewServer] takes, so an
+// HTTP endpoint serves both versions with acphttp.NewServer(r.Serve).
+//
+// [acphttp.NewServer]: https://pkg.go.dev/github.com/ironpark/acp-go/acphttp#NewServer
+func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport) error {
 	first, err := readFirst(ctx, transport)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -109,9 +114,9 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 	routed := &replayTransport{first: rewritten, Transport: transport}
 	switch selected {
 	case 2:
-		return acp2.NewAgentSideConnection(r.v2, routed, opts...).Start(ctx)
+		return acp2.NewAgentSideConnection(r.v2, routed, r.opts...).Start(ctx)
 	default:
-		return acp1.NewAgentSideConnection(r.v1, routed, opts...).Start(ctx)
+		return acp1.NewAgentSideConnection(r.v1, routed, r.opts...).Start(ctx)
 	}
 }
 

@@ -39,10 +39,10 @@ const (
 //	})
 //	http.Handle("/acp", server)
 //
-// For an agent that speaks several protocol versions, serve can hand the
-// transport to a router.ProtocolRouter:
+// For an agent that speaks several protocol versions, serve can be a
+// router.ProtocolRouter's Serve:
 //
-//	acphttp.NewServer(func(ctx context.Context, t acp.Transport) error { return r.Serve(ctx, t) })
+//	acphttp.NewServer(r.Serve)
 //
 // ctx is cancelled when the client deletes the connection or the server
 // closes.

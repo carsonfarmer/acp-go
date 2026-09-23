@@ -320,3 +320,24 @@ func TestBatchIsRejected(t *testing.T) {
 		t.Errorf("code = %d", code)
 	}
 }
+
+// TestRouterOptionsReachTheRoutedConnection checks that the options given to
+// New configure the façade connection a client is routed to.
+func TestRouterOptionsReachTheRoutedConnection(t *testing.T) {
+	v1 := &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
+	seen := make(chan string, 4)
+	observe := acp.Middleware{Request: func(next acp.RequestHandler) acp.RequestHandler {
+		return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
+			seen <- method
+			return next(ctx, method, params)
+		}
+	}}
+	r := router.New(acp.WithMiddleware(observe)).
+		WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 })
+	p := serve(t, r)
+	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1}}`)
+	p.receive()
+	if method := <-seen; method != "initialize" {
+		t.Fatalf("middleware saw %q, want initialize", method)
+	}
+}
