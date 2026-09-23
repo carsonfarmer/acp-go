@@ -249,6 +249,13 @@ per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the 
 as text frames instead. WebSockets from browser pages on other origins are refused unless
 `acphttp.WithWebSocketOrigins` allows them.
 
+`acphttp.Server` is an ordinary `http.Handler`, so authentication is middleware in front of it, and
+the context `serve` receives keeps the values of the request that opened the connection: what the
+middleware stored there, such as the user, reaches the agent. `WithErrorHandler` receives the errors
+`serve` returns, and `Server.Shutdown(ctx)` refuses new connections and waits for the open ones to
+end before closing them. On the client, a refused request fails with an `*acphttp.StatusError`
+carrying the HTTP status, such as 401 when credentials have expired.
+
 #### Reconnecting
 
 Reconnecting creates a new connection: dial again with the same headers and

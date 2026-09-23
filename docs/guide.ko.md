@@ -213,6 +213,12 @@ tool call id는 세션
 stdio는 `acp.NewStdioTransport`, 원격 연결은 `acphttp.NewClientTransport` 또는
 `acphttp.DialWebSocket`을 사용합니다. 실행 방법은 [HTTP 예제](../examples/README.ko.md)를 참고하세요.
 
+`acphttp.Server`는 일반 `http.Handler`라서 인증은 앞에 두는 미들웨어로 처리하고, `serve`가 받는 context는
+연결을 연 요청의 값을 유지하므로 미들웨어가 넣은 사용자 정보 등이 에이전트까지 전달됩니다. `WithErrorHandler`는
+`serve`가 반환한 에러를 받고, `Server.Shutdown(ctx)`은 새 연결을 거절한 뒤 열린 연결이 끝나기를 기다렸다가
+닫습니다. 클라이언트에서 거절된 요청은 HTTP 상태를 담은 `*acphttp.StatusError`로 실패하므로, 자격 증명이
+만료된 401 등을 구분할 수 있습니다.
+
 #### 재연결
 
 재연결은 새 연결을 만드는 과정입니다: 같은 헤더와 `acphttp.WithCookieJar(jar)`로 다시 연결해 로드 밸런서의

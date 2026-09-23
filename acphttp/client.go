@@ -253,20 +253,35 @@ func (t *ClientTransport) accepted(resp *http.Response) error {
 	return statusError("POST", resp)
 }
 
-// httpStatusError is a request the server answered with an unexpected status.
-type httpStatusError struct {
-	what   string
-	status int
-	body   []byte
+// StatusError is a request the server answered with an unexpected HTTP
+// status, from either transport, so a caller can tell an authentication
+// failure from a network one:
+//
+//	if status, ok := errors.AsType[*acphttp.StatusError](err); ok && status.StatusCode == http.StatusUnauthorized {
+//		// refresh the credentials and connect again
+//	}
+type StatusError struct {
+	// Op is the request that failed, such as "initialize" or "websocket upgrade".
+	Op         string
+	StatusCode int
+	// Body is the start of the response body, if the server sent one.
+	Body []byte
+	// Err is the underlying error, if any.
+	Err error
 }
 
-func (e *httpStatusError) Error() string {
-	return fmt.Sprintf("acp: %s: HTTP %d: %s", e.what, e.status, e.body)
+func (e *StatusError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("acp: %s: HTTP %d: %v", e.Op, e.StatusCode, e.Err)
+	}
+	return fmt.Sprintf("acp: %s: HTTP %d: %s", e.Op, e.StatusCode, e.Body)
 }
 
-func statusError(what string, resp *http.Response) error {
+func (e *StatusError) Unwrap() error { return e.Err }
+
+func statusError(op string, resp *http.Response) error {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
-	return &httpStatusError{what: what, status: resp.StatusCode, body: bytes.TrimSpace(body)}
+	return &StatusError{Op: op, StatusCode: resp.StatusCode, Body: bytes.TrimSpace(body)}
 }
 
 // Reopening a dropped stream waits streamBackoff, doubling per try up to
@@ -338,13 +353,13 @@ func (t *ClientTransport) followStream(connectionID, session string) error {
 	for failures := 0; ; {
 		opened := time.Now()
 		err := t.readStream(connectionID, session)
-		status, _ := errors.AsType[*httpStatusError](err)
+		status, _ := errors.AsType[*StatusError](err)
 		switch {
 		case t.streamCtx.Err() != nil:
 			return nil
-		case status != nil && status.status == http.StatusNotFound:
+		case status != nil && status.StatusCode == http.StatusNotFound:
 			return nil // the connection or session is gone
-		case status != nil && !retryableStatus(status.status):
+		case status != nil && !retryableStatus(status.StatusCode):
 			return err
 		}
 		if time.Since(opened) >= streamStable {

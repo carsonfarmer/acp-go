@@ -44,19 +44,24 @@ const (
 //
 //	acphttp.NewServer(r.Serve)
 //
-// ctx is cancelled when the client deletes the connection or the server
-// closes.
+// ctx carries the values of the request that started the connection, the
+// initialize POST or the WebSocket upgrade, so what an authentication
+// middleware stored there reaches the agent. It is cancelled when the client
+// deletes the connection or the server closes, not when that request ends.
 type Server struct {
 	serve        func(ctx context.Context, t acp.Transport) error
 	origins      []string
 	idleTimeout  time.Duration
 	pingInterval time.Duration
+	onError      func(error)
 
-	ctx     context.Context
-	cancel  context.CancelFunc
-	mu      sync.Mutex
-	conns   map[string]*httpServerConn
-	sockets map[string]*WebSocketTransport
+	ctx      context.Context
+	cancel   context.CancelFunc
+	mu       sync.Mutex
+	draining bool           // Shutdown started: no new connections
+	running  sync.WaitGroup // serve calls in progress
+	conns    map[string]*httpServerConn
+	sockets  map[string]*WebSocketTransport
 }
 
 // ServerOption configures [NewServer].
@@ -93,6 +98,13 @@ func WithIdleTimeout(d time.Duration) ServerOption {
 	return func(s *Server) { s.idleTimeout = d }
 }
 
+// WithErrorHandler sets a function that receives the errors serve returns,
+// other than those from its connection ending by cancellation. By default
+// they are dropped.
+func WithErrorHandler(h func(error)) ServerOption {
+	return func(s *Server) { s.onError = h }
+}
+
 // NewServer returns a handler that runs serve once per connection.
 func NewServer(serve func(ctx context.Context, t acp.Transport) error, opts ...ServerOption) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -105,6 +117,57 @@ func NewServer(serve func(ctx context.Context, t acp.Transport) error, opts ...S
 		opt(s)
 	}
 	return s
+}
+
+// Shutdown stops the server accepting connections and waits for those in
+// progress to end, which they do when their clients close them. If ctx ends
+// first, Shutdown ends the remaining connections as Close does and returns
+// ctx's error. Like Close, it does not stop the http.Server using it; call
+// this after that server's own Shutdown.
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.mu.Lock()
+	s.draining = true
+	s.mu.Unlock()
+	done := make(chan struct{})
+	go func() {
+		s.running.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return s.Close()
+	case <-ctx.Done():
+		s.Close()
+		return ctx.Err()
+	}
+}
+
+// start runs serve for a new connection in a goroutine, with a context that
+// has r's values and ends with the server or when stop is called, reporting
+// false instead once the server is closed or shutting down. register adds
+// the connection to the server's records while that is checked.
+func (s *Server) start(r *http.Request, t acp.Transport, register func(), done func()) (stop context.CancelFunc, ok bool) {
+	s.mu.Lock()
+	if s.draining || s.ctx.Err() != nil {
+		s.mu.Unlock()
+		return nil, false
+	}
+	register()
+	s.running.Add(1)
+	s.mu.Unlock()
+
+	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
+	unlink := context.AfterFunc(s.ctx, cancel)
+	go func() {
+		defer s.running.Done()
+		defer done()
+		defer unlink()
+		defer cancel()
+		if err := s.serve(ctx, t); err != nil && ctx.Err() == nil && s.onError != nil {
+			s.onError(err)
+		}
+	}()
+	return cancel, true
 }
 
 // Close ends every connection. It does not stop the http.Server using it.
@@ -121,18 +184,6 @@ func (s *Server) Close() error {
 		t.Close()
 	}
 	return nil
-}
-
-// track registers a WebSocket connection so Close can end it, reporting false
-// once the server is closed.
-func (s *Server) track(id string, t *WebSocketTransport) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.ctx.Err() != nil {
-		return false
-	}
-	s.sockets[id] = t
-	return true
 }
 
 func (s *Server) untrack(id string) {
@@ -235,28 +286,16 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) initialize(w http.ResponseWriter, r *http.Request, msg jsontext.Value, e envelope) {
 	c := newHTTPServerConn(rand.Text(), e.idKey())
-	s.mu.Lock()
-	if s.ctx.Err() != nil {
-		s.mu.Unlock()
+	cancel, ok := s.start(r, c, func() { s.conns[c.id] = c }, func() { s.remove(c.id) })
+	if !ok {
 		http.Error(w, "server closed", http.StatusServiceUnavailable)
 		return
 	}
-	s.conns[c.id] = c
-	s.mu.Unlock()
-
-	ctx, cancel := context.WithCancel(s.ctx)
-	go func() {
-		defer cancel()
-		_ = s.serve(ctx, c)
-		s.remove(c.id)
-	}()
 	// The connection ends with its transport: a DELETE or Close stops serve.
+	// serve's end removes and so closes the connection, so this returns.
 	go func() {
-		select {
-		case <-c.done:
-			cancel()
-		case <-ctx.Done():
-		}
+		<-c.done
+		cancel()
 	}()
 
 	fail := func(status int, text string) {

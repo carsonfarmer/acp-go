@@ -80,8 +80,8 @@ func DialWebSocket(ctx context.Context, url string, opts ...ClientOption) (*WebS
 		HTTPHeader: cfg.header,
 	})
 	if err != nil {
-		if resp != nil {
-			return nil, fmt.Errorf("acp: websocket upgrade: HTTP %d: %w", resp.StatusCode, err)
+		if resp != nil && resp.StatusCode != http.StatusSwitchingProtocols {
+			return nil, &StatusError{Op: "websocket upgrade", StatusCode: resp.StatusCode, Err: err}
 		}
 		return nil, fmt.Errorf("acp: websocket: %w", err)
 	}
@@ -144,14 +144,16 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		return // Accept has answered the request
 	}
 	t := newWebSocketTransport(conn, s.pingInterval)
-	if !s.track(id, t) {
+	ended := make(chan struct{})
+	_, ok := s.start(r, t, func() { s.sockets[id] = t }, func() {
+		s.untrack(id)
+		t.Close()
+		close(ended)
+	})
+	if !ok {
 		conn.Close(websocket.StatusGoingAway, "server closed")
 		return
 	}
-	defer s.untrack(id)
-
-	ctx, cancel := context.WithCancel(s.ctx)
-	defer cancel()
-	_ = s.serve(ctx, t)
-	t.Close()
+	// The handler holds the upgraded connection until serve is done with it.
+	<-ended
 }
