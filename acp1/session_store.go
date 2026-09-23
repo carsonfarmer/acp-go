@@ -1,12 +1,11 @@
 package acp1
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
 
 	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // SessionStore is [acp.SessionStore] keyed by v1 session ids.
@@ -27,6 +26,11 @@ func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message"))
 // GenerateToolCallID returns a random id of the form "call_<32 hex chars>".
 // Tool call ids must be unique within a session, across its turns.
 func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
+
+// SessionInfoLister is [acp.SessionInfoLister] for v1 session descriptions:
+// a store that implements it answers the [SessionManager]'s session/list
+// pages itself.
+type SessionInfoLister = acp.SessionInfoLister[SessionInfo]
 
 // SessionFactory creates the state for a new session along with its id.
 // Use [GenerateSessionID] unless the agent has its own id scheme.
@@ -84,14 +88,36 @@ type SessionInfoReporter interface {
 // [SessionInfoReporter], so an agent that lists implements [SessionLister] by
 // forwarding to [SessionManager.List].
 type SessionManager[T any] struct {
-	store   SessionStore[T]
-	factory SessionFactory[T]
-	turns   acp.TurnTracker[SessionID]
+	store    SessionStore[T]
+	factory  SessionFactory[T]
+	turns    acp.TurnTracker[SessionID]
+	pageSize int
+}
+
+// defaultSessionListPageSize is how many sessions [SessionManager.List] returns
+// per page before it hands back a next cursor.
+const defaultSessionListPageSize = 100
+
+// SessionManagerOption configures a [SessionManager].
+type SessionManagerOption func(*sessionManagerOptions)
+
+type sessionManagerOptions struct{ pageSize int }
+
+// WithSessionListPageSize sets how many sessions [SessionManager.List] returns
+// per page before it hands back a next cursor, which it caps at this size. The
+// default is [defaultSessionListPageSize]; zero or less returns every match in
+// one page with no cursor.
+func WithSessionListPageSize(size int) SessionManagerOption {
+	return func(o *sessionManagerOptions) { o.pageSize = size }
 }
 
 // NewSessionManager pairs a store with the factory that fills it.
-func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T]) *SessionManager[T] {
-	return &SessionManager[T]{store: store, factory: factory}
+func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T], opts ...SessionManagerOption) *SessionManager[T] {
+	o := sessionManagerOptions{pageSize: defaultSessionListPageSize}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return &SessionManager[T]{store: store, factory: factory, pageSize: o.pageSize}
 }
 
 // Store returns the underlying store, for state the RPC methods do not cover.
@@ -152,44 +178,77 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 
 // List answers session/list from the store, describing each session with its
 // state's [SessionInfoReporter]. It applies the request's cwd filter and lists
-// the most recently updated sessions first. It ignores the cursor and returns
-// every match in one page. An agent that lists sessions forwards to it:
+// the most recently updated sessions first. It paginates with the request's
+// cursor, returning at most [WithSessionListPageSize] sessions per page and a
+// next cursor while more remain. A store that implements [SessionInfoLister]
+// answers each page with one query; any other store has every session read and
+// described per page. An agent that lists sessions forwards to it:
 //
 //	func (a *myAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
 //		return a.List(ctx, params)
 //	}
 func (m *SessionManager[T]) List(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error) {
-	ids, err := m.store.List(ctx)
+	pager, err := acpconn.NewSessionPager(params.GetCursor(), m.pageSize, sessionPosition)
 	if err != nil {
 		return nil, err
 	}
-	sessions := []SessionInfo{}
+	add := func(info SessionInfo) {
+		if params.Cwd == nil || info.Cwd == *params.Cwd {
+			pager.Add(info)
+		}
+	}
+	if lister, ok := m.store.(SessionInfoLister); ok {
+		sessions, err := lister.ListSessionInfo(ctx, acp.SessionListQuery{
+			Cwd:   params.GetCwd(),
+			After: (*acp.SessionListPosition)(pager.After()),
+			Limit: pager.Limit(),
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, info := range sessions {
+			add(info)
+		}
+	} else if err := m.describeSessions(ctx, add); err != nil {
+		return nil, err
+	}
+	page, next := pager.Page()
+	response := &ListSessionsResponse{Sessions: page}
+	if next != "" {
+		response.NextCursor = &next
+	}
+	return response, nil
+}
+
+// describeSessions passes every stored session's [SessionInfoReporter]
+// description to add, for a store that is not a [SessionInfoLister].
+func (m *SessionManager[T]) describeSessions(ctx context.Context, add func(SessionInfo)) error {
+	ids, err := m.store.List(ctx)
+	if err != nil {
+		return err
+	}
 	for _, id := range ids {
 		session, ok, err := m.store.Get(ctx, id)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !ok { // deleted since List
 			continue
 		}
 		reporter, ok := any(session).(SessionInfoReporter)
 		if !ok {
-			return nil, acp.ErrInternalError(nil, "session state does not implement SessionInfoReporter")
+			return acp.ErrInternalError(nil, "session state does not implement SessionInfoReporter")
 		}
 		info := reporter.SessionInfo()
 		info.SessionID = id
-		if params.Cwd != nil && info.Cwd != *params.Cwd {
-			continue
-		}
-		sessions = append(sessions, info)
+		add(info)
 	}
-	slices.SortFunc(sessions, func(a, b SessionInfo) int {
-		return cmp.Or(
-			cmp.Compare(b.GetUpdatedAt(), a.GetUpdatedAt()),
-			cmp.Compare(a.SessionID, b.SessionID),
-		)
-	})
-	return &ListSessionsResponse{Sessions: sessions}, nil
+	return nil
+}
+
+// sessionPosition is a session's position for [acpconn.SessionPager].
+func sessionPosition(info SessionInfo) acpconn.SessionPosition {
+	return acpconn.SessionPosition{UpdatedAt: info.GetUpdatedAt(), SessionID: string(info.SessionID)}
 }
 
 // DeleteSession cancels the session's turn in progress and removes the session

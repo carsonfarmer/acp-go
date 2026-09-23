@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"sync"
+
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // SessionStore keeps per-session state for an agent, keyed by the protocol
@@ -64,6 +66,50 @@ func (s *MemoryStore[ID, T]) List(context.Context) ([]ID, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+// SessionListPosition is a session's place in a session/list result, which
+// lists the most recently updated sessions first and breaks ties by session
+// id ascending.
+type SessionListPosition struct {
+	// UpdatedAt is the session's last-activity timestamp, compared as a
+	// string, so a store must write every timestamp in one format, such as
+	// RFC 3339 in UTC. A session without one sorts after every dated session.
+	UpdatedAt string
+	// SessionID breaks ties between sessions with the same UpdatedAt.
+	SessionID string
+}
+
+// Compare orders two positions the way session/list does. A negative result
+// means p is listed before other, a positive one after it.
+func (p SessionListPosition) Compare(other SessionListPosition) int {
+	return acpconn.SessionPosition(p).Compare(acpconn.SessionPosition(other))
+}
+
+// SessionListQuery selects one page of sessions for a [SessionInfoLister].
+type SessionListQuery struct {
+	// Cwd, when not empty, keeps only the sessions in this working directory.
+	Cwd string
+	// After, when not nil, keeps only the sessions listed after this
+	// position; a nil After starts at the most recently updated session.
+	After *SessionListPosition
+	// Limit, when positive, is the most sessions to return; zero or less
+	// returns every match.
+	Limit int
+}
+
+// SessionInfoLister is implemented by a [SessionStore] that can answer
+// session/list itself, such as one backed by a database index. The session
+// manager of each façade uses it instead of reading and describing every
+// stored session for each page, so a page costs the store one query.
+//
+// ListSessionInfo returns the sessions that match query, in the order
+// [SessionListPosition.Compare] defines, with each SessionID set. The manager
+// asks for one more session than a page holds and returns the page and next
+// cursor from the result, so a store that stops short of Limit ends the
+// listing.
+type SessionInfoLister[Info any] interface {
+	ListSessionInfo(ctx context.Context, query SessionListQuery) ([]Info, error)
 }
 
 // GenerateSessionID returns a random id of the form "session_<32 hex chars>".

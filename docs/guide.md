@@ -160,7 +160,16 @@ in the session/new and session/resume responses.
 The manager leaves out `session/load`, which must
 replay a conversation only the agent knows, and, in v1, the optional `session/list`: an agent that
 lists forwards `ListSessions` to `List`, which describes each session with its state's
-`SessionInfoReporter`.
+`SessionInfoReporter`. `List` paginates: it returns at most 100 sessions per page and hands back a
+next cursor while more remain; set the page size with `acp1.WithSessionListPageSize` (zero returns
+every match in one page).
+
+By default each page reads and describes every stored session. A store backed by a database can
+implement `acp1.SessionInfoLister` (`acp.SessionInfoLister` for the façade's `SessionInfo`) to answer
+a page with one query instead: `ListSessionInfo` receives an `acp.SessionListQuery` (cwd filter,
+the position to start after, and a limit one past the page size) and returns matching sessions in
+`acp.SessionListPosition.Compare` order — newest `updatedAt` first, compared as strings, undated
+sessions last, ties by session id — with each `SessionID` set.
 
 | Method | Behavior |
 | --- | --- |

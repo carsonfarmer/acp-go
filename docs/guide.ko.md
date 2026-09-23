@@ -154,7 +154,16 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 
 매니저는 에이전트만 아는 대화를 재생해야 하는 `session/load`와, v1에서는 선택 사항인 `session/list`를 제공하지
 않습니다. 목록을 지원하는 에이전트는 `ListSessions`를 `List`로 넘기고, `List`는 세션 상태의
-`SessionInfoReporter`로 각 세션을 설명합니다.
+`SessionInfoReporter`로 각 세션을 설명합니다. `List`는 페이지네이션합니다. 페이지당 최대 100개를
+돌려주고 남은 세션이 있으면 다음 커서를 함께 반환하며, 페이지 크기는 `acp1.WithSessionListPageSize`로
+지정합니다(0이면 한 페이지에 모두 반환).
+
+기본 동작은 페이지마다 저장된 모든 세션을 읽고 설명하는 것입니다. 데이터베이스 기반 저장소는
+`acp1.SessionInfoLister`(façade의 `SessionInfo`에 대한 `acp.SessionInfoLister`)를 구현해 한 번의 쿼리로
+페이지를 응답할 수 있습니다. `ListSessionInfo`는 `acp.SessionListQuery`(cwd 필터, 시작 위치, 페이지
+크기보다 하나 큰 limit)를 받아, 조건에 맞는 세션을 `acp.SessionListPosition.Compare` 순서로 반환합니다.
+`updatedAt`이 최신인 세션이 먼저 오고(문자열로 비교), 시각이 없는 세션은 마지막, 같으면 세션 id
+오름차순이며, 각 세션의 `SessionID`를 채워야 합니다.
 
 | 메서드 | 동작 |
 | --- | --- |
