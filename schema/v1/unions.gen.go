@@ -629,7 +629,7 @@ func (v EmbeddedResourceResource) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v EmbeddedResourceResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -689,7 +689,7 @@ func (v CreateElicitationRequest) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -1323,7 +1323,7 @@ func (v ElicitationFormMode) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationFormMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -1375,7 +1375,7 @@ func (v ElicitationURLMode) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationURLMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -1770,7 +1770,7 @@ func (v SessionConfigSelectOptions) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigSelectOptions) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -4067,7 +4067,7 @@ func (v ElicitationContentValue) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationContentValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }

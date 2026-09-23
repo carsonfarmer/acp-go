@@ -64,7 +64,7 @@ func (v RequestID) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v RequestID) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -116,7 +116,7 @@ func (v AgentResponse) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -206,7 +206,7 @@ func (v ClientResponse) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -275,7 +275,7 @@ func (v AgentRequestParams) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -341,7 +341,7 @@ func (v AgentNotificationParams) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -410,7 +410,7 @@ func (v ClientRequestParams) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientRequestParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -482,7 +482,7 @@ func (v ClientNotificationParams) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientNotificationParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -550,7 +550,7 @@ func (v AgentResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -610,7 +610,7 @@ func (v ClientResponseResultResult) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientResponseResultResult) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteValue(jsontext.Value("null"))
+		return enc.WriteToken(jsontext.Null)
 	}
 	return enc.WriteValue(v.raw)
 }

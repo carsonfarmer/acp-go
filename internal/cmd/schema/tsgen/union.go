@@ -728,7 +728,7 @@ func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
 	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
 	g.write("%s", marshalDoc)
-	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteValue(jsontext.Value(\"null\"))};return enc.WriteValue(v.raw)}\n", name)
+	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteToken(jsontext.Null)};return enc.WriteValue(v.raw)}\n", name)
 	g.write("%s", unmarshalDoc)
 	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
 	return nil
