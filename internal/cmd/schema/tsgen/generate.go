@@ -70,15 +70,9 @@ func (g *generator) use(name string) {
 // Files maps generated file names to their formatted Go source.
 type Files map[string][]byte
 
-// Generate emits deterministic Go declarations. Unknown JSON payloads are kept
-// as jsontext.Value, so custom/future variants survive a decode/encode cycle.
-// Wire types are split by kind into methods, enums, types, unions and envelope
-// files; Zod rules and Decode/Validate functions, when the schema has
-// validators, go to zod.gen.go.
-func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
-	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
-		return nil, fmt.Errorf("invalid package name %q", pkg)
-	}
+// newGenerator registers every definition under its Go name so references
+// resolve before any declaration is emitted.
+func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
@@ -90,8 +84,22 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 		d.Name = name
 		g.pending = append(g.pending, d)
 	}
-	// The unions file always exists: it carries the helpers every union uses.
-	g.use(fileUnions)
+	return g, nil
+}
+
+// Generate emits deterministic Go declarations. Unknown JSON payloads are kept
+// as jsontext.Value, so custom/future variants survive a decode/encode cycle.
+// Wire types are split by kind into methods, enums, types, unions and envelope
+// files; Zod rules and Decode/Validate functions, when the schema has
+// validators, go to zod.gen.go.
+func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
+	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
+		return nil, fmt.Errorf("invalid package name %q", pkg)
+	}
+	g, err := newGenerator(schema, pkg)
+	if err != nil {
+		return nil, err
+	}
 	g.use(fileMethods)
 	for _, c := range schema.Constants {
 		if len(c.Members) > 0 {
@@ -566,7 +574,9 @@ func (g *generator) aliasDefinition(d *tsdef.Type) bool {
 		return false
 	}
 	switch d.Kind {
-	case "object", "intersection", "string", "number", "boolean":
+	case "object":
+		return len(d.Fields) == 0 // records alias map[string]T
+	case "intersection", "string", "number", "boolean":
 		return false
 	case "union":
 		nonnull, isNull := nullable(d)
