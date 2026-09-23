@@ -223,8 +223,15 @@ into the generated Go type. `Validate` reports whether that same Zod parser acce
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
 The one intended difference from the SDK is `OpenTags`: unknown tags of tagged unions without a
 catch-all or default variant are accepted (see above).
-Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time;
-regular expressions are compiled once at package init. Plain `json.Unmarshal` without
+Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time.
+A subtree that repeats across schemas, such as the `_meta` rule on every object, is emitted
+once as a package variable named from its contents (`zodRefSessionId` for a reference, the kinds
+and a content hash otherwise), so unrelated schema changes do not rename it;
+regular expressions are compiled once at package init, when `zod.Link` also prepares the rules
+for evaluation without changing what they accept: it resolves references, reads bounds and
+literals once, merges an intersection of objects with distinct properties into one object, and
+indexes a tagged union by its tag, so a value is checked against the variant its tag names (or
+the custom catch-all) instead of against each variant in turn. Plain `json.Unmarshal` without
 `Validated` and raw-union `As[T]` stay lenient.
 
 Identifier and other scalar SDK types are distinct Go types (`type SessionID string`), so they
@@ -249,5 +256,9 @@ respect the `offset` option. Input JSON rejects duplicate keys and invalid UTF-8
 recursion is limited to 512 evaluator levels. Error wording is Go-specific.
 
 Both pinned SDK versions are covered by Go tests and captured reference outcomes from
-Zod 4.5.4; see [reference fixtures](testdata/README.md). The pinned SDK helper source is
+Zod 4.5.4; see [reference fixtures](testdata/README.md). A snapshot of the evaluator's results on a
+corpus derived from every rule (`testdata/zod-snapshot-v{1,2}.json.gz`) guards changes to the
+evaluator or the generated rules; rewrite it with
+`go test ./schema/... -run TestZodSnapshot -update-zod-snapshot` only when a result is meant to
+change. The pinned SDK helper source is
 included at `typescript/schema-deserialize.ts` to document the recovery and extension rules.

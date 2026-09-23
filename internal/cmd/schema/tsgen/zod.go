@@ -1,6 +1,8 @@
 package tsgen
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"fmt"
 	"maps"
@@ -45,17 +47,17 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	var registry []string
+	type entry struct {
+		key  string
+		rule *tsdef.Zod
+	}
+	var entries []entry
 	for _, k := range keys {
 		z := schema.Validators[k]
 		if open, ok := g.openTags[Name(strings.TrimPrefix(k, "z"))]; ok {
 			z = &tsdef.Zod{Kind: "openTags", Tag: open.tag, Tags: open.values, Inner: z}
 		}
-		rule, err := zodLiteral(z)
-		if err != nil {
-			return fmt.Errorf("%s: %w", k, err)
-		}
-		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(k), rule))
+		entries = append(entries, entry{k, z})
 	}
 
 	defs := append([]tsdef.Definition(nil), schema.Types...)
@@ -89,17 +91,28 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 		// The variant writes its tag, so its rule is the absorbed type's
 		// own rule intersected with that tag.
 		key := fmt.Sprintf("z%s&%s=%s", v.base, v.tag, v.value)
-		rule, err := zodLiteral(&tsdef.Zod{Kind: "intersection", Members: []*tsdef.Zod{
+		entries = append(entries, entry{key, &tsdef.Zod{Kind: "intersection", Members: []*tsdef.Zod{
 			{Kind: "ref", Ref: "z" + v.base},
 			{Kind: "object", Fields: []tsdef.ZodField{{Name: v.tag, Schema: &tsdef.Zod{Kind: "literal", Value: jsontext.Value(v.value)}}}},
-		}})
-		if err != nil {
-			return err
-		}
-		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(key), rule))
+		}}})
 		register(v.variant, key)
 	}
-	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n%s\n}\n\n", strings.Join(registry, "\n"))
+
+	r := &zodRenderer{keys: map[*tsdef.Zod]string{}, counts: map[string]int{}, first: map[string]*tsdef.Zod{}}
+	for _, e := range entries {
+		if err := r.count(e.rule); err != nil {
+			return fmt.Errorf("%s: %w", e.key, err)
+		}
+	}
+	r.share()
+	var registry []string
+	for _, e := range entries {
+		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(e.key), r.literal(e.rule)))
+	}
+	if shared := r.vars(); shared != "" {
+		g.write("// Rule subtrees that repeat across the schemas, written and allocated once.\nvar (\n%s)\n\n", shared)
+	}
+	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name, linked\n// once for evaluation.\nvar zodSchemas = zod.Link(zod.Registry{\n%s\n})\n\n", strings.Join(registry, "\n"))
 	g.write("// zodTypes maps generated Go types to their Zod rule. Type aliases are not\n// listed; they share a reflect.Type with their underlying type.\nvar zodTypes = map[reflect.Type]string{\n%s,\n}\n\n", strings.Join(types, ",\n"))
 	g.write("// Validated returns the json.Options that apply the SDK Zod validation, default\n// and recovery rules to every generated type encountered while unmarshaling:\n//\n//\tjson.Unmarshal(data, &v, schema.Validated())\n//\n// Type aliases are decoded as their underlying type.\nfunc Validated() json.Options { return validated }\n\nvar validated = json.WithUnmarshalers(json.JoinUnmarshalers(\n%s,\n))\n\n", strings.Join(unmarshalers, ",\n"))
 	g.out.WriteString(`// zodRule returns the Zod rule registered for T.
@@ -139,9 +152,128 @@ func Validate[T any](raw []byte) error {
 	return nil
 }
 
-// zodLiteral renders one rule tree as a single-line Go composite literal so
-// gofmt keeps each schema on its own line.
-func zodLiteral(z *tsdef.Zod) (string, error) {
+// minShared is the shortest rendered subtree worth a shared variable; a
+// shorter one reads better written out.
+const minShared = 40
+
+// zodRenderer renders rule trees as Go composite literals. A subtree that
+// repeats is written once as a variable, named from its contents so that the
+// name survives changes to unrelated schemas, and referenced by that name
+// everywhere it occurs.
+type zodRenderer struct {
+	keys   map[*tsdef.Zod]string // each node's single-line form, its identity
+	counts map[string]int        // how often each form occurs
+	first  map[string]*tsdef.Zod // a node with each form, to render it from
+	names  map[string]string     // the variable name of each shared form
+}
+
+// count records z and its subtrees, failing on a rule the runtime lacks.
+func (r *zodRenderer) count(z *tsdef.Zod) error {
+	if z == nil {
+		return nil
+	}
+	key, err := r.key(z)
+	if err != nil {
+		return err
+	}
+	r.counts[key]++
+	if r.first[key] == nil {
+		r.first[key] = z
+	}
+	for _, c := range children(z) {
+		if err := r.count(c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *zodRenderer) key(z *tsdef.Zod) (string, error) {
+	if key, ok := r.keys[z]; ok {
+		return key, nil
+	}
+	key, err := renderZod(z, r.key, false)
+	if err != nil {
+		return "", err
+	}
+	r.keys[z] = key
+	return key, nil
+}
+
+// share names every form that occurs more than once and is long enough.
+func (r *zodRenderer) share() {
+	r.names = map[string]string{}
+	used := map[string]bool{}
+	// Sorted, so a hash prefix two forms share lengthens the same one's name
+	// every time.
+	for _, key := range slices.Sorted(maps.Keys(r.counts)) {
+		if r.counts[key] < 2 || len(key) < minShared {
+			continue
+		}
+		name := sharedName(r.first[key], key, 4)
+		for n := 5; used[name]; n++ {
+			name = sharedName(r.first[key], key, n)
+		}
+		used[name] = true
+		r.names[key] = name
+	}
+}
+
+// sharedName names a shared rule for what it is: a reference after the
+// schema it names, any other rule after the kinds of its first few nested
+// rules and a hash of its form, n bytes long.
+func sharedName(z *tsdef.Zod, key string, n int) string {
+	if z.Kind == "ref" {
+		name := "zodRef" + strings.TrimPrefix(z.Ref, "z")
+		if n > 4 {
+			sum := sha256.Sum256([]byte(key))
+			name += "_" + hex.EncodeToString(sum[:n])
+		}
+		return name
+	}
+	var b strings.Builder
+	b.WriteString("zod")
+	for c, depth := z, 0; c != nil && depth < 3; c, depth = c.Inner, depth+1 {
+		b.WriteString(zodKinds[c.Kind])
+	}
+	sum := sha256.Sum256([]byte(key))
+	b.WriteString("_" + hex.EncodeToString(sum[:n]))
+	return b.String()
+}
+
+// literal renders z, as its variable name when it is shared.
+func (r *zodRenderer) literal(z *tsdef.Zod) string {
+	if name, ok := r.names[r.keys[z]]; ok {
+		return name
+	}
+	s, _ := renderZod(z, func(c *tsdef.Zod) (string, error) { return r.literal(c), nil }, true)
+	return s
+}
+
+// vars renders the shared variables, sorted by name.
+func (r *zodRenderer) vars() string {
+	var b strings.Builder
+	for _, key := range slices.SortedFunc(maps.Keys(r.names), func(a, b string) int { return strings.Compare(r.names[a], r.names[b]) }) {
+		body, _ := renderZod(r.first[key], func(c *tsdef.Zod) (string, error) { return r.literal(c), nil }, true)
+		fmt.Fprintf(&b, "%s = %s\n", r.names[key], body)
+	}
+	return b.String()
+}
+
+// children returns the rules nested directly in z.
+func children(z *tsdef.Zod) []*tsdef.Zod {
+	out := []*tsdef.Zod{z.Inner, z.Key}
+	out = append(out, z.Members...)
+	for _, f := range z.Fields {
+		out = append(out, f.Schema)
+	}
+	return slices.DeleteFunc(out, func(c *tsdef.Zod) bool { return c == nil })
+}
+
+// renderZod renders one rule as a Go composite literal, its nested rules
+// through child. A multiline rule puts each of two or more members or fields
+// on its own line; the single-line form identifies a subtree.
+func renderZod(z *tsdef.Zod, child func(*tsdef.Zod) (string, error), multiline bool) (string, error) {
 	if z == nil {
 		return "nil", nil
 	}
@@ -149,13 +281,19 @@ func zodLiteral(z *tsdef.Zod) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("unsupported Zod rule %q", z.Kind)
 	}
+	list := func(items []string) string {
+		if !multiline || len(items) < 2 {
+			return strings.Join(items, ", ")
+		}
+		return "\n" + strings.Join(items, ",\n") + ",\n"
+	}
 	var parts []string
 	parts = append(parts, "Kind: zod.Kind"+kind)
 	if z.Ref != "" {
 		parts = append(parts, "Ref: "+strconv.Quote(z.Ref))
 	}
 	if z.Inner != nil {
-		inner, err := zodLiteral(z.Inner)
+		inner, err := child(z.Inner)
 		if err != nil {
 			return "", err
 		}
@@ -164,27 +302,27 @@ func zodLiteral(z *tsdef.Zod) (string, error) {
 	if len(z.Members) > 0 {
 		var members []string
 		for _, m := range z.Members {
-			s, err := zodLiteral(m)
+			s, err := child(m)
 			if err != nil {
 				return "", err
 			}
 			members = append(members, s)
 		}
-		parts = append(parts, "Members: []*zod.Rule{"+strings.Join(members, ", ")+"}")
+		parts = append(parts, "Members: []*zod.Rule{"+list(members)+"}")
 	}
 	if len(z.Fields) > 0 {
 		var fields []string
 		for _, f := range z.Fields {
-			s, err := zodLiteral(f.Schema)
+			s, err := child(f.Schema)
 			if err != nil {
 				return "", err
 			}
 			fields = append(fields, fmt.Sprintf("{Name: %s, Schema: %s}", strconv.Quote(f.Name), s))
 		}
-		parts = append(parts, "Fields: []zod.Field{"+strings.Join(fields, ", ")+"}")
+		parts = append(parts, "Fields: []zod.Field{"+list(fields)+"}")
 	}
 	if z.Key != nil {
-		key, err := zodLiteral(z.Key)
+		key, err := child(z.Key)
 		if err != nil {
 			return "", err
 		}

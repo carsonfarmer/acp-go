@@ -10,11 +10,13 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net/url"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 )
@@ -72,6 +74,16 @@ type Rule struct {
 	Tags    []string
 	Regexp  *regexp.Regexp
 	Offset  bool
+
+	// Set by Link; a rule that was never linked is evaluated without them.
+	linked   bool
+	target   *Rule            // KindRef: the rule Ref names
+	bound    float64          // KindMin, KindMax, KindGte, KindLte: Value as a number
+	lit      jsontext.Value   // KindLiteral: Value in canonical form
+	flat     *Rule            // KindIntersection: the members as one object
+	tag      string           // KindUnion: the property whose value picks the member
+	cases    map[string]*Rule // KindUnion: the member for each tag value
+	fallback *Rule            // KindUnion: the member for any other value, if any
 }
 
 // Field is a named object property.
@@ -82,6 +94,279 @@ type Field struct {
 
 // Registry maps schema names to their top-level rules.
 type Registry map[string]*Rule
+
+// Link prepares r's rules for evaluation and returns r. The generated
+// packages call it once, when they initialize; evaluation reads the prepared
+// rules concurrently, so they are not changed afterwards. It resolves each
+// reference, reads each bound and literal once, merges an intersection of
+// objects with distinct properties into one object, and indexes a union
+// whose members are objects told apart by a string literal property, so
+// evaluation picks that member instead of trying each in turn. None of these
+// changes what a rule accepts or produces.
+func Link(r Registry) Registry {
+	linked := map[*Rule]bool{}
+	var walk func(*Rule)
+	walk = func(s *Rule) {
+		if s == nil || linked[s] {
+			return
+		}
+		linked[s] = true
+		walk(s.Inner)
+		walk(s.Key)
+		for _, m := range s.Members {
+			walk(m)
+		}
+		for _, f := range s.Fields {
+			walk(f.Schema)
+		}
+		r.link(s)
+	}
+	for _, name := range slices.Sorted(maps.Keys(r)) {
+		walk(r[name])
+	}
+	// Intersections and unions look through references to rules that may be
+	// linked after them, so they are prepared once every rule is; an
+	// intersection is merged when first looked through.
+	l := &linker{r: r, flattened: map[*Rule]bool{}}
+	for s := range linked {
+		switch s.Kind {
+		case KindIntersection:
+			l.flatten(s)
+		case KindUnion:
+			l.index(s)
+		}
+	}
+	return r
+}
+
+// linker merges intersections and indexes unions for Link.
+type linker struct {
+	r Registry
+	// flattened holds the intersections already considered, including one
+	// being merged, so an intersection that reaches itself is left as is.
+	flattened map[*Rule]bool
+}
+
+func (r Registry) link(s *Rule) {
+	s.linked = true
+	switch s.Kind {
+	case KindRef:
+		s.target = r[s.Ref]
+	case KindMin, KindMax, KindGte, KindLte:
+		if json.Unmarshal(s.Value, &s.bound) != nil {
+			s.linked = false // evaluation reports the invalid bound
+		}
+	case KindLiteral:
+		s.lit = s.Value.Clone()
+		if s.lit.Canonicalize() != nil {
+			s.lit = nil
+		}
+	}
+}
+
+// object returns the object rule s is, looking through references and
+// merged intersections, or nil.
+func (l *linker) object(s *Rule) *Rule {
+	for range 64 {
+		switch {
+		case s == nil:
+			return nil
+		case s.Kind == KindRef:
+			s = l.r[s.Ref]
+		case s.Kind == KindIntersection:
+			l.flatten(s)
+			if s.flat == nil {
+				return nil
+			}
+			s = s.flat
+		case s.Kind == KindObject:
+			return s
+		default:
+			return nil
+		}
+	}
+	return nil
+}
+
+// flatten merges an intersection whose members are all objects with distinct
+// properties into one object with every member's properties. Evaluating it
+// accepts and produces what evaluating the members and merging their results
+// does, without the merge.
+func (l *linker) flatten(s *Rule) {
+	if l.flattened[s] {
+		return
+	}
+	l.flattened[s] = true
+	flat := &Rule{Kind: KindObject, linked: true}
+	names := map[string]bool{}
+	for _, m := range s.Members {
+		o := l.object(m)
+		if o == nil {
+			return
+		}
+		for _, f := range o.Fields {
+			if names[f.Name] {
+				return
+			}
+			names[f.Name] = true
+			flat.Fields = append(flat.Fields, f)
+		}
+	}
+	s.flat = flat
+}
+
+// index finds the property that tells a union's members apart: one every
+// member requires to be a string literal, with a different literal in each.
+// One member may instead be the custom payload that [KindExcludeTags] keeps
+// from every one of those literals. Only the member with the literal a value
+// carries can accept it, and only the custom payload one without, so trying
+// that member alone decides the union.
+func (l *linker) index(s *Rule) {
+	if len(s.Members) < 2 {
+		return
+	}
+	for _, name := range l.literalNames(s.Members) {
+		cases := map[string]*Rule{}
+		var fallback *Rule
+		for _, m := range s.Members {
+			if value, ok := l.literalField(m, name); ok && cases[value] == nil {
+				cases[value] = m
+			} else if m.Kind == KindExcludeTags && m.Tag == name && fallback == nil {
+				fallback = m
+			} else {
+				cases = nil
+				break
+			}
+		}
+		if cases == nil || (fallback != nil && !excludesAll(fallback, cases)) {
+			continue
+		}
+		s.tag, s.cases, s.fallback = name, cases, fallback
+		return
+	}
+}
+
+// literalNames returns the properties of the first member that is an object,
+// the candidates for the one that tells the members apart.
+func (l *linker) literalNames(members []*Rule) []string {
+	for _, m := range members {
+		if o := l.object(m); o != nil {
+			names := make([]string, len(o.Fields))
+			for i, f := range o.Fields {
+				names[i] = f.Name
+			}
+			return names
+		}
+	}
+	return nil
+}
+
+// excludesAll reports whether the custom payload rule rejects every tag
+// value that picks another member.
+func excludesAll(fallback *Rule, cases map[string]*Rule) bool {
+	for value := range cases {
+		if !slices.Contains(fallback.Tags, value) {
+			return false
+		}
+	}
+	return true
+}
+
+// literalField returns the string literal the object m requires for name.
+func (l *linker) literalField(m *Rule, name string) (string, bool) {
+	o := l.object(m)
+	if o == nil {
+		return "", false
+	}
+	for _, f := range o.Fields {
+		if f.Name != name || f.Schema.Kind != KindLiteral || f.Schema.Value.Kind() != '"' {
+			continue
+		}
+		var value string
+		if json.Unmarshal(f.Schema.Value, &value) != nil {
+			return "", false
+		}
+		return value, true
+	}
+	return "", false
+}
+
+// stringMember scans the object raw for the string property name. It reads
+// the whole object, so a malformed object or a duplicate name is an error as
+// it is when the object is decoded. found is false when raw is not an object
+// or name is absent or not a string.
+func stringMember(raw jsontext.Value, name string) (value string, found bool, err error) {
+	if raw.Kind() != '{' {
+		return "", false, nil
+	}
+	d := decoders.Get().(*jsontext.Decoder)
+	d.Reset(bytes.NewReader(raw))
+	defer func() {
+		d.Reset(bytes.NewReader(nil))
+		decoders.Put(d)
+	}()
+	if _, err := d.ReadToken(); err != nil {
+		return "", false, err
+	}
+	for d.PeekKind() != '}' {
+		key, err := d.ReadToken()
+		if err != nil {
+			return "", false, err
+		}
+		if key.String() == name && d.PeekKind() == '"' && !found {
+			tok, err := d.ReadToken()
+			if err != nil {
+				return "", false, err
+			}
+			value, found = tok.String(), true
+			continue
+		}
+		if err := d.SkipValue(); err != nil {
+			return "", false, err
+		}
+	}
+	if _, err := d.ReadToken(); err != nil {
+		return "", false, err
+	}
+	return value, found, nil
+}
+
+// ruleError is a value a rule rejected. It is formatted only when read: an
+// optional property's rule and a union's alternatives make and discard many.
+type ruleError struct {
+	path    *jsonPath
+	message string
+	value   jsontext.Value // the expected value, when the message names one
+}
+
+func (e *ruleError) Error() string {
+	if e.value != nil {
+		return fmt.Sprintf("%s: %s %s", e.path, e.message, e.value)
+	}
+	return fmt.Sprintf("%s: %s", e.path, e.message)
+}
+
+// decoders reuses the decoders stringMember scans objects with.
+var decoders = sync.Pool{New: func() any { return new(jsontext.Decoder) }}
+
+// jsonPath is where in the input a rule applies, built as evaluation descends
+// and formatted only for an error. The root is nil.
+type jsonPath struct {
+	parent  *jsonPath
+	name    string
+	index   int
+	element bool // index, not name, locates the value
+}
+
+func (p *jsonPath) String() string {
+	if p == nil {
+		return "$"
+	}
+	if p.element {
+		return fmt.Sprintf("%s[%d]", p.parent, p.index)
+	}
+	return fmt.Sprintf("%s[%q]", p.parent, p.name)
+}
 
 type outcome struct {
 	raw       jsontext.Value
@@ -114,7 +399,7 @@ func (r Registry) Normalize(name string, raw []byte) (jsontext.Value, error) {
 	if schema == nil {
 		return nil, fmt.Errorf("unknown Zod schema %s", name)
 	}
-	result, err := r.apply(schema, jsontext.Value(raw), "$", 0)
+	result, err := r.apply(schema, jsontext.Value(raw), nil, 0)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
@@ -123,16 +408,19 @@ func (r Registry) Normalize(name string, raw []byte) (jsontext.Value, error) {
 	}
 	return result.raw, nil
 }
-func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (outcome, error) {
+func (r Registry) apply(s *Rule, raw jsontext.Value, path *jsonPath, depth int) (outcome, error) {
 	if depth > 512 {
 		return outcome{}, fmt.Errorf("%s: schema nesting limit exceeded", path)
 	}
 	pass := func() (outcome, error) { return outcome{raw: raw}, nil }
-	fail := func(message string) (outcome, error) { return outcome{}, fmt.Errorf("%s: %s", path, message) }
+	fail := func(message string) (outcome, error) { return outcome{}, &ruleError{path: path, message: message} }
 	inner := func() (outcome, error) { return r.apply(s.Inner, raw, path, depth+1) }
 	switch s.Kind {
 	case KindRef:
-		target := r[s.Ref]
+		target := s.target
+		if target == nil {
+			target = r[s.Ref]
+		}
 		if target == nil {
 			return fail(fmt.Sprintf("unresolved schema %s", s.Ref))
 		}
@@ -173,6 +461,19 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 	case KindNever:
 		return fail("value is not permitted")
 	case KindUnion:
+		if s.cases != nil {
+			tag, found, err := stringMember(raw, s.tag)
+			if err != nil {
+				return outcome{}, fmt.Errorf("%s: %w", path, err)
+			}
+			if member := s.cases[tag]; found && member != nil {
+				return r.apply(member, raw, path, depth+1)
+			}
+			if s.fallback != nil {
+				return r.apply(s.fallback, raw, path, depth+1)
+			}
+			return fail(fmt.Sprintf("no union alternative matched: %q is not a known %s", tag, s.tag))
+		}
 		var problems []error
 		for _, m := range s.Members {
 			result, err := r.apply(m, raw, path, depth+1)
@@ -183,6 +484,9 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 		}
 		return outcome{}, fmt.Errorf("%s: no union alternative matched: %w", path, errors.Join(problems...))
 	case KindIntersection:
+		if s.flat != nil {
+			return r.apply(s.flat, raw, path, depth+1)
+		}
 		result := outcome{}
 		for i, m := range s.Members {
 			next, err := r.apply(m, raw, path, depth+1)
@@ -209,15 +513,12 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 	case KindOpenTags:
 		// A Go-side extension: objects whose Tag is a string outside Tags skip
 		// the SDK rule and decode into the union's Unknown variant.
-		if raw.Kind() == '{' {
-			var probe map[string]jsontext.Value
-			if err := json.Unmarshal(raw, &probe); err != nil {
-				return outcome{}, err
-			}
-			var tag string
-			if probe[s.Tag].Kind() == '"' && json.Unmarshal(probe[s.Tag], &tag) == nil && !slices.Contains(s.Tags, tag) {
-				return pass()
-			}
+		tag, found, err := stringMember(raw, s.Tag)
+		if err != nil {
+			return outcome{}, err
+		}
+		if found && !slices.Contains(s.Tags, tag) {
+			return pass()
 		}
 		return inner()
 	case KindExcludeTags, KindPreserve:
@@ -309,8 +610,8 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 		default:
 			return fail("bound applied to unsupported value")
 		}
-		var bound float64
-		if err = json.Unmarshal(s.Value, &bound); err != nil {
+		bound := s.bound
+		if !s.linked && json.Unmarshal(s.Value, &bound) != nil {
 			return fail("invalid generated bound")
 		}
 		if (s.Kind == KindMin || s.Kind == KindGte) && value < bound {
@@ -363,8 +664,13 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 			return fail("expected finite number")
 		}
 	case KindLiteral:
-		if !Equal(raw, s.Value) {
-			return fail(fmt.Sprintf("expected literal %s", s.Value))
+		// A string without escapes is already in canonical form.
+		if s.lit != nil && raw.Kind() == '"' && s.lit.Kind() == '"' && bytes.IndexByte(raw, '\\') < 0 {
+			if !bytes.Equal(raw, s.lit) {
+				return outcome{}, &ruleError{path: path, message: "expected literal", value: s.Value}
+			}
+		} else if !Equal(raw, s.Value) {
+			return outcome{}, &ruleError{path: path, message: "expected literal", value: s.Value}
 		}
 	case KindURL, KindDateTime:
 		var text string
@@ -404,7 +710,7 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 		}
 		output := make([]jsontext.Value, 0, len(input))
 		for i, item := range input {
-			result, err := r.apply(s.Inner, item, fmt.Sprintf("%s[%d]", path, i), depth+1)
+			result, err := r.apply(s.Inner, item, &jsonPath{parent: path, index: i, element: true}, depth+1)
 			if err != nil {
 				if s.Kind == KindSkipArray {
 					continue
@@ -430,7 +736,7 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 		evaluated := map[string]bool{}
 		if s.Kind == KindObject {
 			for _, field := range s.Fields {
-				value, err := r.apply(field.Schema, input[field.Name], fmt.Sprintf("%s[%q]", path, field.Name), depth+1)
+				value, err := r.apply(field.Schema, input[field.Name], &jsonPath{parent: path, name: field.Name}, depth+1)
 				if err != nil {
 					return outcome{}, err
 				}
@@ -450,10 +756,11 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 			slices.Sort(keys)
 			for _, key := range keys {
 				encoded, _ := json.Marshal(key)
-				if _, err := r.apply(s.Key, encoded, fmt.Sprintf("%s[%q]", path, key), depth+1); err != nil {
+				at := &jsonPath{parent: path, name: key}
+				if _, err := r.apply(s.Key, encoded, at, depth+1); err != nil {
 					return outcome{}, err
 				}
-				value, err := r.apply(s.Inner, input[key], fmt.Sprintf("%s[%q]", path, key), depth+1)
+				value, err := r.apply(s.Inner, input[key], at, depth+1)
 				if err != nil {
 					return outcome{}, err
 				}
@@ -482,7 +789,7 @@ func Equal(a, b jsontext.Value) bool {
 	}
 	return bytes.Equal(left, right)
 }
-func merge(a, b jsontext.Value, path string) (jsontext.Value, error) {
+func merge(a, b jsontext.Value, path *jsonPath) (jsontext.Value, error) {
 	if Equal(a, b) {
 		return a, nil
 	}
@@ -496,7 +803,7 @@ func merge(a, b jsontext.Value, path string) (jsontext.Value, error) {
 		}
 		for key, value := range right {
 			if old, ok := left[key]; ok {
-				merged, err := merge(old, value, fmt.Sprintf("%s[%q]", path, key))
+				merged, err := merge(old, value, &jsonPath{parent: path, name: key})
 				if err != nil {
 					return nil, err
 				}
@@ -517,7 +824,7 @@ func merge(a, b jsontext.Value, path string) (jsontext.Value, error) {
 		}
 		if len(left) == len(right) {
 			for i := range left {
-				merged, err := merge(left[i], right[i], fmt.Sprintf("%s[%d]", path, i))
+				merged, err := merge(left[i], right[i], &jsonPath{parent: path, index: i, element: true})
 				if err != nil {
 					return nil, err
 				}

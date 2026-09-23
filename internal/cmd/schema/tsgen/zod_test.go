@@ -1,10 +1,14 @@
 package tsgen
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"maps"
 	"os"
 	"os/exec"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
@@ -61,5 +65,38 @@ func TestGeneratedZod(t *testing.T) {
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("generated Zod tests: %v\n%s", err, output)
+	}
+}
+
+// The runtime evaluator is in another module, so nothing but this test ties
+// its Kind constants to zodKinds: a kind added on one side only would fail
+// generation or leave the runtime a rule it cannot evaluate.
+func TestZodKindsMatchRuntime(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "../../../../schema/internal/zod/zod.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var runtime []string
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			for _, name := range spec.(*ast.ValueSpec).Names {
+				if strings.HasPrefix(name.Name, "Kind") && name.Name != "KindInvalid" {
+					runtime = append(runtime, name.Name)
+				}
+			}
+		}
+	}
+	var generated []string
+	for _, kind := range zodKinds {
+		generated = append(generated, "Kind"+kind)
+	}
+	slices.Sort(runtime)
+	slices.Sort(generated)
+	if !slices.Equal(runtime, generated) {
+		t.Fatalf("runtime kinds %v, generator kinds %v", runtime, generated)
 	}
 }

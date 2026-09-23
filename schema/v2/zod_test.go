@@ -37,3 +37,30 @@ func TestZodSDKReference(t *testing.T) {
 		})
 	}
 }
+
+// A tagged union with a custom payload member sends an unknown tag to that
+// member and a known one only to its own member.
+func TestZodTaggedUnionCustomPayload(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string // the normalized output, or "" when rejected
+	}{
+		{`{"type":"text","text":"hi"}`, `{"type":"text","text":"hi"}`},
+		{`{"type":"text","text":1}`, ""},
+		{`{"type":"x-custom","data":1}`, `{"type":"x-custom","data":1}`},
+		{`{"type":1}`, ""},
+		{`{"text":"hi"}`, ""},
+	}
+	for _, c := range cases {
+		got, err := zodSchemas.Normalize("zContentBlock", []byte(c.input))
+		if c.want == "" {
+			if err == nil {
+				t.Errorf("%s: accepted as %s, want rejected", c.input, got)
+			}
+			continue
+		}
+		if err != nil || !zod.Equal(got, jsontext.Value(c.want)) {
+			t.Errorf("%s = %s, %v; want %s", c.input, got, err, c.want)
+		}
+	}
+}
