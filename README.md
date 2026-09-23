@@ -142,7 +142,7 @@ type MyAgent struct {
     // ...
 }
 
-acp.HandleExt(&a.ExtRouter, "_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
+a.HandleExt("_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
     return &IndexResult{Files: 42}, nil
 })
 
@@ -182,6 +182,7 @@ agent, err := router.NewClient().
     WithV1(newV1Client, &acpv1.InitializeRequest{ClientCapabilities: v1Caps}).
     WithV2(newV2Client, &acpv2.InitializeRequest{Info: info}).
     Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
+defer agent.Close() // Close, Wait, Done and extension calls work on either version
 if agent.V2 != nil {
     // agent.V2, agent.V2Init
 } else {
@@ -273,10 +274,11 @@ stream.StartToolCall(ctx, toolID, "Reading file", schema.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
 
 stream.SendPlan(ctx, entries)
-stream.Send(ctx, anyUpdate) // escape hatch for variants without a helper
+stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries}) // the same, as a bare variant: any update works
 ```
 
-`acpv1.TextBlock`, `acpv1.TextOf` and `acpv1.ToolText` cover the common text content. The v2
+`acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts` (an iterator over a prompt's text blocks) and
+`acpv1.ToolText` cover the common text content. The v2
 `SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
 `Idle` for the explicit turn state.
 

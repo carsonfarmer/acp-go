@@ -127,10 +127,8 @@ func (t *Turn) Text() (string, error) {
 			if u.Content != nil {
 				b := message(u.MessageID)
 				b.Reset()
-				for _, block := range u.Content {
-					if text, ok := TextOf(block); ok {
-						b.WriteString(text)
-					}
+				for text := range Texts(u.Content) {
+					b.WriteString(text)
 				}
 			}
 		}

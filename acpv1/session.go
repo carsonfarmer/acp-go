@@ -85,7 +85,7 @@ func (t *Turn) Done() <-chan struct{} { return t.t.Done() }
 func (t *Turn) Text() (string, error) {
 	var b strings.Builder
 	for update := range t.Updates() {
-		if chunk, ok := update.Variant().(schema.SessionUpdateAgentMessageChunk); ok {
+		if chunk, ok := update.As[schema.SessionUpdateAgentMessageChunk](); ok {
 			if text, ok := TextOf(chunk.Content); ok {
 				b.WriteString(text)
 			}

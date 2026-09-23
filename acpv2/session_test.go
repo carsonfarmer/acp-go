@@ -23,7 +23,7 @@ func (a *v2Agent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acp
 		ctx := context.Background()
 		_ = stream.Running(ctx)
 		_ = stream.SendText(ctx, "m1", "draft")
-		_ = stream.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentMessage{MessageID: "m1", Content: []acpv2.ContentBlock{acpv2.TextBlock("Hello")}}))
+		_ = stream.Send(ctx, schema.SessionUpdateAgentMessage{MessageID: "m1", Content: []acpv2.ContentBlock{acpv2.TextBlock("Hello")}})
 		_ = stream.SendText(ctx, "m1", ", world")
 		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
 	}

@@ -147,7 +147,7 @@ type MyAgent struct {
     // ...
 }
 
-acp.HandleExt(&a.ExtRouter, "_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
+a.HandleExt("_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
     return &IndexResult{Files: 42}, nil
 })
 
@@ -186,6 +186,7 @@ agent, err := router.NewClient().
     WithV1(newV1Client, &acpv1.InitializeRequest{ClientCapabilities: v1Caps}).
     WithV2(newV2Client, &acpv2.InitializeRequest{Info: info}).
     Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
+defer agent.Close() // Close, Wait, Done, 확장 호출은 버전과 상관없이 동작
 if agent.V2 != nil {
     // agent.V2, agent.V2Init
 } else {
@@ -232,10 +233,11 @@ stream := acpv1.NewSessionStream(client, sessionID)
 stream.SendText(ctx, "안녕하세요!")
 stream.StartToolCall(ctx, toolID, "파일 읽기", schema.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
-stream.Send(ctx, anyUpdate) // 헬퍼가 없는 variant용
+stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries}) // 위와 같은 update를 variant로 직접: 헬퍼가 없는 것도 가능
 ```
 
-흔한 텍스트 콘텐츠는 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.ToolText`로 다룹니다. v2 `SessionStream`은
+흔한 텍스트 콘텐츠는 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts`(프롬프트의 텍스트 블록 iterator),
+`acpv1.ToolText`로 다룹니다. v2 `SessionStream`은
 메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
 
 ### 미들웨어

@@ -41,24 +41,24 @@ func (s *SessionStream) SendText(ctx context.Context, id MessageID, text string)
 // SendContent appends a content block to the agent message with the given id,
 // for images, audio and embedded resources.
 func (s *SessionStream) SendContent(ctx context.Context, id MessageID, content ContentBlock) error {
-	return s.send(ctx, schema.SessionUpdateAgentMessageChunk{MessageID: id, Content: content})
+	return s.Send(ctx, schema.SessionUpdateAgentMessageChunk{MessageID: id, Content: content})
 }
 
 // SendThought appends text to the agent's reasoning with the given id, which
 // clients display separately from its messages.
 func (s *SessionStream) SendThought(ctx context.Context, id MessageID, text string) error {
-	return s.send(ctx, schema.SessionUpdateAgentThoughtChunk{MessageID: id, Content: TextBlock(text)})
+	return s.Send(ctx, schema.SessionUpdateAgentThoughtChunk{MessageID: id, Content: TextBlock(text)})
 }
 
 // SendUserMessage reports a user message in full: the message a prompt
 // inserted, which v2 agents must echo, or history replayed on resume.
 func (s *SessionStream) SendUserMessage(ctx context.Context, id MessageID, content ...ContentBlock) error {
-	return s.send(ctx, schema.SessionUpdateUserMessage{MessageID: id, Content: content})
+	return s.Send(ctx, schema.SessionUpdateUserMessage{MessageID: id, Content: content})
 }
 
 // StartToolCall reports a tool call that is now running.
 func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, locations ...ToolCallLocation) error {
-	return s.send(ctx, schema.SessionUpdateToolCallUpdate{
+	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Title:      &title,
 		Kind:       &kind,
@@ -69,18 +69,18 @@ func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title 
 
 // UpdateToolCallStatus moves a tool call to another status.
 func (s *SessionStream) UpdateToolCallStatus(ctx context.Context, id ToolCallID, status ToolCallStatus) error {
-	return s.send(ctx, schema.SessionUpdateToolCallUpdate{ToolCallID: id, Status: &status})
+	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{ToolCallID: id, Status: &status})
 }
 
 // SendToolOutput appends output to a running tool call.
 func (s *SessionStream) SendToolOutput(ctx context.Context, id ToolCallID, content ToolCallContent) error {
-	return s.send(ctx, schema.SessionUpdateToolCallContentChunk{ToolCallID: id, Content: content})
+	return s.Send(ctx, schema.SessionUpdateToolCallContentChunk{ToolCallID: id, Content: content})
 }
 
 // CompleteToolCall marks a tool call completed, replacing its content with
 // the given output if any.
 func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	return s.send(ctx, schema.SessionUpdateToolCallUpdate{
+	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Status:     new(schema.ToolCallStatusCompleted),
 		Content:    content,
@@ -90,7 +90,7 @@ func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, con
 // FailToolCall marks a tool call failed, replacing its content with any error
 // output.
 func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	return s.send(ctx, schema.SessionUpdateToolCallUpdate{
+	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Status:     new(schema.ToolCallStatusFailed),
 		Content:    content,
@@ -99,18 +99,18 @@ func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, content
 
 // SendCommands reports the slash commands available in this session.
 func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCommand) error {
-	return s.send(ctx, schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands})
+	return s.Send(ctx, schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands})
 }
 
 // SendConfigUpdate reports new values for the session's config options.
 func (s *SessionStream) SendConfigUpdate(ctx context.Context, options []SessionConfigOption) error {
-	return s.send(ctx, schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options})
+	return s.Send(ctx, schema.SessionUpdateConfigOptionUpdate{ConfigOptions: options})
 }
 
 // SendUsage reports context window usage: used tokens out of size, with an
 // optional running cost.
 func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost *Cost) error {
-	return s.send(ctx, schema.SessionUpdateUsageUpdate{Used: used, Size: size, Cost: cost})
+	return s.Send(ctx, schema.SessionUpdateUsageUpdate{Used: used, Size: size, Cost: cost})
 }
 
 // Running reports that foreground work started or resumed.
@@ -130,18 +130,16 @@ func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
 	return s.state(ctx, schema.StateUpdateIdle{StopReason: &reason})
 }
 
-// Send sends any session update, including variants without a helper.
-func (s *SessionStream) Send(ctx context.Context, update SessionUpdate) error {
+// Send sends any session update variant, including those without a helper:
+//
+//	stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries})
+func (s *SessionStream) Send(ctx context.Context, update schema.SessionUpdateVariant) error {
 	return s.client.SessionUpdate(ctx, &UpdateSessionNotification{
 		SessionID: s.sessionID,
-		Update:    update,
+		Update:    schema.NewSessionUpdate(update),
 	})
 }
 
-func (s *SessionStream) send(ctx context.Context, v schema.SessionUpdateVariant) error {
-	return s.Send(ctx, schema.NewSessionUpdate(v))
-}
-
 func (s *SessionStream) state(ctx context.Context, v schema.StateUpdateVariant) error {
-	return s.send(ctx, schema.SessionUpdateStateUpdate{Value: schema.NewStateUpdate(v)})
+	return s.Send(ctx, schema.SessionUpdateStateUpdate{Value: schema.NewStateUpdate(v)})
 }

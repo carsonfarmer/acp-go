@@ -134,8 +134,15 @@ required and non-nullable members, literal tags, scalar literal, null — kept i
 `union.Table`; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
 not, and `New<Union>` rejects values that match no rule. Object types with required literal
 members (`CreateElicitationRequestForm.Mode`) fix those members in their own `MarshalJSON` /
-`MarshalJSONTo`, so a zero value encodes as its alternative with or without the constructor. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
-alongside the `Variant()` type switch. Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods
+`MarshalJSONTo`, so a zero value encodes as its alternative with or without the constructor. Tagged unions offer `As[T]` over their `<Type>Variant` types
+alongside the `Variant()` type switch; there it returns `(T, bool)` like a type assertion, since
+the variant is already decoded:
+
+```go
+if chunk, ok := n.Update.As[schemav1.SessionUpdateAgentMessageChunk](); ok { ... }
+```
+
+Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods
 integrate with JSON v2 encoders and decoders. Stored JSON is copied on decode and when returned
 to the caller, so decoding a copied union value does not mutate the original.
 

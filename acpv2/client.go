@@ -38,8 +38,8 @@ func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reade
 // update to the client. The generated dispatch routes session/update here.
 func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessionNotification) error {
 	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
-		if state, ok := n.Update.Variant().(schema.SessionUpdateStateUpdate); ok {
-			if idle, ok := state.Value.Variant().(schema.StateUpdateIdle); ok {
+		if state, ok := n.Update.As[schema.SessionUpdateStateUpdate](); ok {
+			if idle, ok := state.Value.As[schema.StateUpdateIdle](); ok {
 				c.turns.End(n.SessionID, t, idle.StopReason, nil)
 			}
 		}

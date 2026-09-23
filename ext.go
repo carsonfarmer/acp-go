@@ -37,8 +37,8 @@ func CallExt[R any](ctx context.Context, conn ExtCaller, method string, params a
 //		// ...
 //	}
 //
-//	acp.HandleExt(&a.ExtRouter, "_zed.dev/index", a.index)
-//	acp.OnExtNotification(&a.ExtRouter, "_zed.dev/progress", a.progress)
+//	a.HandleExt("_zed.dev/index", a.index)
+//	a.OnExtNotification("_zed.dev/progress", a.progress)
 //
 // Params that fail to decode are answered with invalid params. An unregistered
 // method is answered with method not found, and an unregistered notification
@@ -53,7 +53,7 @@ type ExtRouter struct {
 
 // HandleExt registers a typed handler for an extension method. A nil response
 // is sent as an empty object.
-func HandleExt[P, R any](r *ExtRouter, method string, fn func(context.Context, *P) (*R, error)) {
+func (r *ExtRouter) HandleExt[P, R any](method string, fn func(context.Context, *P) (*R, error)) {
 	if r.methods == nil {
 		r.methods = map[string]jsonrpc.RequestHandler{}
 	}
@@ -63,7 +63,7 @@ func HandleExt[P, R any](r *ExtRouter, method string, fn func(context.Context, *
 }
 
 // OnExtNotification registers a typed handler for an extension notification.
-func OnExtNotification[P any](r *ExtRouter, method string, fn func(context.Context, *P) error) {
+func (r *ExtRouter) OnExtNotification[P any](method string, fn func(context.Context, *P) error) {
 	if r.notifications == nil {
 		r.notifications = map[string]jsonrpc.NotificationHandler{}
 	}

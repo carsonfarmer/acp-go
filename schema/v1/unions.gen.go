@@ -32,15 +32,9 @@ func NewToolCallContent(v ToolCallContentVariant) ToolCallContent { return ToolC
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ToolCallContent) Variant() ToolCallContentVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u ToolCallContent) As[T ToolCallContentVariant]() (T, error) {
-	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("ToolCallContent: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
-}
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u ToolCallContent) As[T ToolCallContentVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ToolCallContent) Tag() string {
@@ -272,15 +266,9 @@ func NewContentBlock(v ContentBlockVariant) ContentBlock { return ContentBlock{v
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ContentBlock) Variant() ContentBlockVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u ContentBlock) As[T ContentBlockVariant]() (T, error) {
-	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("ContentBlock: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
-}
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u ContentBlock) As[T ContentBlockVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ContentBlock) Tag() string {
@@ -749,14 +737,11 @@ func NewElicitationPropertySchema(v ElicitationPropertySchemaVariant) Elicitatio
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ElicitationPropertySchema) Variant() ElicitationPropertySchemaVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u ElicitationPropertySchema) As[T ElicitationPropertySchemaVariant]() (T, error) {
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u ElicitationPropertySchema) As[T ElicitationPropertySchemaVariant]() (T, bool) {
 	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("ElicitationPropertySchema: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
+	return v, ok
 }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
@@ -1428,14 +1413,11 @@ func NewSessionConfigOption(v SessionConfigOptionVariant) SessionConfigOption {
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SessionConfigOption) Variant() SessionConfigOptionVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u SessionConfigOption) As[T SessionConfigOptionVariant]() (T, error) {
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u SessionConfigOption) As[T SessionConfigOptionVariant]() (T, bool) {
 	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("SessionConfigOption: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
+	return v, ok
 }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
@@ -1688,15 +1670,9 @@ func NewNesSuggestion(v NesSuggestionVariant) NesSuggestion { return NesSuggesti
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u NesSuggestion) Variant() NesSuggestionVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u NesSuggestion) As[T NesSuggestionVariant]() (T, error) {
-	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("NesSuggestion: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
-}
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u NesSuggestion) As[T NesSuggestionVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "kind" discriminator, or "" for the zero value.
 func (u NesSuggestion) Tag() string {
@@ -1983,15 +1959,9 @@ func NewSessionUpdate(v SessionUpdateVariant) SessionUpdate { return SessionUpda
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SessionUpdate) Variant() SessionUpdateVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u SessionUpdate) As[T SessionUpdateVariant]() (T, error) {
-	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("SessionUpdate: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
-}
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u SessionUpdate) As[T SessionUpdateVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "sessionUpdate" discriminator, or "" for the zero value.
 func (u SessionUpdate) Tag() string {
@@ -2854,14 +2824,11 @@ func NewPlanUpdateContent(v PlanUpdateContentVariant) PlanUpdateContent {
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u PlanUpdateContent) Variant() PlanUpdateContentVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u PlanUpdateContent) As[T PlanUpdateContentVariant]() (T, error) {
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u PlanUpdateContent) As[T PlanUpdateContentVariant]() (T, bool) {
 	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("PlanUpdateContent: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
+	return v, ok
 }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
@@ -3223,14 +3190,11 @@ func NewRequestPermissionOutcome(v RequestPermissionOutcomeVariant) RequestPermi
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u RequestPermissionOutcome) Variant() RequestPermissionOutcomeVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u RequestPermissionOutcome) As[T RequestPermissionOutcomeVariant]() (T, error) {
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u RequestPermissionOutcome) As[T RequestPermissionOutcomeVariant]() (T, bool) {
 	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("RequestPermissionOutcome: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
+	return v, ok
 }
 
 // Tag returns the "outcome" discriminator, or "" for the zero value.
@@ -3398,14 +3362,11 @@ func NewCreateElicitationResponse(v CreateElicitationResponseVariant) CreateElic
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u CreateElicitationResponse) Variant() CreateElicitationResponseVariant { return u.value }
 
-// As returns the variant if it is a T, or reports which variant is held.
-func (u CreateElicitationResponse) As[T CreateElicitationResponseVariant]() (T, error) {
+// As returns the variant if it is a T, like a type assertion on Variant
+// with T checked against the union's variants at compile time.
+func (u CreateElicitationResponse) As[T CreateElicitationResponseVariant]() (T, bool) {
 	v, ok := u.value.(T)
-	if !ok {
-		var zero T
-		return zero, fmt.Errorf("CreateElicitationResponse: holds %q, not %T", u.Tag(), zero)
-	}
-	return v, nil
+	return v, ok
 }
 
 // Tag returns the "action" discriminator, or "" for the zero value.

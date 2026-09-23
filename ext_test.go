@@ -34,11 +34,11 @@ func (l loopback) ExtMethod(ctx context.Context, method string, params any) (jso
 
 func TestExtRouter(t *testing.T) {
 	var r ExtRouter
-	HandleExt(&r, "_test/echo", func(_ context.Context, p *echoParams) (*echoResult, error) {
+	r.HandleExt("_test/echo", func(_ context.Context, p *echoParams) (*echoResult, error) {
 		return &echoResult{Echo: p.Text}, nil
 	})
 	var notified string
-	OnExtNotification(&r, "_test/note", func(_ context.Context, p *echoParams) error {
+	r.OnExtNotification("_test/note", func(_ context.Context, p *echoParams) error {
 		notified = p.Text
 		return nil
 	})

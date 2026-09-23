@@ -89,11 +89,11 @@ type extAgent struct {
 
 func TestExtRouterOverAConnection(t *testing.T) {
 	agent := &extAgent{}
-	acp.HandleExt(&agent.ExtRouter, "_test/index", func(_ context.Context, p *extParams) (*extResult, error) {
+	agent.HandleExt("_test/index", func(_ context.Context, p *extParams) (*extResult, error) {
 		return &extResult{Files: len(p.Path)}, nil
 	})
 	notified := make(chan string, 1)
-	acp.OnExtNotification(&agent.ExtRouter, "_test/progress", func(_ context.Context, p *extParams) error {
+	agent.OnExtNotification("_test/progress", func(_ context.Context, p *extParams) error {
 		notified <- p.Path
 		return nil
 	})

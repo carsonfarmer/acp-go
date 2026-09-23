@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"testing"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
 	"github.com/ironpark/go-acp/acpv2"
 	"github.com/ironpark/go-acp/router"
@@ -67,7 +68,7 @@ func TestClientPrefersV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer agent.V2.Close()
+	defer agent.Close()
 	if agent.V2 == nil || agent.V1 != nil || agent.V2Init.ProtocolVersion != 2 {
 		t.Fatalf("got %+v", agent)
 	}
@@ -82,13 +83,17 @@ func TestClientFallsBackToV1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer agent.V1.Close()
+	defer agent.Close()
 	if agent.V1 == nil || agent.V2 != nil || agent.V1Init.ProtocolVersion != 1 {
 		t.Fatalf("got %+v", agent)
 	}
 	session, err := agent.V1.StartSession(t.Context(), &acpv1.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil || session.ID != "v1-session" {
 		t.Fatalf("got %+v %v", session, err)
+	}
+	// Extension calls go through Agent without knowing the version.
+	if _, err := acp.CallExt[struct{}](t.Context(), agent, "_test/none", nil); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
+		t.Fatalf("ext call: %v", err)
 	}
 }
 
