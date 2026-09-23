@@ -17,7 +17,7 @@ const (
 
 // Transport is a bidirectional message transport for JSON-RPC communication.
 //
-// Implementations own framing for their layer (stdio, HTTP+SSE, in-memory
+// Implementations own framing for their layer (stdio, Streamable HTTP, in-memory
 // pipes). [Connection] reads and writes whole JSON values through it.
 type Transport interface {
 	// ReadMessage returns the next message, or io.EOF once the peer is gone.

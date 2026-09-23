@@ -27,7 +27,8 @@ type Spec struct {
 	Agent  []Group
 	Client []Group
 	// ExtraTypes are schema types re-exported in addition to every
-	// Request/Response/Notification type.
+	// Request/Response/Notification type, with an enum's constants and a
+	// tagged union's variants and constructor.
 	ExtraTypes []string
 	// Unhandled are wire methods deliberately left to the extension handlers.
 	Unhandled []string
@@ -41,6 +42,17 @@ type Group struct {
 	Required  bool
 	Doc       string
 	Methods   []Method
+	// Experimental closes the interface's comment and each outgoing call's
+	// with [tsgen.ExperimentalNote].
+	Experimental bool
+}
+
+// stability appends the experimental note to s when the group is experimental.
+func (g Group) stability(s string) string {
+	if !g.Experimental || s == "" {
+		return s
+	}
+	return s + "\n\n" + tsgen.ExperimentalNote
 }
 
 // Method is one wire method. A Method without a Response is a notification.
@@ -102,8 +114,12 @@ func Generate(spec *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
 		}
 	}
 
+	decls, err := tsgen.Declarations(schema)
+	if err != nil {
+		return nil, err
+	}
 	files := map[string][]byte{}
-	g.typesFile(schema)
+	g.typesFile(schema, decls)
 	if err := g.flush(files, "types.gen.go"); err != nil {
 		return nil, err
 	}
@@ -198,7 +214,7 @@ func (g *emitter) header() {
 
 // typesFile re-exports the payload types so a caller implementing the
 // interfaces needs one import.
-func (g *emitter) typesFile(schema *tsdef.Schema) {
+func (g *emitter) typesFile(schema *tsdef.Schema, decls map[string]tsgen.Decl) {
 	g.header()
 	g.write("import schema %q\n\n", g.spec.SchemaPath)
 	g.write("// ProtocolVersion is the ACP protocol version implemented by this package.\nconst ProtocolVersion = schema.CurrentProtocolVersion\n\n")
@@ -210,14 +226,39 @@ func (g *emitter) typesFile(schema *tsdef.Schema) {
 		}
 		g.write("\t%s = schema.%s\n", name, name)
 	}
-	g.write(")\n\n// Identifiers and values shared across those payloads.\n\ntype (\n")
+	g.write(")\n\n// Identifiers and values shared across those payloads, with the constants\n// and variants that come with them.\n\ntype (\n")
+	var constants, constructors []string
 	for _, t := range g.spec.ExtraTypes {
 		g.write("\t%s = schema.%s\n", t, t)
+		d := decls[t]
+		constants = append(constants, d.Constants...)
+		if d.Constructor == "" {
+			continue
+		}
+		constructors = append(constructors, t)
+		g.write("\t%s = schema.%s\n", d.Interface, d.Interface)
+		for _, v := range d.Variants {
+			if !payloadType(v) && !slices.Contains(g.spec.ExtraTypes, v) {
+				g.write("\t%s = schema.%s\n", v, v)
+			}
+		}
 	}
 	// Meta is declared by the generator rather than the TypeScript schema, for
 	// the _meta member every protocol version reserves.
 	g.write("\tMeta = schema.Meta\n")
 	g.write(")\n")
+	if len(constants) > 0 {
+		g.write("\nconst (\n")
+		for _, c := range constants {
+			g.write("\t%s = schema.%s\n", c, c)
+		}
+		g.write(")\n")
+	}
+	for _, t := range constructors {
+		d := decls[t]
+		g.write("\n// %s wraps a variant; a nil variant yields the zero value.\n", d.Constructor)
+		g.write("func %s(v %s) %s { return schema.%s(v) }\n", d.Constructor, d.Interface, t, d.Constructor)
+	}
 }
 
 // payloadType reports whether a schema type is a method payload rather than
@@ -245,10 +286,13 @@ func doc(s string) string {
 // switches for both directions.
 func (g *emitter) methodsFile(sides []side) {
 	g.header()
-	g.write("// The hand-written half of each façade provides AgentSideConnection and\n// ClientSideConnection with a conn *jsonrpc.Connection field and an agent or\n// client field holding the served interface; everything routed by method name\n// is generated here.\n\n")
-	g.write("import (\n\t\"context\"\n\t\"encoding/json/jsontext\"\n\n\t\"github.com/ironpark/go-acp/internal/acpconn\"\n\t\"github.com/ironpark/go-acp/internal/jsonrpc\"\n\tschema %q\n)\n\n", g.spec.SchemaPath)
+	g.write("// The hand-written half of each façade provides AgentSideConnection and\n// ClientSideConnection with a conn *jsonrpc.Connection field and an agent or\n// client field holding the served interface; the lifecycle and extension\n// methods every connection shares, and everything routed by method name, are\n// generated here.\n\n")
+	g.write("import (\n\t\"context\"\n\t\"encoding/json/jsontext\"\n\n\tacp \"github.com/ironpark/go-acp\"\n\t\"github.com/ironpark/go-acp/internal/acpconn\"\n\t\"github.com/ironpark/go-acp/internal/jsonrpc\"\n\tschema %q\n)\n\n", g.spec.SchemaPath)
 	for _, s := range sides {
 		g.interfaces(s)
+	}
+	for _, s := range sides {
+		g.connection(s.server)
 	}
 	for _, s := range sides {
 		g.outgoing(s)
@@ -258,9 +302,20 @@ func (g *emitter) methodsFile(sides []side) {
 	}
 }
 
+// connection emits the [acp.Conn] methods, which every connection type
+// forwards to its JSON-RPC connection alike.
+func (g *emitter) connection(typ string) {
+	g.write("var _ acp.Conn = (*%s)(nil)\n\n", typ)
+	g.write("// Start processes messages until the peer disconnects or ctx is cancelled.\nfunc (c *%s) Start(ctx context.Context) error { return c.conn.Start(ctx) }\n\n", typ)
+	g.write("// Close shuts the connection down, waiting for in-flight handlers.\nfunc (c *%s) Close() error { return c.conn.Close() }\n\n", typ)
+	g.write("// Done is closed once the connection stops.\nfunc (c *%s) Done() <-chan struct{} { return c.conn.Done() }\n\n", typ)
+	g.write("// ExtMethod sends a request outside the spec and returns its raw result.\nfunc (c *%s) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {\n\treturn c.conn.SendRequest(ctx, method, params)\n}\n\n", typ)
+	g.write("// ExtNotification sends a notification outside the spec.\nfunc (c *%s) ExtNotification(ctx context.Context, method string, params any) error {\n\treturn c.conn.SendNotification(ctx, method, params)\n}\n\n", typ)
+}
+
 func (g *emitter) interfaces(s side) {
 	for _, group := range s.groups {
-		g.write("%stype %s interface {\n", doc(group.Doc), group.Interface)
+		g.write("%stype %s interface {\n", doc(group.stability(group.Doc)), group.Interface)
 		for i, m := range group.Methods {
 			if i > 0 {
 				g.write("\n")
@@ -291,7 +346,7 @@ func (g *emitter) outgoing(s side) {
 	for _, group := range s.groups {
 		for _, m := range group.Methods {
 			constant := g.constants[s.constants+" "+m.Wire]
-			g.write("%sfunc (c *%s) %s {\n", doc(m.callDoc()), s.caller, signature(m))
+			g.write("%sfunc (c *%s) %s {\n", doc(group.stability(m.callDoc())), s.caller, signature(m))
 			if m.notification() {
 				g.write("\treturn c.conn.SendNotification(ctx, schema.%s, params)\n}\n\n", constant)
 			} else {

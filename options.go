@@ -9,7 +9,7 @@ import (
 )
 
 // Transport is a bidirectional message transport. Implement it to carry ACP
-// over something other than stdio, such as HTTP+SSE or an in-process pipe.
+// over something other than stdio, such as Streamable HTTP or an in-process pipe.
 type Transport = jsonrpc.Transport
 
 // Middleware wraps incoming request and/or notification handling. Either field

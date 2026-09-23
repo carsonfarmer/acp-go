@@ -103,9 +103,9 @@ func (t *Turn) Wait() (*StopReason, error) { return t.t.Wait() }
 func (t *Turn) Done() <-chan struct{} { return t.t.Done() }
 
 // Text consumes the turn's updates and returns the text of the agent's
-// messages in order, applying chunks and full-message updates by message id.
-// It reports the same error as Wait.
-func (t *Turn) Text() (string, error) {
+// messages in order, applying chunks and full-message updates by message id,
+// with the same stop reason and error as Wait.
+func (t *Turn) Text() (string, *StopReason, error) {
 	var order []MessageID
 	texts := map[MessageID]*strings.Builder{}
 	message := func(id MessageID) *strings.Builder {
@@ -137,6 +137,6 @@ func (t *Turn) Text() (string, error) {
 	for _, id := range order {
 		out.WriteString(texts[id].String())
 	}
-	_, err := t.Wait()
-	return out.String(), err
+	reason, err := t.Wait()
+	return out.String(), reason, err
 }

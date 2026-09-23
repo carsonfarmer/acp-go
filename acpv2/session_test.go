@@ -51,11 +51,10 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		if err != nil || messageID != "user_1" {
 			t.Fatalf("idleFirst=%v: prompt %q %v", idleFirst, messageID, err)
 		}
-		text, err := turn.Text()
+		text, reason, err := turn.Text()
 		if err != nil || text != "Hello, world" {
 			t.Fatalf("idleFirst=%v: got %q %v", idleFirst, text, err)
 		}
-		reason, _ := turn.Wait()
 		if reason == nil || *reason != schema.StopReasonEndTurn {
 			t.Fatalf("idleFirst=%v: got %v", idleFirst, reason)
 		}
@@ -192,11 +191,11 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 	if err := <-firstErr; !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
 		t.Fatalf("starter: %v", err)
 	}
-	text, err := turn.Text()
+	text, reason, err := turn.Text()
 	if err != nil || text != "done" {
 		t.Fatalf("turn ended early: %q %v", text, err)
 	}
-	if reason, _ := turn.Wait(); reason == nil || *reason != schema.StopReasonEndTurn {
+	if reason == nil || *reason != schema.StopReasonEndTurn {
 		t.Fatalf("got %v", reason)
 	}
 }

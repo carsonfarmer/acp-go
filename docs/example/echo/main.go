@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/ironpark/go-acp/acpv1"
-	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
 type echoAgent struct {
@@ -33,7 +32,7 @@ func (a *echoAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*a
 			return nil, err
 		}
 	}
-	return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+	return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
 }
 
 // Cancel has nothing to stop: Prompt never waits.

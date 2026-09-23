@@ -34,11 +34,12 @@ See the [docs/example](./docs/example/) directory for complete working examples:
 - **[Echo Agent](./docs/example/echo/)** — the smallest agent: the four required methods
 - **[Agent](./docs/example/agent/)** — sessions, cancellation, tool calls, a permission request, an extension method
 - **[Client](./docs/example/client/)** — an interactive client for any stdio agent, with Ctrl-C cancellation
-- **[HTTP Agent](./docs/example/http-agent/) / [HTTP Client](./docs/example/http-client/)** — the same connection over HTTP and Server-Sent Events
+- **[HTTP Agent](./docs/example/http-agent/) / [HTTP Client](./docs/example/http-client/)** — the same connection over Streamable HTTP or WebSocket
+- **[Dual Agent](./docs/example/dual-agent/) / [Dual Client](./docs/example/dual-client/)** — v1 and v2 on one endpoint, and a client that falls back from v2 to v1
 
 ## Architecture
 
-- **`acp`** (root) — `Option`s, `Transport` (stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`,
+- **`acp`** (root) — `Option`s, `Transport` (stdio, Streamable HTTP, WebSocket), `Middleware`, `RequestError`, `SessionStore`,
   `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`)
 - **`acpv1.AgentSideConnection`** — serves an `Agent` and calls the peer client
 - **`acpv1.ClientSideConnection`** — serves a `Client` and calls the peer agent
@@ -103,7 +104,7 @@ turn, _ := session.Prompt(ctx, acpv1.TextBlock("Summarize README.md"))
 for update := range turn.Updates() {
     render(update) // tool calls, plans, message chunks...
 }
-response, err := turn.Wait() // or: text, err := turn.Text()
+response, err := turn.Wait() // or: text, response, err := turn.Text()
 ```
 
 `SpawnAgent` already runs the read loop; `agent.Wait()` reports how the process and connection
@@ -152,10 +153,10 @@ result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexPa
 ```
 
 Params that fail to decode get `-32602`, unregistered methods `-32601`, and unregistered
-notifications are ignored. Every `_meta` field is a `schema.Meta`, which keeps values as raw JSON:
+notifications are ignored. Every `_meta` field is an `acpv1.Meta`, which keeps values as raw JSON:
 
 ```go
-var meta schema.Meta
+var meta acpv1.Meta
 meta.Set("trace", Trace{ID: "abc"})
 trace, ok, err := params.Meta.Get[Trace]("trace")
 ```
@@ -198,11 +199,26 @@ if agent.V2 != nil {
 // Default: stdio (newline-delimited JSON)
 conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout)
 
-// HTTP+SSE for web deployments
-transport := acp.NewHTTPServerTransport()
-conn := acpv1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(transport))
-http.Handle("/", transport.Handler())
+// Streamable HTTP and WebSocket for remote agents: one connection, and one agent, per client
+server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
+    return acpv1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(t)).Start(ctx)
+})
+http.Handle("/acp", server)
+
+// The client side of any transport
+agent := acpv1.ConnectAgent(ctx, acp.NewHTTPClientTransport("https://host/acp"), newClient)
+defer agent.Close() // also ends the connection on the server
+
+ws, err := acp.DialWebSocket(ctx, "wss://host/acp") // the same endpoint over WebSocket
+agent := acpv1.ConnectAgent(ctx, ws, newClient)
 ```
+
+Both follow the draft RFD the TypeScript and Python SDKs implement, and interoperate with them.
+Streamable HTTP uses `POST` for client messages (`initialize` answers with an
+`Acp-Connection-Id`) and Server-Sent Events streams for the agent's, one per connection and one
+per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the whole connection
+as text frames instead. WebSockets from browser pages on other origins are refused unless
+`acp.WithWebSocketOrigins` allows them.
 
 ### Middleware
 
@@ -252,11 +268,11 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acp
     }
     defer done()
     if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+        return &acpv1.PromptResponse{StopReason: acpv1.StopReasonCancelled}, nil
     } else if err != nil {
         return nil, err
     }
-    return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+    return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
 }
 ```
 
@@ -272,11 +288,12 @@ stream := acpv1.NewSessionStream(client, sessionID)
 stream.SendText(ctx, "Hello!")
 stream.SendThought(ctx, "thinking...")
 
-stream.StartToolCall(ctx, toolID, "Reading file", schema.ToolKindRead)
+stream.StartToolCall(ctx, toolID, "Reading file", acpv1.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
 
 stream.SendPlan(ctx, entries)
-stream.Send(ctx, schema.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
+stream.Send(ctx, acpv1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
+stream.WithMeta(meta).SendText(ctx, "…")                                       // _meta on each notification
 ```
 
 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts` (an iterator over a prompt's text blocks) and
@@ -290,20 +307,20 @@ Generated unions wrap a sealed variant interface, so a type switch replaces the 
 
 ```go
 switch update := notification.Update.Variant().(type) {
-case schema.SessionUpdateAgentMessageChunk:
+case acpv1.SessionUpdateAgentMessageChunk:
     if text, ok := acpv1.TextOf(update.Content); ok {
         fmt.Print(text)
     }
-case schema.SessionUpdateToolCall:
+case acpv1.SessionUpdateToolCall:
     fmt.Println(update.Title)
 }
 
-update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
+update := acpv1.NewSessionUpdate(acpv1.SessionUpdatePlan{Entries: entries})
 ```
 
 A tag this SDK does not know never fails the message. It decodes into the union's
 `Custom` variant where the schema defines one, and otherwise into a generated `…Unknown`
-variant (such as `schema.SessionUpdateUnknown`) whose `Raw` field holds the object as
+variant (such as `acpv1.SessionUpdateUnknown`) whose `Raw` field holds the object as
 received and is encoded unchanged. Handle it in a `default` case, or ignore it as the
 protocol recommends.
 

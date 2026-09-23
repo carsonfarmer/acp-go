@@ -37,7 +37,7 @@ func doc(name, sdk string, generated ...string) string {
 	}
 	paragraphs = append(paragraphs, extra...)
 	if experimental {
-		paragraphs = append(paragraphs, experimentalNote)
+		paragraphs = append(paragraphs, ExperimentalNote)
 	}
 	text, definitions := linkDefinitions(strings.Join(paragraphs, "\n\n"))
 	if definitions != "" {
@@ -51,12 +51,14 @@ func doc(name, sdk string, generated ...string) string {
 func fieldDoc(sdk string) string {
 	sdk, experimental := stability(sdk)
 	if experimental {
-		sdk = strings.TrimSpace(sdk + "\n\n" + experimentalNote)
+		sdk = strings.TrimSpace(sdk + "\n\n" + ExperimentalNote)
 	}
 	return sdk
 }
 
-const experimentalNote = "Experimental: not part of the spec yet; it may change or be removed."
+// ExperimentalNote closes the comment of every declaration the SDK marks
+// unstable, in generated types and façades alike.
+const ExperimentalNote = "Experimental: not part of the spec yet; it may change or be removed."
 
 // stability removes the SDK's instability markers: a **UNSTABLE** paragraph,
 // the stock paragraph explaining it and a JSDoc @experimental tag. It reports

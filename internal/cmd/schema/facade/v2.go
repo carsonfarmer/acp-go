@@ -14,7 +14,8 @@ var V2 = &Spec{
 		"SessionID", "SessionInfo", "SessionConfigOption", "SessionUpdate", "MessageID",
 		"ToolCallID", "ContentBlock", "AbsolutePath", "MCPConnectionID", "MCPServerACPID",
 		"StopReason", "ToolCallContent", "ToolCallLocation", "ToolCallStatus", "ToolKind",
-		"AvailableCommand", "Cost",
+		"AvailableCommand", "Cost", "Implementation", "PermissionOption", "PermissionOptionKind",
+		"ToolCallUpdate", "RequestPermissionOutcome", "PlanEntryStatus", "PlanEntryPriority",
 	},
 	Agent: []Group{
 		{
@@ -81,17 +82,14 @@ turn. The pending Prompt call should return with the cancelled outcome.`,
 			}},
 		},
 		{
-			Interface: "SessionForker",
+			Interface:    "SessionForker",
+			Experimental: true,
 			Doc: `SessionForker handles session/fork. Advertise it with the
-` + "`capabilities.session.fork`" + ` agent capability.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+` + "`capabilities.session.fork`" + ` agent capability.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
-original history.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+original history.`,
 			}},
 		},
 		{
@@ -123,53 +121,45 @@ every option, since one change may affect the others.`,
 			}},
 		},
 		{
-			Interface: "ProviderManager",
+			Interface:    "ProviderManager",
+			Experimental: true,
 			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
-` + "`capabilities.providers`" + ` agent capability.
-
-Experimental: these methods are not part of the spec yet and may change.`,
+` + "`capabilities.providers`" + ` agent capability.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
-					CallDoc: unstable("ListProviders lists the model providers the agent can use.")},
+					CallDoc: "ListProviders lists the model providers the agent can use."},
 				{Wire: "providers/set", Name: "SetProvider", Params: "SetProviderRequest", Response: "SetProviderResponse",
-					CallDoc: unstable("SetProvider configures one provider.")},
+					CallDoc: "SetProvider configures one provider."},
 				{Wire: "providers/disable", Name: "DisableProvider", Params: "DisableProviderRequest", Response: "DisableProviderResponse",
-					CallDoc: unstable("DisableProvider turns one provider off.")},
+					CallDoc: "DisableProvider turns one provider off."},
 			},
 		},
 		{
-			Interface: "NesHandler",
+			Interface:    "NesHandler",
+			Experimental: true,
 			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
 them with the ` + "`capabilities.nes`" + ` agent capability. AcceptNes and RejectNes
-are notifications.
-
-Experimental: these methods are not part of the spec yet and may change.`,
+are notifications.`,
 			Methods: nesMethods,
 		},
 		{
-			Interface: "DocumentHandler",
+			Interface:    "DocumentHandler",
+			Experimental: true,
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
-client's open editors.
-
-Experimental: these notifications are not part of the spec yet and may change.`,
+client's open editors.`,
 			Methods: documentMethods,
 		},
 		{
-			Interface: "MCPMessageHandler",
+			Interface:    "MCPMessageHandler",
+			Experimental: true,
 			Doc: `MCPMessageHandler receives MCP traffic the client forwards to the agent over
 mcp/message. The method carries either a request, answered with the MCP
-result, or a notification, which has no response.
-
-Experimental: MCP proxying is not part of the spec yet and may change.`,
+result, or a notification, which has no response.`,
 			Methods: []Method{
 				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
-					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.
-
-Experimental: MCP proxying is not part of the spec yet and may change.`},
+					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.`},
 				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
-					CallDoc: `NotifyMCP forwards an MCP notification to the agent.
-
-Experimental: MCP proxying is not part of the spec yet and may change.`},
+					CallDoc: `NotifyMCP forwards an MCP notification to the agent.`},
 			},
 		},
 	},
@@ -201,13 +191,12 @@ than leaving the request pending.`,
 			},
 		},
 		{
-			Interface: "MCPConnector",
+			Interface:    "MCPConnector",
+			Experimental: true,
 			Doc: `MCPConnector lets the agent reach MCP servers through the client: mcp/connect
 opens a connection, mcp/message carries requests and notifications over it,
 and mcp/disconnect closes it. In v2 this replaces the v1 fs/* and terminal/*
-methods.
-
-Experimental: MCP proxying is not part of the spec yet and may change.`,
+methods.`,
 			Methods: []Method{
 				{Wire: "mcp/connect", Name: "ConnectMCP", Params: "ConnectMCPRequest", Response: "ConnectMCPResponse",
 					CallDoc: `ConnectMCP opens an MCP connection through the client.`},

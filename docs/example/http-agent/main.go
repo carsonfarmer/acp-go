@@ -1,13 +1,14 @@
-// Command http-agent serves the echo agent over HTTP instead of stdio.
+// Command http-agent serves the echo agent over Streamable HTTP instead of
+// stdio, at http://localhost:8000/acp.
 //
 //	go run ./docs/example/http-agent        # listens on localhost:8000
 //	go run ./docs/example/http-client       # in another terminal
 //
-// acp.HTTPServerTransport carries one connection, so serve one client at a
-// time: the client posts JSON-RPC
-// messages to /message and reads the agent's messages from the /events
-// Server-Sent Events stream. Any transport plugs into a connection through
-// acp.WithTransport; the agent code does not change.
+// acp.HTTPServer implements the remote transport the other ACP SDKs use, in
+// both its profiles on one endpoint: Streamable HTTP, where the client POSTs
+// messages and reads the agent's from Server-Sent Events streams, and
+// WebSocket. Each client gets its own connection and its own agent; the agent
+// code is the same as over stdio.
 package main
 
 import (
@@ -18,7 +19,6 @@ import (
 
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
-	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
 // echoAgent is the echo example's agent, replying with an "echo: " prefix.
@@ -41,7 +41,7 @@ func (a *echoAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*a
 			return nil, err
 		}
 	}
-	return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+	return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
 }
 
 func (a *echoAgent) Cancel(context.Context, *acpv1.CancelNotification) error { return nil }
@@ -50,17 +50,22 @@ func main() {
 	addr := flag.String("addr", "localhost:8000", "address to listen on")
 	flag.Parse()
 
-	transport := acp.NewHTTPServerTransport()
-	go func() {
-		log.Printf("serving an ACP agent on http://%s", *addr)
-		log.Fatal(http.ListenAndServe(*addr, transport.Handler()))
-	}()
+	// serve runs once per connection, with that connection's transport.
+	server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
+		conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
+			return &echoAgent{client: c}
+		}, nil, nil, acp.WithTransport(t))
+		return conn.Start(ctx)
+	})
+	defer server.Close()
 
-	// The reader and writer are unused: the transport replaces stdio.
-	conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
-		return &echoAgent{client: c}
-	}, nil, nil, acp.WithTransport(transport))
-	if err := conn.Start(context.Background()); err != nil {
-		log.Fatal(err)
-	}
+	mux := http.NewServeMux()
+	mux.Handle("/acp", server)
+	// The protocol asks for HTTP/2; plain-text HTTP/2 needs it enabled, and
+	// HTTP/1.1 keeps working for clients without it.
+	httpServer := &http.Server{Addr: *addr, Handler: mux, Protocols: new(http.Protocols)}
+	httpServer.Protocols.SetHTTP1(true)
+	httpServer.Protocols.SetUnencryptedHTTP2(true)
+	log.Printf("serving an ACP agent on http://%s/acp", *addr)
+	log.Fatal(httpServer.ListenAndServe())
 }

@@ -27,7 +27,6 @@ import (
 
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
-	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
 // exampleClient implements acpv1.Client, plus acpv1.FileReader and
@@ -49,32 +48,32 @@ func (c *exampleClient) SessionUpdate(context.Context, *acpv1.SessionNotificatio
 // render prints one update with a type switch over the SessionUpdate union.
 func render(update acpv1.SessionUpdate) {
 	switch update := update.Variant().(type) {
-	case schema.SessionUpdateAgentMessageChunk:
+	case acpv1.SessionUpdateAgentMessageChunk:
 		if text, ok := acpv1.TextOf(update.Content); ok {
 			fmt.Print(text)
 		} else {
 			fmt.Print("[non-text content]")
 		}
-	case schema.SessionUpdateAgentThoughtChunk:
+	case acpv1.SessionUpdateAgentThoughtChunk:
 		if text, ok := acpv1.TextOf(update.Content); ok {
 			fmt.Printf("\n💭 %s", text)
 		}
-	case schema.SessionUpdateToolCall:
+	case acpv1.SessionUpdateToolCall:
 		fmt.Printf("\n🔧 %s", update.Title)
 		if update.Status != nil {
 			fmt.Printf(" (%s)", *update.Status)
 		}
 		fmt.Println()
-	case schema.SessionUpdateToolCallUpdate:
+	case acpv1.SessionUpdateToolCallUpdate:
 		fmt.Printf("🔧 %s", update.ToolCallID)
 		if update.Status != nil {
 			fmt.Printf(": %s", *update.Status)
 		}
 		fmt.Println()
-	case schema.SessionUpdatePlan:
+	case acpv1.SessionUpdatePlan:
 		fmt.Printf("\n📋 plan with %d entries\n", len(update.Entries))
 	default:
-		// Includes schema.SessionUpdateUnknown: updates newer than this SDK
+		// Includes acpv1.SessionUpdateUnknown: updates newer than this SDK
 		// are safe to ignore.
 	}
 }
@@ -101,7 +100,7 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.Reque
 			continue
 		}
 		return &acpv1.RequestPermissionResponse{
-			Outcome: schema.NewRequestPermissionOutcome(schema.RequestPermissionOutcomeSelected{
+			Outcome: acpv1.NewRequestPermissionOutcome(acpv1.RequestPermissionOutcomeSelected{
 				OptionID: params.Options[choice-1].OptionID,
 			}),
 		}, nil
@@ -152,7 +151,6 @@ func run(ctx context.Context, command []string, verbose bool) error {
 		command = []string{binary}
 	}
 	cmd := exec.Command(command[0], command[1:]...)
-	detach(cmd)
 	if !verbose {
 		cmd.Stderr = io.Discard // agent logs would interleave with the conversation
 	}
@@ -169,7 +167,7 @@ func run(ctx context.Context, command []string, verbose bool) error {
 	initialized, err := agent.Initialize(ctx, &acpv1.InitializeRequest{
 		ProtocolVersion:    acpv1.ProtocolVersion,
 		ClientCapabilities: acpv1.ClientCapabilitiesOf(client),
-		ClientInfo:         &schema.Implementation{Name: "example-client", Version: "0.1.0"},
+		ClientInfo:         &acpv1.Implementation{Name: "example-client", Version: "0.1.0"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)

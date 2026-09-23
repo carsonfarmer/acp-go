@@ -91,25 +91,124 @@ type (
 	CancelRequestNotification       = schema.CancelRequestNotification
 )
 
-// Identifiers and values shared across those payloads.
+// Identifiers and values shared across those payloads, with the constants
+// and variants that come with them.
 
 type (
-	SessionID           = schema.SessionID
-	SessionInfo         = schema.SessionInfo
-	SessionModeID       = schema.SessionModeID
-	SessionConfigOption = schema.SessionConfigOption
-	SessionUpdate       = schema.SessionUpdate
-	MessageID           = schema.MessageID
-	TerminalID          = schema.TerminalID
-	ToolCallID          = schema.ToolCallID
-	ToolCallContent     = schema.ToolCallContent
-	ToolCallLocation    = schema.ToolCallLocation
-	ToolCallStatus      = schema.ToolCallStatus
-	ToolKind            = schema.ToolKind
-	ContentBlock        = schema.ContentBlock
-	PlanEntry           = schema.PlanEntry
-	AvailableCommand    = schema.AvailableCommand
-	Cost                = schema.Cost
-	StopReason          = schema.StopReason
-	Meta                = schema.Meta
+	SessionID                            = schema.SessionID
+	SessionInfo                          = schema.SessionInfo
+	SessionModeID                        = schema.SessionModeID
+	SessionConfigOption                  = schema.SessionConfigOption
+	SessionConfigOptionVariant           = schema.SessionConfigOptionVariant
+	SessionConfigOptionSelect            = schema.SessionConfigOptionSelect
+	SessionConfigOptionBoolean           = schema.SessionConfigOptionBoolean
+	SessionConfigOptionUnknown           = schema.SessionConfigOptionUnknown
+	SessionUpdate                        = schema.SessionUpdate
+	SessionUpdateVariant                 = schema.SessionUpdateVariant
+	SessionUpdateUserMessageChunk        = schema.SessionUpdateUserMessageChunk
+	SessionUpdateAgentMessageChunk       = schema.SessionUpdateAgentMessageChunk
+	SessionUpdateAgentThoughtChunk       = schema.SessionUpdateAgentThoughtChunk
+	SessionUpdateToolCall                = schema.SessionUpdateToolCall
+	SessionUpdateToolCallUpdate          = schema.SessionUpdateToolCallUpdate
+	SessionUpdatePlan                    = schema.SessionUpdatePlan
+	SessionUpdatePlanUpdate              = schema.SessionUpdatePlanUpdate
+	SessionUpdatePlanRemoved             = schema.SessionUpdatePlanRemoved
+	SessionUpdateAvailableCommandsUpdate = schema.SessionUpdateAvailableCommandsUpdate
+	SessionUpdateCurrentModeUpdate       = schema.SessionUpdateCurrentModeUpdate
+	SessionUpdateConfigOptionUpdate      = schema.SessionUpdateConfigOptionUpdate
+	SessionUpdateSessionInfoUpdate       = schema.SessionUpdateSessionInfoUpdate
+	SessionUpdateUsageUpdate             = schema.SessionUpdateUsageUpdate
+	SessionUpdateNotice                  = schema.SessionUpdateNotice
+	SessionUpdateCompactionUpdate        = schema.SessionUpdateCompactionUpdate
+	SessionUpdateCompactionSummaryChunk  = schema.SessionUpdateCompactionSummaryChunk
+	SessionUpdateUnknown                 = schema.SessionUpdateUnknown
+	MessageID                            = schema.MessageID
+	TerminalID                           = schema.TerminalID
+	ToolCallID                           = schema.ToolCallID
+	ToolCallContent                      = schema.ToolCallContent
+	ToolCallContentVariant               = schema.ToolCallContentVariant
+	ToolCallContentContent               = schema.ToolCallContentContent
+	ToolCallContentDiff                  = schema.ToolCallContentDiff
+	ToolCallContentTerminal              = schema.ToolCallContentTerminal
+	ToolCallContentUnknown               = schema.ToolCallContentUnknown
+	ToolCallLocation                     = schema.ToolCallLocation
+	ToolCallStatus                       = schema.ToolCallStatus
+	ToolKind                             = schema.ToolKind
+	ContentBlock                         = schema.ContentBlock
+	ContentBlockVariant                  = schema.ContentBlockVariant
+	ContentBlockText                     = schema.ContentBlockText
+	ContentBlockImage                    = schema.ContentBlockImage
+	ContentBlockAudio                    = schema.ContentBlockAudio
+	ContentBlockResourceLink             = schema.ContentBlockResourceLink
+	ContentBlockResource                 = schema.ContentBlockResource
+	ContentBlockUnknown                  = schema.ContentBlockUnknown
+	PlanEntry                            = schema.PlanEntry
+	AvailableCommand                     = schema.AvailableCommand
+	Cost                                 = schema.Cost
+	StopReason                           = schema.StopReason
+	Implementation                       = schema.Implementation
+	PermissionOption                     = schema.PermissionOption
+	PermissionOptionKind                 = schema.PermissionOptionKind
+	ToolCallUpdate                       = schema.ToolCallUpdate
+	RequestPermissionOutcome             = schema.RequestPermissionOutcome
+	RequestPermissionOutcomeVariant      = schema.RequestPermissionOutcomeVariant
+	RequestPermissionOutcomeCancelled    = schema.RequestPermissionOutcomeCancelled
+	RequestPermissionOutcomeSelected     = schema.RequestPermissionOutcomeSelected
+	RequestPermissionOutcomeUnknown      = schema.RequestPermissionOutcomeUnknown
+	PlanEntryStatus                      = schema.PlanEntryStatus
+	PlanEntryPriority                    = schema.PlanEntryPriority
+	Meta                                 = schema.Meta
 )
+
+const (
+	ToolCallStatusPending            = schema.ToolCallStatusPending
+	ToolCallStatusInProgress         = schema.ToolCallStatusInProgress
+	ToolCallStatusCompleted          = schema.ToolCallStatusCompleted
+	ToolCallStatusFailed             = schema.ToolCallStatusFailed
+	ToolKindRead                     = schema.ToolKindRead
+	ToolKindEdit                     = schema.ToolKindEdit
+	ToolKindDelete                   = schema.ToolKindDelete
+	ToolKindMove                     = schema.ToolKindMove
+	ToolKindSearch                   = schema.ToolKindSearch
+	ToolKindExecute                  = schema.ToolKindExecute
+	ToolKindThink                    = schema.ToolKindThink
+	ToolKindFetch                    = schema.ToolKindFetch
+	ToolKindSwitchMode               = schema.ToolKindSwitchMode
+	ToolKindOther                    = schema.ToolKindOther
+	StopReasonEndTurn                = schema.StopReasonEndTurn
+	StopReasonMaxTokens              = schema.StopReasonMaxTokens
+	StopReasonMaxTurnRequests        = schema.StopReasonMaxTurnRequests
+	StopReasonRefusal                = schema.StopReasonRefusal
+	StopReasonCancelled              = schema.StopReasonCancelled
+	PermissionOptionKindAllowOnce    = schema.PermissionOptionKindAllowOnce
+	PermissionOptionKindAllowAlways  = schema.PermissionOptionKindAllowAlways
+	PermissionOptionKindRejectOnce   = schema.PermissionOptionKindRejectOnce
+	PermissionOptionKindRejectAlways = schema.PermissionOptionKindRejectAlways
+	PlanEntryStatusPending           = schema.PlanEntryStatusPending
+	PlanEntryStatusInProgress        = schema.PlanEntryStatusInProgress
+	PlanEntryStatusCompleted         = schema.PlanEntryStatusCompleted
+	PlanEntryPriorityHigh            = schema.PlanEntryPriorityHigh
+	PlanEntryPriorityMedium          = schema.PlanEntryPriorityMedium
+	PlanEntryPriorityLow             = schema.PlanEntryPriorityLow
+)
+
+// NewSessionConfigOption wraps a variant; a nil variant yields the zero value.
+func NewSessionConfigOption(v SessionConfigOptionVariant) SessionConfigOption {
+	return schema.NewSessionConfigOption(v)
+}
+
+// NewSessionUpdate wraps a variant; a nil variant yields the zero value.
+func NewSessionUpdate(v SessionUpdateVariant) SessionUpdate { return schema.NewSessionUpdate(v) }
+
+// NewToolCallContent wraps a variant; a nil variant yields the zero value.
+func NewToolCallContent(v ToolCallContentVariant) ToolCallContent {
+	return schema.NewToolCallContent(v)
+}
+
+// NewContentBlock wraps a variant; a nil variant yields the zero value.
+func NewContentBlock(v ContentBlockVariant) ContentBlock { return schema.NewContentBlock(v) }
+
+// NewRequestPermissionOutcome wraps a variant; a nil variant yields the zero value.
+func NewRequestPermissionOutcome(v RequestPermissionOutcomeVariant) RequestPermissionOutcome {
+	return schema.NewRequestPermissionOutcome(v)
+}

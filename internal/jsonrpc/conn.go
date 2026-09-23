@@ -204,9 +204,9 @@ func (c *Connection) logError(err error) {
 	}
 }
 
-// idKey canonicalizes a request id so that 1 and 1.0 map to the same pending
+// IDKey canonicalizes a request id so that 1 and 1.0 map to the same pending
 // entry. Invalid ids fall back to their raw bytes.
-func idKey(id jsontext.Value) string {
+func IDKey(id jsontext.Value) string {
 	canonical := id.Clone()
 	if err := canonical.Canonicalize(); err != nil {
 		return string(id)
@@ -312,7 +312,7 @@ func (c *Connection) trySend(msg wireMessage) {
 }
 
 func (c *Connection) handleRequest(msg wireMessage) {
-	key := idKey(msg.ID)
+	key := IDKey(msg.ID)
 	ctx, cancel := context.WithCancelCause(c.ctx)
 	c.incoming.Store(key, cancel)
 	defer func() {
@@ -406,7 +406,7 @@ func (c *Connection) cancelIncoming(params jsontext.Value) {
 	if err := json.Unmarshal(params, &payload); err != nil || len(payload.RequestID) == 0 {
 		return
 	}
-	key := idKey(payload.RequestID)
+	key := IDKey(payload.RequestID)
 	if entry, ok := c.incoming.Load(key); ok {
 		entry.(context.CancelCauseFunc)(RequestCancelled(map[string]jsontext.Value{
 			"requestId": payload.RequestID.Clone(),
@@ -415,7 +415,7 @@ func (c *Connection) cancelIncoming(params jsontext.Value) {
 }
 
 func (c *Connection) handleResponse(msg wireMessage) {
-	entry, ok := c.pending.LoadAndDelete(idKey(msg.ID))
+	entry, ok := c.pending.LoadAndDelete(IDKey(msg.ID))
 	if !ok {
 		// A response to a request we already gave up on (for example after
 		// sending $/cancel_request). Dropping it is correct.
@@ -465,7 +465,7 @@ func (c *Connection) SendRequest(ctx context.Context, method string, params any)
 	}
 
 	id := jsontext.Value(strconv.FormatInt(c.nextRequestID.Add(1), 10))
-	key := idKey(id)
+	key := IDKey(id)
 	pending := &pendingResponse{result: make(chan responseResult, 1)}
 	c.pending.Store(key, pending)
 	defer c.pending.Delete(key)

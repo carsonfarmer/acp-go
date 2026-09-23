@@ -167,6 +167,7 @@ func (g *generator) enum(typeName, sdkDoc, kind string, members []*tsdef.Type, o
 		g.write("%s %s = %s\n", name, typeName, value)
 	}
 	g.write(")\n")
+	g.decls[typeName] = Decl{Constants: names}
 	if open {
 		g.write("// Known reports whether v is one of the protocol-defined constants.\n")
 		g.write("func (v %s) Known() bool {\nswitch v {\ncase %s:\nreturn true\n}\nreturn false\n}\n", typeName, strings.Join(names, ", "))

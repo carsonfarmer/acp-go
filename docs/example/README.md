@@ -8,8 +8,10 @@ different transport. Run each from the repository root.
 | [`echo`](./echo/main.go) | The smallest agent: the four required methods, streaming each prompt back | `go run ./docs/example/echo` |
 | [`agent`](./agent/main.go) | A complete agent: `SessionManager` sessions and cancellation, `SessionStream` tool calls, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./docs/example/agent` |
 | [`client`](./client/main.go) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, Ctrl-C cancellation, permission prompts, file system methods, `CallExt` | `go run ./docs/example/client [agent command...]` |
-| [`http-agent`](./http-agent/main.go) | The echo agent served over HTTP and Server-Sent Events with `WithTransport` | `go run ./docs/example/http-agent` |
-| [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` | `go run ./docs/example/http-client` |
+| [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acp.HTTPServer` | `go run ./docs/example/http-agent` |
+| [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` with `ConnectAgent`, over Streamable HTTP or, with `-ws`, WebSocket | `go run ./docs/example/http-client [-ws]` |
+| [`dual-agent`](./dual-agent/main.go) | One binary serving ACP v1 and the draft v2 through `router.ProtocolRouter`, including the v2 prompt lifecycle | `go run ./docs/example/dual-agent` |
+| [`dual-client`](./dual-client/main.go) | `router.ClientConnector`: v2 when the agent supports it, v1 otherwise | `go run ./docs/example/dual-client [agent command...]` |
 
 ## Agent and client together
 
@@ -32,13 +34,27 @@ go run ./docs/example/client /tmp/echo
 
 ## Over HTTP
 
-`acp.HTTPServerTransport` carries one connection, so the agent serves one client at a time. Start the agent, then
-run the client in another terminal:
+The agent speaks Streamable HTTP, the remote transport of the TypeScript and Python SDKs, so their clients work
+with it too. Start the agent, then run the client in another terminal:
 
 ```sh
 go run ./docs/example/http-agent
-go run ./docs/example/http-client
+go run ./docs/example/http-client      # Streamable HTTP
+go run ./docs/example/http-client -ws  # WebSocket
 ```
+
+## v1 and v2 together
+
+With no arguments, the dual client builds `dual-agent` and negotiates v2. Point it at a v1-only agent and it
+restarts the agent with v1:
+
+```sh
+go run ./docs/example/dual-client            # negotiated v2
+go build -o /tmp/echo ./docs/example/echo
+go run ./docs/example/dual-client /tmp/echo  # negotiated v1
+```
+
+The v1 `client` example works against `dual-agent` too; the router gives it the v1 agent.
 
 ## Agent by itself
 

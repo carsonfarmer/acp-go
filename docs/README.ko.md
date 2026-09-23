@@ -32,12 +32,12 @@ go get github.com/ironpark/go-acp
 - **JSON-RPC 2.0** 양방향 통신 (`encoding/json/v2`)
 - **스키마 검증** - 들어오는 파라미터를 SDK의 Zod 규칙으로 검증한 뒤 핸들러에 전달
 - **요청 단위 취소** - 양방향 `$/cancel_request`, `-32800` 응답
-- **플러그형 Transport** - stdio, HTTP+SSE
+- **플러그형 Transport** - stdio, Streamable HTTP, WebSocket
 - **미들웨어** - 요청/알림 양쪽을 감싸는 조합 가능한 체인
 - **SessionManager** - 세션 생성/로드/목록/삭제 메서드와 턴 취소 제공
 - **SessionStream** - 세션 업데이트 전송 편의 API
 - **ClientSession / Turn** - 클라이언트에서 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽는 API
-- **타입 있는 확장 메서드** - `acp.CallExt`, `acp.ExtRouter`, 그리고 `_meta`용 `schema.Meta`
+- **타입 있는 확장 메서드** - `acp.CallExt`, `acp.ExtRouter`, 그리고 `_meta`용 `acpv1.Meta`
 - **모르는 union variant 보존** - 새 버전 피어의 variant도 디코드 실패 없이 `…Unknown`으로 보존
 - **선택적 인터페이스** - 구현하지 않은 메서드는 자동으로 `-32601` 응답
 
@@ -89,7 +89,7 @@ turn, _ := session.Prompt(ctx, acpv1.TextBlock("README.md를 요약해줘"))
 for update := range turn.Updates() {
     render(update) // 도구 호출, 계획, 메시지 조각...
 }
-response, err := turn.Wait() // 또는: text, err := turn.Text()
+response, err := turn.Wait() // 또는: text, response, err := turn.Text()
 ```
 
 `SpawnAgent`는 읽기 루프를 이미 시작한 상태로 돌려주며, `agent.Wait()`가 프로세스와 연결이 어떻게
@@ -105,7 +105,7 @@ response, err := turn.Wait() // 또는: text, err := turn.Text()
 
 ## 아키텍처
 
-- **`acp`** (루트): `Option`, `Transport`(stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`,
+- **`acp`** (루트): `Option`, `Transport`(stdio, Streamable HTTP, WebSocket), `Middleware`, `RequestError`, `SessionStore`,
   `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`)
 - **`acpv1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
 - **`acpv1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
@@ -155,10 +155,10 @@ result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexPa
 ```
 
 파라미터 디코드에 실패하면 `-32602`, 등록되지 않은 메서드는 `-32601`로 응답하고, 등록되지 않은 알림은
-무시합니다. 모든 `_meta` 필드는 값을 원본 JSON 그대로 보관하는 `schema.Meta` 타입입니다:
+무시합니다. 모든 `_meta` 필드는 값을 원본 JSON 그대로 보관하는 `acpv1.Meta` 타입입니다:
 
 ```go
-var meta schema.Meta
+var meta acpv1.Meta
 meta.Set("trace", Trace{ID: "abc"})
 trace, ok, err := params.Meta.Get[Trace]("trace")
 ```
@@ -215,11 +215,11 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acp
     }
     defer done()
     if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+        return &acpv1.PromptResponse{StopReason: acpv1.StopReasonCancelled}, nil
     } else if err != nil {
         return nil, err
     }
-    return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+    return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
 }
 ```
 
@@ -231,9 +231,10 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acp
 stream := acpv1.NewSessionStream(client, sessionID)
 
 stream.SendText(ctx, "안녕하세요!")
-stream.StartToolCall(ctx, toolID, "파일 읽기", schema.ToolKindRead)
+stream.StartToolCall(ctx, toolID, "파일 읽기", acpv1.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
-stream.Send(ctx, schema.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
+stream.Send(ctx, acpv1.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
+stream.WithMeta(meta).SendText(ctx, "…")                                    // 모든 알림에 _meta 첨부
 ```
 
 흔한 텍스트 콘텐츠는 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts`(프롬프트의 텍스트 블록 iterator),
@@ -259,19 +260,19 @@ conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
 
 ```go
 switch update := notification.Update.Variant().(type) {
-case schema.SessionUpdateAgentMessageChunk:
+case acpv1.SessionUpdateAgentMessageChunk:
     if text, ok := acpv1.TextOf(update.Content); ok {
         fmt.Print(text)
     }
-case schema.SessionUpdateToolCall:
+case acpv1.SessionUpdateToolCall:
     fmt.Println(update.Title)
 }
 
-update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
+update := acpv1.NewSessionUpdate(acpv1.SessionUpdatePlan{Entries: entries})
 ```
 
 이 SDK가 모르는 태그가 와도 메시지가 실패하지 않습니다. 스키마가 정의한 `Custom` variant가 있으면 그쪽으로,
-없으면 생성된 `…Unknown` variant(예: `schema.SessionUpdateUnknown`)로 디코드되며, `Raw` 필드에 받은 객체가
+없으면 생성된 `…Unknown` variant(예: `acpv1.SessionUpdateUnknown`)로 디코드되며, `Raw` 필드에 받은 객체가
 그대로 담겨 다시 인코딩할 때도 바뀌지 않습니다. `default` 케이스에서 처리하거나, 프로토콜 권고대로 무시하면 됩니다.
 
 ### 연결 옵션
@@ -352,7 +353,8 @@ v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MC
 - **[에코 에이전트](./example/echo/)** - 가장 작은 에이전트: 필수 메서드 네 개
 - **[에이전트](./example/agent/)** - 세션, 취소, 도구 호출, 권한 요청, 확장 메서드
 - **[클라이언트](./example/client/)** - 모든 stdio 에이전트용 대화형 클라이언트, Ctrl-C로 턴 취소
-- **[HTTP 에이전트](./example/http-agent/) / [HTTP 클라이언트](./example/http-client/)** - 같은 연결을 HTTP와 Server-Sent Events로
+- **[HTTP 에이전트](./example/http-agent/) / [HTTP 클라이언트](./example/http-client/)** - 같은 연결을 Streamable HTTP 또는 WebSocket으로
+- **[듀얼 에이전트](./example/dual-agent/) / [듀얼 클라이언트](./example/dual-client/)** - 하나의 엔드포인트에서 v1과 v2 제공, v2에서 v1로 폴백하는 클라이언트
 
 ## 개발
 

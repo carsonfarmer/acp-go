@@ -40,6 +40,7 @@ func applySendOptions(opts []SendOption) sendOptions {
 type SessionStream struct {
 	client    Client
 	sessionID SessionID
+	meta      Meta
 }
 
 // NewSessionStream binds a client to a session id.
@@ -49,6 +50,17 @@ func NewSessionStream(client Client, sessionID SessionID) *SessionStream {
 
 // SessionID returns the session this stream reports on.
 func (s *SessionStream) SessionID() SessionID { return s.sessionID }
+
+// WithMeta returns a stream on the same session whose notifications carry
+// meta as their _meta, for tracing or other extension data:
+//
+//	traced := stream.WithMeta(meta)
+//	traced.SendText(ctx, …)
+//
+// The stream keeps meta, so do not modify it afterwards.
+func (s *SessionStream) WithMeta(meta Meta) *SessionStream {
+	return &SessionStream{client: s.client, sessionID: s.sessionID, meta: meta}
+}
 
 // SendText streams agent message text.
 func (s *SessionStream) SendText(ctx context.Context, text string, opts ...SendOption) error {
@@ -163,5 +175,6 @@ func (s *SessionStream) Send(ctx context.Context, update schema.SessionUpdateVar
 	return s.client.SessionUpdate(ctx, &SessionNotification{
 		SessionID: s.sessionID,
 		Update:    schema.NewSessionUpdate(update),
+		Meta:      s.meta,
 	})
 }

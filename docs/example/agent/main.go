@@ -19,7 +19,6 @@ import (
 
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
-	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
 // session holds the state the agent keeps per ACP session.
@@ -57,7 +56,7 @@ func (a *exampleAgent) Initialize(_ context.Context, _ *acpv1.InitializeRequest)
 	return &acpv1.InitializeResponse{
 		ProtocolVersion:   acpv1.ProtocolVersion,
 		AgentCapabilities: acpv1.CapabilitiesOf(a),
-		AgentInfo:         &schema.Implementation{Name: "example-agent", Version: "0.1.0"},
+		AgentInfo:         &acpv1.Implementation{Name: "example-agent", Version: "0.1.0"},
 	}, nil
 }
 
@@ -78,11 +77,11 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) 
 	prompt := strings.Join(slices.Collect(acpv1.Texts(params.Prompt)), "")
 	if err := a.runTurn(ctx, params.SessionID, sess, prompt); err != nil {
 		if context.Cause(ctx) == acp.ErrTurnCancelled {
-			return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+			return &acpv1.PromptResponse{StopReason: acpv1.StopReasonCancelled}, nil
 		}
 		return nil, err
 	}
-	return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
+	return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
 }
 
 func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID, sess *session, prompt string) error {
@@ -96,7 +95,7 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID, s
 	}
 
 	read := acpv1.ToolCallID("call_1")
-	if err := stream.StartToolCall(ctx, read, "Reading project files", schema.ToolKindRead); err != nil {
+	if err := stream.StartToolCall(ctx, read, "Reading project files", acpv1.ToolKindRead); err != nil {
 		return err
 	}
 	if err := pause(ctx); err != nil {
@@ -107,23 +106,23 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID, s
 	}
 
 	edit := acpv1.ToolCallID("call_2")
-	if err := stream.StartToolCall(ctx, edit, "Modifying configuration", schema.ToolKindEdit); err != nil {
+	if err := stream.StartToolCall(ctx, edit, "Modifying configuration", acpv1.ToolKindEdit); err != nil {
 		return err
 	}
 
 	// Editing a file is destructive, so ask the user first.
 	permission, err := a.client.RequestPermission(ctx, &acpv1.RequestPermissionRequest{
 		SessionID: sessionID,
-		ToolCall: schema.ToolCallUpdate{
+		ToolCall: acpv1.ToolCallUpdate{
 			ToolCallID: edit,
 			Title:      new("Modifying configuration"),
-			Kind:       new(schema.ToolKindEdit),
-			Status:     new(schema.ToolCallStatusPending),
+			Kind:       new(acpv1.ToolKindEdit),
+			Status:     new(acpv1.ToolCallStatusPending),
 			Locations:  []acpv1.ToolCallLocation{{Path: filepath.Join(sess.cwd, "config.json")}},
 		},
-		Options: []schema.PermissionOption{
-			{OptionID: "allow", Name: "Allow this change", Kind: schema.PermissionOptionKindAllowOnce},
-			{OptionID: "reject", Name: "Skip this change", Kind: schema.PermissionOptionKindRejectOnce},
+		Options: []acpv1.PermissionOption{
+			{OptionID: "allow", Name: "Allow this change", Kind: acpv1.PermissionOptionKindAllowOnce},
+			{OptionID: "reject", Name: "Skip this change", Kind: acpv1.PermissionOptionKindRejectOnce},
 		},
 	})
 	if err != nil {
@@ -131,7 +130,7 @@ func (a *exampleAgent) runTurn(ctx context.Context, sessionID acpv1.SessionID, s
 	}
 
 	switch outcome := permission.Outcome.Variant().(type) {
-	case schema.RequestPermissionOutcomeSelected:
+	case acpv1.RequestPermissionOutcomeSelected:
 		if outcome.OptionID != "allow" {
 			if err := stream.FailToolCall(ctx, edit); err != nil {
 				return err

@@ -21,6 +21,7 @@ type generator struct {
 	docs         map[string]string      // TypeScript name -> the definition's comment
 	refs         map[string]int         // TypeScript name -> references to it across the schema
 	absorbed     map[string]*absorption // Go name -> the tagged union that took the type over
+	decls        map[string]Decl        // Go name -> what else an enum or tagged union declares
 	pending      []tsdef.Definition
 	names        map[string]bool
 	aliases      map[string]bool     // Go names declared with "type X = ..."
@@ -94,8 +95,8 @@ type Files map[string][]byte
 func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 	g := &generator{
 		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
-		absorbed: map[string]*absorption{},
-		names:    map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
+		absorbed: map[string]*absorption{}, decls: map[string]Decl{},
+		names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
 		pkg: pkg, buffers: map[string]*bytes.Buffer{},
 	}
 	for _, d := range schema.Types {
@@ -122,6 +123,41 @@ func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 // files; Zod rules and Decode/Validate functions, when the schema has
 // validators, go to zod.gen.go.
 func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
+	g, err := generate(schema, pkg)
+	if err != nil {
+		return nil, err
+	}
+	files := Files{}
+	for _, name := range g.order {
+		if err := g.flush(files, name); err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+// Decl lists the identifiers a schema type brings with it: an enum's
+// constants, or a tagged union's variant interface, constructor and variant
+// types.
+type Decl struct {
+	Constants   []string
+	Interface   string
+	Constructor string
+	Variants    []string
+}
+
+// Declarations returns, by Go type name, the extra identifiers that Generate
+// declares for each enum and tagged union, for packages that re-export them.
+func Declarations(schema *tsdef.Schema) (map[string]Decl, error) {
+	g, err := generate(schema, "schema")
+	if err != nil {
+		return nil, err
+	}
+	return g.decls, nil
+}
+
+// generate emits every declaration into the generator's buffers.
+func generate(schema *tsdef.Schema, pkg string) (*generator, error) {
 	if !token.IsIdentifier(pkg) || token.Lookup(pkg).IsKeyword() || pkg == "_" {
 		return nil, fmt.Errorf("invalid package name %q", pkg)
 	}
@@ -155,13 +191,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 	if err := g.zod(schema); err != nil {
 		return nil, err
 	}
-	files := Files{}
-	for _, name := range g.order {
-		if err := g.flush(files, name); err != nil {
-			return nil, err
-		}
-	}
-	return files, nil
+	return g, nil
 }
 
 // constantNames renames SDK constants whose derived name would read poorly.

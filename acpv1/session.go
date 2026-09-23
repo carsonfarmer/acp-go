@@ -81,8 +81,8 @@ func (t *Turn) Wait() (*PromptResponse, error) { return t.t.Wait() }
 func (t *Turn) Done() <-chan struct{} { return t.t.Done() }
 
 // Text consumes the turn's updates and returns the agent's message text, for
-// callers that only want the answer. It reports the same error as Wait.
-func (t *Turn) Text() (string, error) {
+// callers that only want the answer, with the same response and error as Wait.
+func (t *Turn) Text() (string, *PromptResponse, error) {
 	var b strings.Builder
 	for update := range t.Updates() {
 		if chunk, ok := update.As[schema.SessionUpdateAgentMessageChunk](); ok {
@@ -91,6 +91,6 @@ func (t *Turn) Text() (string, error) {
 			}
 		}
 	}
-	_, err := t.Wait()
-	return b.String(), err
+	response, err := t.Wait()
+	return b.String(), response, err
 }

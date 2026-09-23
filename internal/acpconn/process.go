@@ -19,7 +19,8 @@ type Conn interface {
 
 // Spawn starts cmd, connects to its stdio through connect and starts the
 // connection's read loop. The process is killed when ctx is done, and the
-// connection stops once the process exits.
+// connection stops once the process exits. On Unix the process gets its own
+// process group, so a terminal's Ctrl-C reaches only the client.
 //
 // The returned wait blocks until both have stopped. It reports ctx's error if
 // ctx ended the process, otherwise the process's exit error, otherwise the
@@ -38,6 +39,7 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(r io.Reader, w io.Wr
 		// leave the caller with nothing but a closed connection.
 		cmd.Stderr = os.Stderr
 	}
+	detach(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start agent process: %w", err)
 	}
@@ -93,4 +95,20 @@ func Pipe(ctx context.Context, agent, client func(r io.Reader, w io.Writer) Conn
 			closeAll()
 		}()
 	}
+}
+
+// Run starts conn's read loop over transport and returns a wait that blocks
+// until it stops, then closes transport. A connection never closes its
+// transport itself, so this is where transports the caller dialed end.
+func Run(ctx context.Context, conn Conn, transport io.Closer) (wait func() error) {
+	done := make(chan error, 1)
+	go func() {
+		err := conn.Start(ctx)
+		_ = transport.Close()
+		if errors.Is(err, context.Canceled) && ctx.Err() == nil {
+			err = nil // closed by the caller
+		}
+		done <- err
+	}()
+	return sync.OnceValue(func() error { return <-done })
 }

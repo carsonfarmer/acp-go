@@ -306,15 +306,19 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	case unknown == "":
 		fallback = variantNames[defaultIndex]
 	}
-	var implementers []string
+	var variants, implementers []string
 	for i, v := range variantNames {
 		if members[i].kind != memberOpen {
-			implementers = append(implementers, "["+v+"]")
+			variants = append(variants, v)
 		}
 	}
 	if unknown != "" {
-		implementers = append(implementers, "["+unknown+"]")
+		variants = append(variants, unknown)
 	}
+	for _, v := range variants {
+		implementers = append(implementers, "["+v+"]")
+	}
+	g.decls[name] = Decl{Interface: iface, Constructor: "New" + name, Variants: variants}
 	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s is a tagged union discriminated by the %q member. The zero value\nencodes as null; use [New%s] or a type switch on [%s.Variant] to work with it.", name, tag, name, name)))
 	g.write("type %s struct{ value %s }\n", name, iface)
 	g.write("// %s is implemented by %s.\n", iface, strings.Join(implementers, ", "))

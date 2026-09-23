@@ -77,7 +77,7 @@ func TestTurnCollectsItsUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text, err := turn.Text(); err != nil || text != "Hello, world" {
+	if text, _, err := turn.Text(); err != nil || text != "Hello, world" {
 		t.Fatalf("got %q %v", text, err)
 	}
 }

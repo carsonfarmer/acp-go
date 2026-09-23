@@ -2,10 +2,9 @@ package acpv2
 
 import (
 	"context"
-	"encoding/json/jsontext"
-	acp "github.com/ironpark/go-acp"
 	"io"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
 	schema "github.com/ironpark/go-acp/schema/v2"
@@ -21,7 +20,6 @@ type ClientSideConnection struct {
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
-var _ acp.Conn = (*ClientSideConnection)(nil)
 
 // NewClientSideConnection connects a client to an agent. newClient receives
 // the connection being built so the client can call the agent from its own
@@ -46,23 +44,4 @@ func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessi
 		}
 	}
 	return c.client.SessionUpdate(ctx, n)
-}
-
-// Start processes messages until the peer disconnects or ctx is cancelled.
-func (c *ClientSideConnection) Start(ctx context.Context) error { return c.conn.Start(ctx) }
-
-// Close shuts the connection down, waiting for in-flight handlers.
-func (c *ClientSideConnection) Close() error { return c.conn.Close() }
-
-// Done is closed once the connection stops.
-func (c *ClientSideConnection) Done() <-chan struct{} { return c.conn.Done() }
-
-// ExtMethod sends a request outside the spec and returns its raw result.
-func (c *ClientSideConnection) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {
-	return c.conn.SendRequest(ctx, method, params)
-}
-
-// ExtNotification sends a notification outside the spec.
-func (c *ClientSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
-	return c.conn.SendNotification(ctx, method, params)
 }

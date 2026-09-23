@@ -31,7 +31,9 @@ func (p *AgentProcess) Wait() error { return p.wait() }
 //
 // Set Dir, Env or Stderr on cmd before the call; a nil Stderr is sent to the
 // parent's stderr. The process is killed when ctx is done, and the connection
-// closes once the process exits.
+// closes once the process exits. On Unix the agent runs in its own process
+// group, so a terminal's Ctrl-C reaches only this process, which can turn it
+// into a cancel; set cmd.SysProcAttr to opt out.
 func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*AgentProcess, error) {
 	var conn *ClientSideConnection
 	wait, err := acpconn.Spawn(ctx, cmd, func(r io.Reader, w io.Writer) acpconn.Conn {

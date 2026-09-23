@@ -4,13 +4,15 @@ package acpv1
 
 // The hand-written half of each façade provides AgentSideConnection and
 // ClientSideConnection with a conn *jsonrpc.Connection field and an agent or
-// client field holding the served interface; everything routed by method name
-// is generated here.
+// client field holding the served interface; the lifecycle and extension
+// methods every connection shares, and everything routed by method name, are
+// generated here.
 
 import (
 	"context"
 	"encoding/json/jsontext"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
 	schema "github.com/ironpark/go-acp/schema/v1"
@@ -77,7 +79,7 @@ type SessionDeleter interface {
 // SessionForker handles session/fork. Advertise it with the
 // `sessionCapabilities.fork` agent capability.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionForker interface {
 	ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error)
 }
@@ -86,7 +88,7 @@ type SessionForker interface {
 // replaying its history. Advertise it with the `sessionCapabilities.resume`
 // agent capability.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionResumer interface {
 	ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error)
 }
@@ -94,7 +96,7 @@ type SessionResumer interface {
 // SessionCloser handles session/close. Advertise it with the
 // `sessionCapabilities.close` agent capability.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type SessionCloser interface {
 	CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error)
 }
@@ -116,7 +118,7 @@ type SessionConfigOptionSetter interface {
 // ProviderManager handles the providers/* methods. Advertise them with the
 // `providers` agent capability.
 //
-// Experimental: these methods are not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type ProviderManager interface {
 	ListProviders(ctx context.Context, params *ListProvidersRequest) (*ListProvidersResponse, error)
 
@@ -134,7 +136,7 @@ type LogoutHandler interface {
 // them with the `nes` agent capability. AcceptNes and RejectNes are
 // notifications.
 //
-// Experimental: these methods are not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type NesHandler interface {
 	StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error)
 
@@ -150,7 +152,7 @@ type NesHandler interface {
 // DocumentHandler receives the document/did* notifications that mirror the
 // client's open editors.
 //
-// Experimental: these notifications are not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 type DocumentHandler interface {
 	DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error
 
@@ -226,6 +228,48 @@ type ElicitationHandler interface {
 	CompleteElicitation(ctx context.Context, params *CompleteElicitationNotification) error
 }
 
+var _ acp.Conn = (*AgentSideConnection)(nil)
+
+// Start processes messages until the peer disconnects or ctx is cancelled.
+func (c *AgentSideConnection) Start(ctx context.Context) error { return c.conn.Start(ctx) }
+
+// Close shuts the connection down, waiting for in-flight handlers.
+func (c *AgentSideConnection) Close() error { return c.conn.Close() }
+
+// Done is closed once the connection stops.
+func (c *AgentSideConnection) Done() <-chan struct{} { return c.conn.Done() }
+
+// ExtMethod sends a request outside the spec and returns its raw result.
+func (c *AgentSideConnection) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {
+	return c.conn.SendRequest(ctx, method, params)
+}
+
+// ExtNotification sends a notification outside the spec.
+func (c *AgentSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
+	return c.conn.SendNotification(ctx, method, params)
+}
+
+var _ acp.Conn = (*ClientSideConnection)(nil)
+
+// Start processes messages until the peer disconnects or ctx is cancelled.
+func (c *ClientSideConnection) Start(ctx context.Context) error { return c.conn.Start(ctx) }
+
+// Close shuts the connection down, waiting for in-flight handlers.
+func (c *ClientSideConnection) Close() error { return c.conn.Close() }
+
+// Done is closed once the connection stops.
+func (c *ClientSideConnection) Done() <-chan struct{} { return c.conn.Done() }
+
+// ExtMethod sends a request outside the spec and returns its raw result.
+func (c *ClientSideConnection) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {
+	return c.conn.SendRequest(ctx, method, params)
+}
+
+// ExtNotification sends a notification outside the spec.
+func (c *ClientSideConnection) ExtNotification(ctx context.Context, method string, params any) error {
+	return c.conn.SendNotification(ctx, method, params)
+}
+
 // --- Outgoing calls from ClientSideConnection to the peer ---
 
 // Initialize negotiates the protocol version and exchanges capabilities. It is
@@ -281,21 +325,21 @@ func (c *ClientSideConnection) DeleteSession(ctx context.Context, params *Delete
 // ForkSession branches a session so work continues without touching the
 // original history.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) ForkSession(ctx context.Context, params *ForkSessionRequest) (*ForkSessionResponse, error) {
 	return acpconn.Call[ForkSessionResponse](ctx, c.conn, schema.AgentMethodsSessionFork, params)
 }
 
 // ResumeSession continues a session without replaying its history.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
 	return acpconn.Call[ResumeSessionResponse](ctx, c.conn, schema.AgentMethodsSessionResume, params)
 }
 
 // CloseSession cancels any ongoing work and frees the session's resources.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
 	return acpconn.Call[CloseSessionResponse](ctx, c.conn, schema.AgentMethodsSessionClose, params)
 }
@@ -313,21 +357,21 @@ func (c *ClientSideConnection) SetSessionConfigOption(ctx context.Context, param
 
 // ListProviders lists the model providers the agent can use.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) ListProviders(ctx context.Context, params *ListProvidersRequest) (*ListProvidersResponse, error) {
 	return acpconn.Call[ListProvidersResponse](ctx, c.conn, schema.AgentMethodsProvidersList, params)
 }
 
 // SetProvider configures one provider.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) SetProvider(ctx context.Context, params *SetProviderRequest) (*SetProviderResponse, error) {
 	return acpconn.Call[SetProviderResponse](ctx, c.conn, schema.AgentMethodsProvidersSet, params)
 }
 
 // DisableProvider turns one provider off.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DisableProvider(ctx context.Context, params *DisableProviderRequest) (*DisableProviderResponse, error) {
 	return acpconn.Call[DisableProviderResponse](ctx, c.conn, schema.AgentMethodsProvidersDisable, params)
 }
@@ -339,70 +383,70 @@ func (c *ClientSideConnection) Logout(ctx context.Context, params *LogoutRequest
 
 // StartNes starts a Next Edit Suggestions stream.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) StartNes(ctx context.Context, params *StartNesRequest) (*StartNesResponse, error) {
 	return acpconn.Call[StartNesResponse](ctx, c.conn, schema.AgentMethodsNesStart, params)
 }
 
 // SuggestNes asks for the next edit suggestion.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) SuggestNes(ctx context.Context, params *SuggestNesRequest) (*SuggestNesResponse, error) {
 	return acpconn.Call[SuggestNesResponse](ctx, c.conn, schema.AgentMethodsNesSuggest, params)
 }
 
 // CloseNes ends a Next Edit Suggestions stream.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) CloseNes(ctx context.Context, params *CloseNesRequest) (*CloseNesResponse, error) {
 	return acpconn.Call[CloseNesResponse](ctx, c.conn, schema.AgentMethodsNesClose, params)
 }
 
 // AcceptNes reports that the user accepted a suggestion.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) AcceptNes(ctx context.Context, params *AcceptNesNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsNesAccept, params)
 }
 
 // RejectNes reports that the user rejected a suggestion.
 //
-// Experimental: this capability is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) RejectNes(ctx context.Context, params *RejectNesNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsNesReject, params)
 }
 
 // DidOpenDocument tells the agent a document was opened.
 //
-// Experimental: this notification is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DidOpenDocument(ctx context.Context, params *DidOpenDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidOpen, params)
 }
 
 // DidChangeDocument tells the agent a document changed.
 //
-// Experimental: this notification is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DidChangeDocument(ctx context.Context, params *DidChangeDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidChange, params)
 }
 
 // DidCloseDocument tells the agent a document was closed.
 //
-// Experimental: this notification is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DidCloseDocument(ctx context.Context, params *DidCloseDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidClose, params)
 }
 
 // DidSaveDocument tells the agent a document was saved.
 //
-// Experimental: this notification is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DidSaveDocument(ctx context.Context, params *DidSaveDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidSave, params)
 }
 
 // DidFocusDocument tells the agent a document was focused.
 //
-// Experimental: this notification is not part of the spec yet and may change.
+// Experimental: not part of the spec yet; it may change or be removed.
 func (c *ClientSideConnection) DidFocusDocument(ctx context.Context, params *DidFocusDocumentNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsDocumentDidFocus, params)
 }

@@ -13,7 +13,8 @@ var V1 = &Spec{
 		"SessionID", "SessionInfo", "SessionModeID", "SessionConfigOption", "SessionUpdate",
 		"MessageID", "TerminalID", "ToolCallID", "ToolCallContent", "ToolCallLocation",
 		"ToolCallStatus", "ToolKind", "ContentBlock", "PlanEntry", "AvailableCommand",
-		"Cost", "StopReason",
+		"Cost", "StopReason", "Implementation", "PermissionOption", "PermissionOptionKind",
+		"ToolCallUpdate", "RequestPermissionOutcome", "PlanEntryStatus", "PlanEntryPriority",
 	},
 	Agent: []Group{
 		{
@@ -109,44 +110,35 @@ Requires the agent's ` + "`loadSession`" + ` capability.`,
 			}},
 		},
 		{
-			Interface: "SessionForker",
+			Interface:    "SessionForker",
+			Experimental: true,
 			Doc: `SessionForker handles session/fork. Advertise it with the
-` + "`sessionCapabilities.fork`" + ` agent capability.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+` + "`sessionCapabilities.fork`" + ` agent capability.`,
 			Methods: []Method{{
 				Wire: "session/fork", Name: "ForkSession", Params: "ForkSessionRequest", Response: "ForkSessionResponse",
 				CallDoc: `ForkSession branches a session so work continues without touching the
-original history.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+original history.`,
 			}},
 		},
 		{
-			Interface: "SessionResumer",
+			Interface:    "SessionResumer",
+			Experimental: true,
 			Doc: `SessionResumer handles session/resume, continuing a session without
 replaying its history. Advertise it with the ` + "`sessionCapabilities.resume`" + `
-agent capability.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+agent capability.`,
 			Methods: []Method{{
 				Wire: "session/resume", Name: "ResumeSession", Params: "ResumeSessionRequest", Response: "ResumeSessionResponse",
-				CallDoc: `ResumeSession continues a session without replaying its history.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+				CallDoc: `ResumeSession continues a session without replaying its history.`,
 			}},
 		},
 		{
-			Interface: "SessionCloser",
+			Interface:    "SessionCloser",
+			Experimental: true,
 			Doc: `SessionCloser handles session/close. Advertise it with the
-` + "`sessionCapabilities.close`" + ` agent capability.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+` + "`sessionCapabilities.close`" + ` agent capability.`,
 			Methods: []Method{{
 				Wire: "session/close", Name: "CloseSession", Params: "CloseSessionRequest", Response: "CloseSessionResponse",
-				CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.
-
-Experimental: this capability is not part of the spec yet and may change.`,
+				CallDoc: `CloseSession cancels any ongoing work and frees the session's resources.`,
 			}},
 		},
 		{
@@ -171,18 +163,17 @@ every option, since one change may affect the others.`,
 			}},
 		},
 		{
-			Interface: "ProviderManager",
+			Interface:    "ProviderManager",
+			Experimental: true,
 			Doc: `ProviderManager handles the providers/* methods. Advertise them with the
-` + "`providers`" + ` agent capability.
-
-Experimental: these methods are not part of the spec yet and may change.`,
+` + "`providers`" + ` agent capability.`,
 			Methods: []Method{
 				{Wire: "providers/list", Name: "ListProviders", Params: "ListProvidersRequest", Response: "ListProvidersResponse",
-					CallDoc: unstable("ListProviders lists the model providers the agent can use.")},
+					CallDoc: "ListProviders lists the model providers the agent can use."},
 				{Wire: "providers/set", Name: "SetProvider", Params: "SetProviderRequest", Response: "SetProviderResponse",
-					CallDoc: unstable("SetProvider configures one provider.")},
+					CallDoc: "SetProvider configures one provider."},
 				{Wire: "providers/disable", Name: "DisableProvider", Params: "DisableProviderRequest", Response: "DisableProviderResponse",
-					CallDoc: unstable("DisableProvider turns one provider off.")},
+					CallDoc: "DisableProvider turns one provider off."},
 			},
 		},
 		{
@@ -194,20 +185,18 @@ Experimental: these methods are not part of the spec yet and may change.`,
 			}},
 		},
 		{
-			Interface: "NesHandler",
+			Interface:    "NesHandler",
+			Experimental: true,
 			Doc: `NesHandler handles the nes/* methods for Next Edit Suggestions. Advertise
 them with the ` + "`nes`" + ` agent capability. AcceptNes and RejectNes are
-notifications.
-
-Experimental: these methods are not part of the spec yet and may change.`,
+notifications.`,
 			Methods: nesMethods,
 		},
 		{
-			Interface: "DocumentHandler",
+			Interface:    "DocumentHandler",
+			Experimental: true,
 			Doc: `DocumentHandler receives the document/did* notifications that mirror the
-client's open editors.
-
-Experimental: these notifications are not part of the spec yet and may change.`,
+client's open editors.`,
 			Methods: documentMethods,
 		},
 	},
@@ -297,40 +286,31 @@ notification. Advertise it with the ` + "`elicitation`" + ` client capability.`,
 	},
 }
 
-// unstable appends the upstream experimental warning to a doc line.
-func unstable(s string) string {
-	return s + "\n\nExperimental: this capability is not part of the spec yet and may change."
-}
-
 // nesMethods is shared by both versions; the wire methods and types match.
 var nesMethods = []Method{
 	{Wire: "nes/start", Name: "StartNes", Params: "StartNesRequest", Response: "StartNesResponse",
-		CallDoc: unstable("StartNes starts a Next Edit Suggestions stream.")},
+		CallDoc: "StartNes starts a Next Edit Suggestions stream."},
 	{Wire: "nes/suggest", Name: "SuggestNes", Params: "SuggestNesRequest", Response: "SuggestNesResponse",
-		CallDoc: unstable("SuggestNes asks for the next edit suggestion.")},
+		CallDoc: "SuggestNes asks for the next edit suggestion."},
 	{Wire: "nes/close", Name: "CloseNes", Params: "CloseNesRequest", Response: "CloseNesResponse",
-		CallDoc: unstable("CloseNes ends a Next Edit Suggestions stream.")},
+		CallDoc: "CloseNes ends a Next Edit Suggestions stream."},
 	{Wire: "nes/accept", Name: "AcceptNes", Params: "AcceptNesNotification",
-		CallDoc: unstable("AcceptNes reports that the user accepted a suggestion.")},
+		CallDoc: "AcceptNes reports that the user accepted a suggestion."},
 	{Wire: "nes/reject", Name: "RejectNes", Params: "RejectNesNotification",
-		CallDoc: unstable("RejectNes reports that the user rejected a suggestion.")},
+		CallDoc: "RejectNes reports that the user rejected a suggestion."},
 }
 
 var documentMethods = []Method{
 	{Wire: "document/didOpen", Name: "DidOpenDocument", Params: "DidOpenDocumentNotification",
-		CallDoc: unstableNotification("DidOpenDocument tells the agent a document was opened.")},
+		CallDoc: "DidOpenDocument tells the agent a document was opened."},
 	{Wire: "document/didChange", Name: "DidChangeDocument", Params: "DidChangeDocumentNotification",
-		CallDoc: unstableNotification("DidChangeDocument tells the agent a document changed.")},
+		CallDoc: "DidChangeDocument tells the agent a document changed."},
 	{Wire: "document/didClose", Name: "DidCloseDocument", Params: "DidCloseDocumentNotification",
-		CallDoc: unstableNotification("DidCloseDocument tells the agent a document was closed.")},
+		CallDoc: "DidCloseDocument tells the agent a document was closed."},
 	{Wire: "document/didSave", Name: "DidSaveDocument", Params: "DidSaveDocumentNotification",
-		CallDoc: unstableNotification("DidSaveDocument tells the agent a document was saved.")},
+		CallDoc: "DidSaveDocument tells the agent a document was saved."},
 	{Wire: "document/didFocus", Name: "DidFocusDocument", Params: "DidFocusDocumentNotification",
-		CallDoc: unstableNotification("DidFocusDocument tells the agent a document was focused.")},
-}
-
-func unstableNotification(s string) string {
-	return s + "\n\nExperimental: this notification is not part of the spec yet and may change."
+		CallDoc: "DidFocusDocument tells the agent a document was focused."},
 }
 
 // elicitationMethods takes the capability path, which differs between versions.

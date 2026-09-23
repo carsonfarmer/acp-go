@@ -1,8 +1,12 @@
-// Command http-client connects to the http-agent example over HTTP and runs
-// one prompt turn. Start the agent first:
+// Command http-client connects to the http-agent example over Streamable HTTP,
+// or over WebSocket with -ws, and runs one prompt turn. Start the agent first:
 //
 //	go run ./docs/example/http-agent
 //	go run ./docs/example/http-client
+//	go run ./docs/example/http-client -ws
+//
+// Both transports use the same endpoint, and the connection code is the same
+// for either: only the transport passed to ConnectAgent differs.
 package main
 
 import (
@@ -26,31 +30,31 @@ func (echoClient) RequestPermission(context.Context, *acpv1.RequestPermissionReq
 }
 
 func main() {
-	url := flag.String("url", "http://localhost:8000", "base URL of the agent")
+	url := flag.String("url", "http://localhost:8000/acp", "the agent's ACP endpoint")
+	ws := flag.Bool("ws", false, "connect over WebSocket instead of Streamable HTTP")
 	flag.Parse()
-	if err := run(context.Background(), *url); err != nil {
+	if err := run(context.Background(), *url, *ws); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(ctx context.Context, url string) error {
-	// Connect opens the /events stream; it must run before the connection
-	// sends anything, or the replies would have nowhere to go.
-	transport := acp.NewHTTPClientTransport(url)
-	if err := transport.Connect(ctx); err != nil {
-		return err
+func run(ctx context.Context, url string, ws bool) error {
+	// Streamable HTTP needs only the endpoint; a WebSocket is dialed up front.
+	var transport acp.Transport = acp.NewHTTPClientTransport(url)
+	greeting := "hello over Streamable HTTP"
+	if ws {
+		greeting = "hello over WebSocket"
+		var err error
+		if transport, err = acp.DialWebSocket(ctx, url); err != nil {
+			return err
+		}
 	}
-	agent := acpv1.NewClientSideConnection(func(*acpv1.ClientSideConnection) acpv1.Client {
+	// ConnectAgent starts the connection over any transport. Close also ends
+	// the connection on the server.
+	agent := acpv1.ConnectAgent(ctx, transport, func(*acpv1.ClientSideConnection) acpv1.Client {
 		return echoClient{}
-	}, nil, nil, acp.WithTransport(transport))
-	// Start runs the read loop until the connection closes; wait for it on
-	// the way out so the transport is done before the program exits.
-	started := make(chan error, 1)
-	go func() { started <- agent.Start(ctx) }()
-	defer func() {
-		agent.Close()
-		<-started
-	}()
+	})
+	defer agent.Close()
 
 	initialized, err := agent.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
 	if err != nil {
@@ -64,16 +68,15 @@ func run(ctx context.Context, url string) error {
 	}
 	fmt.Printf("session: %s\n", session.ID)
 
-	turn, err := session.Prompt(ctx, acpv1.TextBlock("hello over http"))
+	turn, err := session.Prompt(ctx, acpv1.TextBlock(greeting))
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
 	// Text collects the agent's message chunks until the turn ends.
-	text, err := turn.Text()
+	text, result, err := turn.Text()
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
-	result, _ := turn.Wait() // already ended; Wait returns the same result again
 	fmt.Printf("<< %s\nstop reason: %s\n", text, result.StopReason)
 	return nil
 }
