@@ -74,7 +74,7 @@ func (t *WebSocketTransport) ping(ctx context.Context, interval time.Duration) {
 // "wss://agent.example.com/acp". The transport is open when DialWebSocket
 // returns; Close closes the socket, which ends the connection on the server.
 func DialWebSocket(ctx context.Context, url string, opts ...ClientOption) (*WebSocketTransport, error) {
-	cfg := newHTTPClientConfig(opts)
+	cfg := newClientConfig(opts)
 	conn, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{
 		HTTPClient: cfg.client,
 		HTTPHeader: cfg.header,

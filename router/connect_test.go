@@ -14,7 +14,7 @@ import (
 	"github.com/ironpark/acp-go/router"
 )
 
-// remoteAgent runs serve behind an Server, for Streamable HTTP and
+// remoteAgent runs serve behind an acphttp.Server, for Streamable HTTP and
 // WebSocket clients, counting the connections they open.
 func remoteAgent(t *testing.T, serve func(ctx context.Context, tr acp.Transport) error) (url string, connections *atomic.Int32) {
 	connections = new(atomic.Int32)

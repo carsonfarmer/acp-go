@@ -323,18 +323,15 @@ func TestUnsupportedClientMethodIsMethodNotFound(t *testing.T) {
 	}
 }
 
-// hasCode reports whether err is a RequestError with the given code.
-
 // An agent that embeds both acp.ExtRouter and its connection still serves
 // extension methods: the handler methods and the connection's senders have
 // different names, so neither selector is ambiguous.
+type extRouterAgent struct {
+	acp.ExtRouter
+	*acp1.AgentSideConnection
+}
+
 var (
-	_ acp1.ExtMethodHandler = (*struct {
-		acp.ExtRouter
-		*acp1.AgentSideConnection
-	})(nil)
-	_ acp1.ExtNotificationHandler = (*struct {
-		acp.ExtRouter
-		*acp1.AgentSideConnection
-	})(nil)
+	_ acp1.ExtMethodHandler       = (*extRouterAgent)(nil)
+	_ acp1.ExtNotificationHandler = (*extRouterAgent)(nil)
 )

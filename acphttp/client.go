@@ -55,10 +55,10 @@ type clientConfig struct {
 	pingInterval time.Duration
 }
 
-// newHTTPClientConfig applies opts over the defaults: a client with a cookie
+// newClientConfig applies opts over the defaults: a client with a cookie
 // jar, since the protocol requires clients to keep the server's cookies for
 // the connection.
-func newHTTPClientConfig(opts []ClientOption) clientConfig {
+func newClientConfig(opts []ClientOption) clientConfig {
 	c := clientConfig{header: http.Header{}, pingInterval: keepaliveInterval}
 	for _, opt := range opts {
 		opt(&c)
@@ -116,7 +116,7 @@ func NewClientTransport(url string, opts ...ClientOption) *ClientTransport {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ClientTransport{
 		url:          url,
-		clientConfig: newHTTPClientConfig(opts),
+		clientConfig: newClientConfig(opts),
 		inbox:        make(chan jsontext.Value, streamBuffer),
 		done:         make(chan struct{}),
 		streamCtx:    ctx,

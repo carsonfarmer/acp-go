@@ -28,9 +28,9 @@ import (
 )
 
 // ExtMethodHandler handles methods outside the spec. Prefix custom methods
-// with a unique identifier such as a domain name. Its method is named Serve,
-// like http.Handler's, so an agent or client can embed both a handler, such as
-// acp.ExtRouter, and its connection, whose ExtMethod sends requests.
+// with a unique identifier such as a domain name. Its method has a Serve
+// prefix, like http.Handler's, so an agent or client can embed both a handler,
+// such as acp.ExtRouter, and its connection, whose ExtMethod sends requests.
 type ExtMethodHandler interface {
 	ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
 }
