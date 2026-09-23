@@ -1,6 +1,9 @@
 package facade
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -184,6 +187,61 @@ func TestTableNamesFollowGoNaming(t *testing.T) {
 				for _, m := range g.Methods {
 					if tsgen.Name(m.Name) != m.Name {
 						t.Errorf("%s: method %s should be %s", version, m.Name, tsgen.Name(m.Name))
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestHandWrittenDocsNameSchemaTypes keeps the façades' doc comments in step
+// with the schema: a schema.X they mention must exist, and must be written
+// without the schema qualifier when the façade re-exports it.
+func TestHandWrittenDocsNameSchemaTypes(t *testing.T) {
+	ref := regexp.MustCompile(`schema\.([A-Z]\w*)`)
+	for version, s := range map[string]*Spec{"v1": V1, "v2": V2} {
+		root := "../../../../"
+		generated, err := filepath.Glob(root + "schema/" + version + "/*.gen.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var schemaSrc strings.Builder
+		for _, path := range generated {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			schemaSrc.Write(data)
+		}
+		facadeSrc, err := os.ReadFile(root + s.Dir + "/types.gen.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		files, err := filepath.Glob(root + s.Dir + "/*.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range files {
+			if strings.HasSuffix(path, ".gen.go") || strings.HasSuffix(path, "_test.go") {
+				continue
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, line := range strings.Split(string(data), "\n") {
+				if !strings.HasPrefix(strings.TrimSpace(line), "//") {
+					continue
+				}
+				for _, m := range ref.FindAllStringSubmatch(line, -1) {
+					name := m[1]
+					declared := regexp.MustCompile(`(?m)^(type|func|var) ` + name + `\b|^\s+` + name + `\b`)
+					reexported := regexp.MustCompile(`(?m)^\s*` + name + `\s*=|^func ` + name + `[\[(]`)
+					switch {
+					case reexported.Match(facadeSrc):
+						t.Errorf("%s:%d: %s is re-exported; drop the schema qualifier", path, i+1, name)
+					case !declared.MatchString(schemaSrc.String()):
+						t.Errorf("%s:%d: schema.%s does not exist in %s", path, i+1, name, version)
 					}
 				}
 			}

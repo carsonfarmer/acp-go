@@ -158,7 +158,7 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 //		defer done()
 //		// ... stream updates with ctx ...
 //		if context.Cause(ctx) == acp.ErrTurnCancelled {
-//			return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+//			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
 //		}
 //	}
 func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func(), error) {

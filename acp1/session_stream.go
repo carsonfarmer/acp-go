@@ -76,7 +76,7 @@ func applyToolCallOptions(opts []ToolCallOption) toolCallOptions {
 //
 //	stream := acp1.NewSessionStream(client, sessionID)
 //	stream.SendText(ctx, "Reading the file…")
-//	stream.StartToolCall(ctx, toolID, "Read file", schema.ToolKindRead, acp1.WithLocations(location))
+//	stream.StartToolCall(ctx, toolID, "Read file", acp1.ToolKindRead, acp1.WithLocations(location))
 //	stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
 //
 // Use [SessionStream.Send] for any update the helpers do not cover.
@@ -216,7 +216,7 @@ func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost 
 
 // Send sends any session update variant, including those without a helper:
 //
-//	stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries})
+//	stream.Send(ctx, acp1.SessionUpdatePlan{Entries: entries})
 func (s *SessionStream) Send[T schema.SessionUpdateVariants](ctx context.Context, update T) error {
 	return s.client.SessionUpdate(ctx, &SessionNotification{
 		SessionID: s.sessionID,

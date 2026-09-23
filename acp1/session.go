@@ -67,7 +67,7 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*T
 }
 
 // Cancel asks the agent to stop the session's current turn; the turn then
-// ends with [schema.StopReasonCancelled].
+// ends with [StopReasonCancelled].
 func (s *ClientSession) Cancel(ctx context.Context) error {
 	return s.conn.Cancel(ctx, &CancelNotification{SessionID: s.ID})
 }

@@ -68,7 +68,7 @@ func toolCallUpdate(id ToolCallID, status ToolCallStatus, opts []ToolCallOption)
 //	stream.SendText(ctx, messageID, "Reading the file…")
 //	stream.StartToolCall(ctx, toolID, "Read file", acp2.ToolKindRead)
 //	stream.CompleteToolCall(ctx, toolID, acp2.WithToolContent(acp2.ToolText(contents)))
-//	stream.Idle(ctx, schema.StopReasonEndTurn)
+//	stream.Idle(ctx, acp2.StopReasonEndTurn)
 //
 // Use [SessionStream.Send] for any update the helpers do not cover.
 type SessionStream struct {
@@ -183,7 +183,7 @@ func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
 
 // Send sends any session update variant, including those without a helper:
 //
-//	stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries})
+//	stream.Send(ctx, acp2.SessionUpdatePlanRemoved{PlanID: id})
 func (s *SessionStream) Send[T schema.SessionUpdateVariants](ctx context.Context, update T) error {
 	return s.client.SessionUpdate(ctx, &UpdateSessionNotification{
 		SessionID: s.sessionID,

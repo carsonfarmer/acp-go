@@ -79,7 +79,7 @@ func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, StopReason]) {
 }
 
 // Cancel asks the agent to stop the session's foreground work; the turn then
-// ends with [schema.StopReasonCancelled].
+// ends with [StopReasonCancelled].
 func (s *ClientSession) Cancel(ctx context.Context) error {
 	return s.conn.CancelSession(ctx, &CancelSessionNotification{SessionID: s.ID})
 }
