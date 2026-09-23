@@ -59,7 +59,7 @@ func TestSessionManagerReturnsStoreErrors(t *testing.T) {
 	if _, err := manager.Lookup(ctx, "s1"); !errors.Is(err, storeErr) {
 		t.Errorf("Lookup = %v, want the store's error", err)
 	}
-	if _, err := manager.ListSessions(ctx, &acp1.ListSessionsRequest{}); !errors.Is(err, storeErr) {
-		t.Errorf("ListSessions = %v, want the store's error", err)
+	if _, err := manager.List(ctx, &acp1.ListSessionsRequest{}); !errors.Is(err, storeErr) {
+		t.Errorf("List = %v, want the store's error", err)
 	}
 }

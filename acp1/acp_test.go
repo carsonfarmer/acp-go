@@ -24,6 +24,13 @@ type testAgent struct {
 
 type testSession struct{ cwd string }
 
+func (s *testSession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
+
+// SessionModes makes the manager report the session's modes.
+func (s *testSession) SessionModes() *acp1.SessionModeState {
+	return &acp1.SessionModeState{CurrentModeID: "ask", AvailableModes: []acp1.SessionMode{{ID: "ask", Name: "Ask"}}}
+}
+
 func newTestAgent() *testAgent {
 	return &testAgent{
 		SessionManager: acp1.NewSessionManager(
@@ -38,6 +45,10 @@ func newTestAgent() *testAgent {
 
 func (a *testAgent) Initialize(context.Context, *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
 	return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion}, nil
+}
+
+func (a *testAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
+	return a.List(ctx, params)
 }
 
 func (a *testAgent) Authenticate(context.Context, *acp1.AuthenticateRequest) (*acp1.AuthenticateResponse, error) {
@@ -170,19 +181,29 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	listed, err := conn.ListSessions(ctx, &acp1.ListSessionsRequest{})
+	if created.Modes == nil || created.Modes.CurrentModeID != "ask" {
+		t.Errorf("NewSession modes = %+v, want the session's", created.Modes)
+	}
+	if _, err := conn.NewSession(ctx, &acp1.NewSessionRequest{Cwd: "/elsewhere", MCPServers: []schema.MCPServer{}}); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	listed, err := conn.ListSessions(ctx, &acp1.ListSessionsRequest{Cwd: new("/tmp")})
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
-	if len(listed.Sessions) != 1 || listed.Sessions[0].SessionID != created.SessionID {
-		t.Fatalf("listed sessions = %#v", listed.Sessions)
+	if len(listed.Sessions) != 1 || listed.Sessions[0].SessionID != created.SessionID || listed.Sessions[0].Cwd != "/tmp" {
+		t.Fatalf("listed sessions in /tmp = %#v", listed.Sessions)
 	}
 	// Closing ends the active session but keeps it resumable.
 	if _, err := conn.CloseSession(ctx, &acp1.CloseSessionRequest{SessionID: created.SessionID}); err != nil {
 		t.Fatalf("CloseSession: %v", err)
 	}
-	if _, err := conn.ResumeSession(ctx, &acp1.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"}); err != nil {
+	resumed, err := conn.ResumeSession(ctx, &acp1.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"})
+	if err != nil {
 		t.Fatalf("ResumeSession after close: %v", err)
+	}
+	if resumed.Modes == nil || resumed.Modes.CurrentModeID != "ask" {
+		t.Errorf("ResumeSession modes = %+v, want the session's", resumed.Modes)
 	}
 	if _, err := conn.DeleteSession(ctx, &acp1.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
@@ -190,12 +211,9 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if _, err := conn.ResumeSession(ctx, &acp1.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Errorf("ResumeSession after delete: %v, want a resource-not-found error", err)
 	}
-	if _, err := conn.LoadSession(ctx, &acp1.LoadSessionRequest{
-		SessionID:  created.SessionID,
-		Cwd:        "/tmp",
-		MCPServers: []schema.MCPServer{},
-	}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
-		t.Errorf("LoadSession after delete: %v, want a resource-not-found error", err)
+	// Deleting an unknown session succeeds.
+	if _, err := conn.DeleteSession(ctx, &acp1.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
+		t.Errorf("second delete: %v, want success", err)
 	}
 }
 

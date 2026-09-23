@@ -22,7 +22,7 @@ func (a *replayAgent) Initialize(context.Context, *acp1.InitializeRequest) (*acp
 }
 
 func (a *replayAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionRequest) (*acp1.LoadSessionResponse, error) {
-	if _, err := a.SessionManager.LoadSession(ctx, params); err != nil {
+	if _, err := a.Lookup(ctx, params.SessionID); err != nil {
 		return nil, err
 	}
 	if err := acp1.NewSessionStream(a.client, params.SessionID).SendUserMessage(ctx, "earlier"); err != nil {

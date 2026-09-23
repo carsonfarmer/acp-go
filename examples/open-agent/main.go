@@ -126,7 +126,7 @@ func (a *openAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionReq
 			return nil, err
 		}
 	}
-	return &acp1.LoadSessionResponse{Modes: modeState(sess.currentMode())}, nil
+	return &acp1.LoadSessionResponse{Modes: sess.SessionModes()}, nil
 }
 
 func main() {

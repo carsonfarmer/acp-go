@@ -115,7 +115,7 @@ Paste this and press <kbd>enter</kbd>:
 It answers with its capabilities (its request log goes to stderr):
 
 ```json
-{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true,"sessionCapabilities":{"list":{},"delete":{}}},"agentInfo":{"name":"example-agent","version":"0.1.0"}}}
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":1,"agentCapabilities":{"sessionCapabilities":{"delete":{},"resume":{},"close":{}}},"agentInfo":{"name":"example-agent","version":"0.1.0"}}}
 ```
 
 From there, try [creating a session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session) and

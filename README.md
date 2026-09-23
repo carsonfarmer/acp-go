@@ -290,7 +290,17 @@ manager := acp1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, LoadSession, ListSessions, DeleteSession, ResumeSession, CloseSession
+    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession
+}
+
+// Optional: session/new and session/resume report the modes; List describes the session.
+func (s *MySession) SessionModes() *acp1.SessionModeState {
+    return &acp1.SessionModeState{CurrentModeID: s.mode, AvailableModes: myModes}
+}
+func (s *MySession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
+
+func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
+    return a.List(ctx, params) // cwd filter, most recently updated first
 }
 
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
@@ -308,13 +318,17 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 }
 ```
 
-Override any of those by declaring the method on the agent itself; the manager checks that a loaded
-or resumed session exists, and replaying its history is the agent's job. `Lookup(ctx, id)` returns a
-session's state or the resource-not-found error to return as is. `CloseSession` cancels the
-running turn and keeps the session to resume; `DeleteSession` removes it. `acp2.SessionManager`
-serves the v2 session baseline the same way. `acp.SessionStore[ID, T]`,
-`acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building blocks; each façade
-aliases the stores with its own session id.
+Override any of those by declaring the method on the agent itself. Session state that implements
+`SessionModesReporter` or `SessionConfigOptionsReporter` has its modes and config options reported
+in the session/new and session/resume responses. The manager leaves out `session/load`, which must
+replay a conversation only the agent knows, and, in v1, the optional `session/list`: an agent that
+lists forwards `ListSessions` to `List`, which describes each session with its state's
+`SessionInfoReporter`. `Lookup(ctx, id)` returns a session's state or an error to return as is.
+`CloseSession` cancels the running turn and keeps the session to resume; `DeleteSession` removes
+it, and deleting an unknown session succeeds. `acp2.SessionManager` serves the whole v2 session
+baseline, list included, the same way. `acp.SessionStore[ID, T]`, whose methods take the request's
+context and can fail, `acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building
+blocks; each façade aliases the stores with its own session id.
 
 ### SessionStream
 

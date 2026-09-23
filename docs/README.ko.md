@@ -36,7 +36,7 @@ go get github.com/ironpark/acp-go
 - **요청 단위 취소** - 양방향 `$/cancel_request`, `-32800` 응답
 - **플러그형 Transport** - stdio, Streamable HTTP, WebSocket
 - **미들웨어** - 요청/알림 양쪽을 감싸는 조합 가능한 체인
-- **SessionManager** - 세션 생성/로드/목록/삭제/이어 열기/닫기 메서드와 턴 취소 제공
+- **SessionManager** - 세션 생성/삭제/이어 열기/닫기 메서드, 목록 헬퍼, 턴 취소 제공
 - **SessionStream** - 세션 업데이트 전송 편의 API
 - **ClientSession / Turn** - 클라이언트에서 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽는 API
 - **타입 있는 확장 메서드** - `acp.CallExt`, `acp.ExtRouter`, 그리고 `_meta`용 `acp1.Meta`
@@ -228,7 +228,17 @@ manager := acp1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, LoadSession, ListSessions, DeleteSession, ResumeSession, CloseSession 제공
+    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession 제공
+}
+
+// 선택: session/new와 session/resume 응답에 모드를 싣고, List가 세션을 설명합니다.
+func (s *MySession) SessionModes() *acp1.SessionModeState {
+    return &acp1.SessionModeState{CurrentModeID: s.mode, AvailableModes: myModes}
+}
+func (s *MySession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
+
+func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
+    return a.List(ctx, params) // cwd 필터, 최근에 갱신된 순
 }
 
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
@@ -246,11 +256,15 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 }
 ```
 
-에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 매니저는 로드하거나 이어 여는 세션이
-있는지만 확인하고, 기록 재생은 에이전트가 맡습니다. `Lookup(ctx, id)`는 세션 상태를 돌려주거나, 없으면 그대로
-반환하면 되는 resource-not-found 오류를 돌려줍니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수
-있게 남기며, `DeleteSession`은 세션을 지웁니다. `acp2.SessionManager`도 같은 방식으로 v2 세션 기본 메서드를
-제공합니다.
+에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 세션 상태가 `SessionModesReporter`나
+`SessionConfigOptionsReporter`를 구현하면 session/new와 session/resume 응답에 모드와 설정 옵션이 실립니다.
+매니저는 에이전트만 아는 대화를 재생해야 하는 `session/load`와, v1에서는 선택 사항인 `session/list`를 제공하지
+않습니다. 목록을 지원하는 에이전트는 `ListSessions`를 `List`로 넘기고, `List`는 세션 상태의
+`SessionInfoReporter`로 각 세션을 설명합니다. `Lookup(ctx, id)`는 세션 상태를 돌려주거나, 그대로 반환하면 되는
+오류를 돌려줍니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수 있게 남기며, `DeleteSession`은
+세션을 지우고 없는 세션을 지워도 성공합니다. `acp2.SessionManager`는 목록을 포함한 v2 세션 기본 메서드 전체를
+같은 방식으로 제공합니다. 요청의 컨텍스트를 받고 실패할 수 있는 `acp.SessionStore[ID, T]`, `acp.MemoryStore`,
+`acp.TurnTracker`는 버전과 무관한 구성 요소입니다.
 
 ### SessionStream
 

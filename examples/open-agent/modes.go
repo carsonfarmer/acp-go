@@ -22,19 +22,11 @@ var modes = []acp1.SessionMode{
 	{ID: autoMode, Name: "Auto", Description: new("Change files and run commands without asking")},
 }
 
-func modeState(current acp1.SessionModeID) *acp1.SessionModeState {
-	return &acp1.SessionModeState{CurrentModeID: current, AvailableModes: modes}
-}
-
-// NewSession creates the session with the embedded manager, then tells the
-// client which modes it has and which one is active.
-func (a *openAgent) NewSession(ctx context.Context, params *acp1.NewSessionRequest) (*acp1.NewSessionResponse, error) {
-	response, err := a.SessionManager.NewSession(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-	response.Modes = modeState(askMode)
-	return response, nil
+// SessionModes tells the client which modes the session has and which one
+// is active. The embedded manager reports it when a session is created or
+// resumed, and LoadSession when one is loaded.
+func (s *session) SessionModes() *acp1.SessionModeState {
+	return &acp1.SessionModeState{CurrentModeID: s.currentMode(), AvailableModes: modes}
 }
 
 func (a *openAgent) SetSessionMode(ctx context.Context, params *acp1.SetSessionModeRequest) (*acp1.SetSessionModeResponse, error) {

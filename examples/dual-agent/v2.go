@@ -23,9 +23,14 @@ type v2Agent struct {
 
 // v2Session is a session's conversation so far.
 type v2Session struct {
+	cwd acp2.AbsolutePath
+
 	mu      sync.Mutex
 	history []v2Exchange
 }
+
+// SessionInfo describes the session in session/list.
+func (s *v2Session) SessionInfo() acp2.SessionInfo { return acp2.SessionInfo{Cwd: s.cwd} }
 
 // v2Exchange is one prompt and the agent's reply, with their message ids.
 type v2Exchange struct {
@@ -38,8 +43,8 @@ type v2Exchange struct {
 func newV2Agent(client acp2.Client) *v2Agent {
 	return &v2Agent{
 		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[*v2Session](),
-			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, *v2Session, error) {
-				return acp2.GenerateSessionID(), &v2Session{}, nil
+			func(_ context.Context, params *acp2.NewSessionRequest) (acp2.SessionID, *v2Session, error) {
+				return acp2.GenerateSessionID(), &v2Session{cwd: params.Cwd}, nil
 			}),
 		client: client,
 	}

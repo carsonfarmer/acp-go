@@ -28,7 +28,7 @@ type session struct {
 }
 
 // exampleAgent embeds a SessionManager, which supplies NewSession and Cancel
-// plus the optional session/load, session/list and session/delete handlers,
+// plus the optional session/delete, session/resume and session/close handlers,
 // and an ExtRouter, which serves the extension methods registered on it.
 // It needs no credentials, so it leaves out Authenticate.
 type exampleAgent struct {

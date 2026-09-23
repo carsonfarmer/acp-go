@@ -1,8 +1,10 @@
 package acp2
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	acp "github.com/ironpark/acp-go"
 )
@@ -30,6 +32,21 @@ func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call"))
 // Use [GenerateSessionID] unless the agent has its own id scheme.
 type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) (SessionID, T, error)
 
+// SessionConfigOptionsReporter is implemented by session state that has
+// config options. The [SessionManager] reports them in its session/new and
+// session/resume responses; an agent's own ForkSession or ResumeSession
+// reports them the same way.
+type SessionConfigOptionsReporter interface {
+	SessionConfigOptions() []SessionConfigOption
+}
+
+// SessionInfoReporter is implemented by session state that can describe
+// itself in a session/list response. SessionInfo must set at least the
+// session's working directory; the [SessionManager] sets the id.
+type SessionInfoReporter interface {
+	SessionInfo() SessionInfo
+}
+
 // SessionManager implements the session lifecycle methods on top of a
 // [SessionStore], so an agent can embed it instead of writing them:
 //
@@ -40,19 +57,24 @@ type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) 
 //	agent := &myAgent{SessionManager: acp2.NewSessionManager(
 //		acp2.NewMemoryStore[*mySession](),
 //		func(ctx context.Context, params *acp2.NewSessionRequest) (acp2.SessionID, *mySession, error) {
-//			id := acp2.GenerateSessionID()
-//			return id, &mySession{id: id, cwd: params.Cwd}, nil
+//			return acp2.GenerateSessionID(), &mySession{cwd: params.Cwd}, nil
 //		},
 //	)}
 //
 // Embedding it satisfies [Agent]'s NewSession and CancelSession plus
-// [SessionLister], [SessionDeleter], [SessionResumer] and [SessionCloser];
-// override any of them by declaring the method on the agent itself.
-// CancelSession stops the context of the turn started with
-// [SessionManager.JoinTurn]. v2 has no session/load: session/resume replays
-// history instead, which an agent adds by overriding ResumeSession. The agent
-// still advertises the matching capabilities from Initialize — the manager
-// does not do that for it.
+// [SessionLister], [SessionDeleter], [SessionResumer] and [SessionCloser], the
+// session baseline v2 requires; override any of them by declaring the method
+// on the agent itself. [CapabilitiesOf] advertises what the agent ends up
+// implementing. CancelSession stops the context of the turn started with
+// [SessionManager.JoinTurn]. session/list needs session state that implements
+// [SessionInfoReporter]. When the session state implements
+// [SessionConfigOptionsReporter], the session/new and session/resume
+// responses carry its config options.
+//
+// v2 has no session/load: session/resume replays the history the agent
+// retains when the request's ReplayFrom asks for it. The manager retains no
+// history, so its ResumeSession replays nothing; an agent that keeps history
+// overrides it.
 type SessionManager[T any] struct {
 	store   SessionStore[T]
 	factory SessionFactory[T]
@@ -117,29 +139,50 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 	if err := m.store.Set(ctx, id, session); err != nil {
 		return nil, err
 	}
-	return &NewSessionResponse{SessionID: id}, nil
+	return &NewSessionResponse{SessionID: id, ConfigOptions: configOptions(session)}, nil
 }
 
-// ListSessions lists the stored sessions. It ignores the request's cwd filter
-// and cursor, since the store holds no metadata to filter or page on.
-func (m *SessionManager[T]) ListSessions(ctx context.Context, _ *ListSessionsRequest) (*ListSessionsResponse, error) {
+// ListSessions answers session/list from the store, describing each session
+// with its state's [SessionInfoReporter]. It applies the request's cwd filter
+// and lists the most recently updated sessions first. It ignores the cursor
+// and returns every match in one page.
+func (m *SessionManager[T]) ListSessions(ctx context.Context, params *ListSessionsRequest) (*ListSessionsResponse, error) {
 	ids, err := m.store.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	sessions := make([]SessionInfo, len(ids))
-	for i, id := range ids {
-		sessions[i] = SessionInfo{SessionID: id}
+	sessions := []SessionInfo{}
+	for _, id := range ids {
+		session, ok, err := m.store.Get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !ok { // deleted since List
+			continue
+		}
+		reporter, ok := any(session).(SessionInfoReporter)
+		if !ok {
+			return nil, acp.ErrInternalError(nil, "session state does not implement SessionInfoReporter")
+		}
+		info := reporter.SessionInfo()
+		info.SessionID = id
+		if params.Cwd != nil && info.Cwd != *params.Cwd {
+			continue
+		}
+		sessions = append(sessions, info)
 	}
+	slices.SortFunc(sessions, func(a, b SessionInfo) int {
+		return cmp.Or(
+			cmp.Compare(b.GetUpdatedAt(), a.GetUpdatedAt()),
+			cmp.Compare(a.SessionID, b.SessionID),
+		)
+	})
 	return &ListSessionsResponse{Sessions: sessions}, nil
 }
 
 // DeleteSession cancels the session's turn in progress and removes the session
-// from the store.
+// from the store. Deleting an unknown session succeeds, as the protocol asks.
 func (m *SessionManager[T]) DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
-	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
-		return nil, err
-	}
 	m.turns.Cancel(params.SessionID)
 	if err := m.store.Delete(ctx, params.SessionID); err != nil {
 		return nil, err
@@ -147,14 +190,15 @@ func (m *SessionManager[T]) DeleteSession(ctx context.Context, params *DeleteSes
 	return &DeleteSessionResponse{}, nil
 }
 
-// ResumeSession reports whether the session exists, continuing it without a
-// replay. Replaying history when the request's ReplayFrom asks
-// for it is the agent's job; override this method to do it.
+// ResumeSession continues a stored session. The manager retains no history,
+// so there is nothing to replay whatever the request's ReplayFrom; an agent
+// that keeps history overrides this method to replay it.
 func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
-	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
+	session, err := m.Lookup(ctx, params.SessionID)
+	if err != nil {
 		return nil, err
 	}
-	return &ResumeSessionResponse{}, nil
+	return &ResumeSessionResponse{ConfigOptions: configOptions(session)}, nil
 }
 
 // CloseSession cancels the session's turn in progress. The session stays in
@@ -165,4 +209,12 @@ func (m *SessionManager[T]) CloseSession(ctx context.Context, params *CloseSessi
 	}
 	m.turns.Cancel(params.SessionID)
 	return &CloseSessionResponse{}, nil
+}
+
+// configOptions returns the config options session reports, if any.
+func configOptions(session any) []SessionConfigOption {
+	if r, ok := session.(SessionConfigOptionsReporter); ok {
+		return r.SessionConfigOptions()
+	}
+	return nil
 }

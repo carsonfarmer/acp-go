@@ -21,15 +21,11 @@ var modes = []acp1.SessionMode{
 	{ID: autoMode, Name: "Auto", Description: new("Change files without asking")},
 }
 
-// NewSession creates the session with the embedded manager, then tells the
-// client which modes it has and which one is active.
-func (a *exampleAgent) NewSession(ctx context.Context, params *acp1.NewSessionRequest) (*acp1.NewSessionResponse, error) {
-	response, err := a.SessionManager.NewSession(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-	response.Modes = &acp1.SessionModeState{CurrentModeID: askMode, AvailableModes: modes}
-	return response, nil
+// SessionModes tells the client which modes the session has and which one
+// is active; the embedded manager reports it when a session is created or
+// resumed.
+func (s *session) SessionModes() *acp1.SessionModeState {
+	return &acp1.SessionModeState{CurrentModeID: s.currentMode(), AvailableModes: modes}
 }
 
 // SetSessionMode switches the session's mode; implementing it makes

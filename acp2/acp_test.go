@@ -12,6 +12,8 @@ import (
 
 type testSession struct{ cwd acp2.AbsolutePath }
 
+func (s *testSession) SessionInfo() acp2.SessionInfo { return acp2.SessionInfo{Cwd: s.cwd} }
+
 // testAgent implements the required Agent methods plus MCP message handling,
 // so the request-versus-notification split of mcp/message is exercised.
 type testAgent struct {
@@ -198,12 +200,15 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSession: %v", err)
 	}
-	listed, err := conn.ListSessions(ctx, &acp2.ListSessionsRequest{})
+	if _, err := conn.NewSession(ctx, &acp2.NewSessionRequest{Cwd: "/elsewhere"}); err != nil {
+		t.Fatalf("NewSession: %v", err)
+	}
+	listed, err := conn.ListSessions(ctx, &acp2.ListSessionsRequest{Cwd: new(acp2.AbsolutePath("/tmp"))})
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
-	if len(listed.Sessions) != 1 || listed.Sessions[0].SessionID != created.SessionID {
-		t.Fatalf("listed sessions = %#v", listed.Sessions)
+	if len(listed.Sessions) != 1 || listed.Sessions[0].SessionID != created.SessionID || listed.Sessions[0].Cwd != "/tmp" {
+		t.Fatalf("listed sessions in /tmp = %#v", listed.Sessions)
 	}
 	// Closing ends the active session but keeps it resumable.
 	if _, err := conn.CloseSession(ctx, &acp2.CloseSessionRequest{SessionID: created.SessionID}); err != nil {
@@ -218,8 +223,9 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if _, err := conn.ResumeSession(ctx, &acp2.ResumeSessionRequest{SessionID: created.SessionID, Cwd: "/tmp"}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Errorf("ResumeSession after delete: %v, want a resource-not-found error", err)
 	}
-	if _, err := conn.DeleteSession(ctx, &acp2.DeleteSessionRequest{SessionID: created.SessionID}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
-		t.Errorf("second delete: %v, want resource not found", err)
+	// Deleting an unknown session succeeds.
+	if _, err := conn.DeleteSession(ctx, &acp2.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
+		t.Errorf("second delete: %v, want success", err)
 	}
 }
 

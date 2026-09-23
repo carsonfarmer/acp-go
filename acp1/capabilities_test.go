@@ -43,13 +43,15 @@ func (logoutAgent) Logout(context.Context, *acp1.LogoutRequest) (*acp1.LogoutRes
 func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	manager := acp1.NewSessionManager(acp1.NewMemoryStore[struct{}](), nil)
 
-	// The manager supplies session/load, session/list and session/delete.
+	// The manager supplies session/delete, session/resume and session/close,
+	// but not session/load or session/list, which need the agent.
 	caps := acp1.CapabilitiesOf(bareAgent{manager})
-	if !caps.GetLoadSession() {
-		t.Errorf("loadSession = %v, want true", caps.LoadSession)
+	if caps.LoadSession != nil {
+		t.Errorf("loadSession = %v, want unset", *caps.LoadSession)
 	}
-	if caps.SessionCapabilities == nil || caps.SessionCapabilities.List == nil || caps.SessionCapabilities.Delete == nil {
-		t.Errorf("session capabilities = %+v, want list and delete", caps.SessionCapabilities)
+	session := caps.SessionCapabilities
+	if session == nil || session.Delete == nil || session.Resume == nil || session.Close == nil || session.List != nil {
+		t.Errorf("session capabilities = %+v, want delete, resume and close", session)
 	}
 	if caps.SessionCapabilities.Fork != nil || caps.Providers != nil || caps.Nes != nil || caps.Auth != nil || caps.MCPCapabilities != nil {
 		t.Errorf("advertised unimplemented capabilities: %+v", caps)
