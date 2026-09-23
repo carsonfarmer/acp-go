@@ -1,5 +1,6 @@
 // Package acp holds what every Agent Client Protocol version shares: the
-// connection options, transports, middleware, error type and session store.
+// connection options, transports, middleware, error type, session store and
+// turn tracker, and typed extension methods ([CallExt], [ExtRouter]).
 //
 // The protocol façades live in versioned sibling packages, each generated from
 // the upstream schema of that version:

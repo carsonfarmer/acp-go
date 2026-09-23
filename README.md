@@ -36,10 +36,13 @@ See the [docs/example](./docs/example/) directory for complete working examples:
 
 ## Architecture
 
-- **`acp`** (root) — `Option`s, `Transport` (stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`
+- **`acp`** (root) — `Option`s, `Transport` (stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`,
+  `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`)
 - **`acpv1.AgentSideConnection`** — serves an `Agent` and calls the peer client
 - **`acpv1.ClientSideConnection`** — serves a `Client` and calls the peer agent
-- **`acpv1.SessionManager`** — session lifecycle methods backed by a store
+- **`acpv1.SpawnAgent`**, **`acpv1.Pipe`** — an agent as a child process, or both sides in memory
+- **`acpv1.ClientSession`**, **`acpv1.Turn`** — prompt a session and read that turn's updates
+- **`acpv1.SessionManager`** — session lifecycle and turn cancellation backed by a store
 - **`acpv1.SessionStream`** — session updates without rebuilding the union by hand
 - **`acpv1.TerminalHandle`** — terminal id and session id bound together
 - **`acpv1.CapabilitiesOf`** — capabilities derived from the interfaces an agent implements
@@ -64,37 +67,52 @@ if err := conn.Start(context.Background()); err != nil {
 }
 ```
 
-`Agent` requires only `Initialize`, `Authenticate`, `NewSession`, `Prompt` and `Cancel`.
-Everything else is an optional interface — implement `acpv1.SessionLoader`, `acpv1.SessionLister`,
+`Agent` requires only `Initialize`, `NewSession`, `Prompt` and `Cancel`.
+Everything else is an optional interface — implement `acpv1.Authenticator`, `acpv1.SessionLoader`, `acpv1.SessionLister`,
 `acpv1.SessionModeSetter`, `acpv1.NesHandler` and so on. Methods you do not implement are answered
 with `-32601`. `acpv1.CapabilitiesOf(agent)` returns the capabilities those interfaces imply, so the
 `Initialize` response cannot advertise a method the connection would reject:
 
 ```go
 caps := acpv1.CapabilitiesOf(a)
-caps.PromptCapabilities = &schema.PromptCapabilities{Image: &yes} // content capabilities are yours to set
+caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)} // content capabilities are yours to set
 return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion, AgentCapabilities: caps}, nil
 ```
 
 ### Client
 
 ```go
-conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
-    return &MyClient{}
-}, "my-agent")
+client := &MyClient{}
+agent, err := acpv1.SpawnAgent(ctx, exec.Command("my-agent"), func(*acpv1.ClientSideConnection) acpv1.Client {
+    return client
+})
 if err != nil {
     log.Fatal(err)
 }
-go conn.Start(ctx)
+defer agent.Close()
 
-conn.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
-session, _ := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
-conn.Prompt(ctx, &acpv1.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
+agent.Initialize(ctx, &acpv1.InitializeRequest{
+    ProtocolVersion:    acpv1.ProtocolVersion,
+    ClientCapabilities: acpv1.ClientCapabilitiesOf(client),
+})
+session, _ := agent.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
+
+turn, _ := session.Prompt(ctx, acpv1.TextBlock("Summarize README.md"))
+for update := range turn.Updates() {
+    render(update) // tool calls, plans, message chunks...
+}
+response, err := turn.Wait() // or: text, err := turn.Text()
 ```
 
-`Client` requires only `SessionUpdate` and `RequestPermission`. File system, terminal and
-elicitation support come from `acpv1.FileReader`, `acpv1.FileWriter`, `acpv1.TerminalHandler` and
-`acpv1.ElicitationHandler`; `acpv1.ClientCapabilitiesOf(client)` derives the matching flags.
+`SpawnAgent` already runs the read loop; `agent.Wait()` reports how the process and connection
+ended. The agent's stderr goes to the parent's unless `cmd.Stderr` is set. `acpv1.Pipe` connects
+an agent and a client in memory, which is handy in tests.
+
+`Client` requires only `SessionUpdate` and `RequestPermission`. `SessionUpdate` sees every update,
+including those outside a `Turn`; notifications are handled in order on the read loop, so a handler
+must not wait on a call to the agent. File system, terminal and elicitation support come from
+`acpv1.FileReader`, `acpv1.FileWriter`, `acpv1.TerminalHandler` and `acpv1.ElicitationHandler`;
+`acpv1.ClientCapabilitiesOf(client)` derives the matching flags.
 
 ## Features
 
@@ -103,7 +121,42 @@ elicitation support come from `acpv1.FileReader`, `acpv1.FileWriter`, `acpv1.Ter
 Cancelling the context of an outgoing call sends `$/cancel_request` for that request id.
 On the receiving side the matching handler's context is cancelled, and the peer gets
 `-32800 Request cancelled` unless the handler answers first. This is separate from
-`session/cancel`, which cancels a whole prompt turn.
+`session/cancel`, which cancels a whole prompt turn (see [Sessions](#sessions)).
+
+### Errors
+
+Return an `acp.Err…` constructor from a handler to choose the code the peer receives; any other
+error becomes `-32603`. Errors from the peer come back as `*acp.RequestError`:
+
+```go
+if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
+    // authenticate, then retry
+}
+```
+
+### Extensions and `_meta`
+
+```go
+type MyAgent struct {
+    acp.ExtRouter // implements ExtMethodHandler and ExtNotificationHandler
+    // ...
+}
+
+acp.HandleExt(&a.ExtRouter, "_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
+    return &IndexResult{Files: 42}, nil
+})
+
+result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexParams{Path: "."})
+```
+
+Params that fail to decode get `-32602`, unregistered methods `-32601`, and unregistered
+notifications are ignored. Every `_meta` field is a `schema.Meta`, which keeps values as raw JSON:
+
+```go
+var meta schema.Meta
+meta.Set("trace", Trace{ID: "abc"})
+trace, ok, err := params.Meta.Get[Trace]("trace")
+```
 
 ### Serving v1 and v2 together
 
@@ -171,17 +224,24 @@ manager := acpv1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acpv1.SessionManager[*MySession] // supplies NewSession, LoadSession, ListSessions, DeleteSession
+    *acpv1.SessionManager[*MySession] // NewSession, Cancel, LoadSession, ListSessions, DeleteSession
+}
+
+func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+    ctx, done := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
+    defer done()
+    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
+        return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+    } else if err != nil {
+        return nil, err
+    }
+    return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 ```
 
-`acp.SessionStore[ID, T]` and `acp.MemoryStore` are the version-neutral store types; each façade
-aliases them with its own session id.
-
-```go
-```
-
-Override any of those by declaring the method on the agent itself.
+Override any of those by declaring the method on the agent itself. `acp.SessionStore[ID, T]`,
+`acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building blocks; each façade
+aliases the stores with its own session id.
 
 ### SessionStream
 
@@ -192,11 +252,15 @@ stream.SendText(ctx, "Hello!")
 stream.SendThought(ctx, "thinking...")
 
 stream.StartToolCall(ctx, toolID, "Reading file", schema.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, content...)
+stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
 
 stream.SendPlan(ctx, entries)
 stream.Send(ctx, anyUpdate) // escape hatch for variants without a helper
 ```
+
+`acpv1.TextBlock`, `acpv1.TextOf` and `acpv1.ToolText` cover the common text content. The v2
+`SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
+`Idle` for the explicit turn state.
 
 ### Unions
 
@@ -205,8 +269,8 @@ Generated unions wrap a sealed variant interface, so a type switch replaces the 
 ```go
 switch update := notification.Update.Variant().(type) {
 case schema.SessionUpdateAgentMessageChunk:
-    if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
-        fmt.Print(text.Text)
+    if text, ok := acpv1.TextOf(update.Content); ok {
+        fmt.Print(text)
     }
 case schema.SessionUpdateToolCall:
     fmt.Println(update.Title)
@@ -240,7 +304,8 @@ ACP protocol version 1, as pinned in [`schema/typescript/REVISION`](schema/types
 
 | Method | Go interface |
 | --- | --- |
-| `initialize`, `authenticate`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (required) |
+| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (required) |
+| `authenticate` | `Authenticator` |
 | `session/load` | `SessionLoader` |
 | `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
@@ -282,8 +347,9 @@ through `ExtMethodHandler`. `$/cancel_request` is handled by the connection itse
 | `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
-v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so `SessionStream`
-and `TerminalHandle` exist only in the v1 package.
+v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so
+`TerminalHandle` exists only in the v1 package. In v2 the prompt response only accepts the message;
+a `Turn` ends when the agent reports the idle state.
 
 ## Contributing
 

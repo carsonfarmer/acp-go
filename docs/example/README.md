@@ -2,8 +2,8 @@
 
 This directory contains examples using the [ACP Go SDK](https://github.com/ironpark/acp-go):
 
-- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionManager, SessionStream, tool calls, and permission requests
-- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent and a type switch over session updates
+- [`agent/main.go`](./agent/main.go) - Agent implementation demonstrating SessionManager (sessions and turn cancellation), SessionStream, tool calls, and permission requests
+- [`client/main.go`](./client/main.go) - Client implementation using SpawnAgent, ClientSession/Turn, and a type switch over session updates
 
 ## Running the Agent
 

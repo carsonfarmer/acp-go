@@ -1,8 +1,9 @@
 // Command client spawns the example agent and drives one prompt turn.
 //
-// It shows the client side of ACP: handling session updates with a type
-// switch over the SessionUpdate union, answering permission requests, and
-// serving the optional file system methods the agent may call.
+// It shows the client side of ACP: spawning an agent, driving a turn with
+// ClientSession and Turn, rendering updates with a type switch over the
+// SessionUpdate union, answering permission requests, and serving the
+// optional file system methods the agent may call.
 package main
 
 import (
@@ -21,21 +22,30 @@ import (
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// exampleClient implements acpv1.Client, plus acpv1.FileReader and acpv1.FileWriter
-// for the capabilities it advertises during initialization.
+// exampleClient implements acpv1.Client, plus acpv1.FileReader and
+// acpv1.FileWriter, which ClientCapabilitiesOf turns into the fs capabilities
+// it advertises.
 type exampleClient struct{}
 
-func (c *exampleClient) SessionUpdate(_ context.Context, params *acpv1.SessionNotification) error {
-	switch update := params.Update.Variant().(type) {
+// SessionUpdate receives every update the agent sends. This client renders
+// the updates of its own turns from Turn.Updates instead, so it has nothing
+// to do here; a UI that shows background activity would update its state.
+func (c *exampleClient) SessionUpdate(context.Context, *acpv1.SessionNotification) error {
+	return nil
+}
+
+// render prints one update with a type switch over the SessionUpdate union.
+func render(update acpv1.SessionUpdate) {
+	switch update := update.Variant().(type) {
 	case schema.SessionUpdateAgentMessageChunk:
-		if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
-			fmt.Print(text.Text)
+		if text, ok := acpv1.TextOf(update.Content); ok {
+			fmt.Print(text)
 		} else {
 			fmt.Print("[non-text content]")
 		}
 	case schema.SessionUpdateAgentThoughtChunk:
-		if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
-			fmt.Printf("\n💭 %s", text.Text)
+		if text, ok := acpv1.TextOf(update.Content); ok {
+			fmt.Printf("\n💭 %s", text)
 		}
 	case schema.SessionUpdateToolCall:
 		fmt.Printf("\n🔧 %s", update.Title)
@@ -51,8 +61,10 @@ func (c *exampleClient) SessionUpdate(_ context.Context, params *acpv1.SessionNo
 		fmt.Println()
 	case schema.SessionUpdatePlan:
 		fmt.Printf("\n📋 plan with %d entries\n", len(update.Entries))
+	default:
+		// Includes schema.SessionUpdateUnknown: updates newer than this SDK
+		// are safe to ignore.
 	}
-	return nil
 }
 
 func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
@@ -114,21 +126,19 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := acpv1.SpawnAgent(ctx, exec.Command(agentBinary), func(*acpv1.ClientSideConnection) acpv1.Client {
-		return &exampleClient{}
+	client := &exampleClient{}
+	agent, err := acpv1.SpawnAgent(ctx, exec.Command(agentBinary), func(*acpv1.ClientSideConnection) acpv1.Client {
+		return client
 	})
 	if err != nil {
 		return fmt.Errorf("spawn agent: %w", err)
 	}
-	defer conn.Close()
+	defer agent.Close()
 
-	enabled := true
-	initialized, err := conn.Initialize(ctx, &acpv1.InitializeRequest{
-		ProtocolVersion: acpv1.ProtocolVersion,
-		ClientCapabilities: &schema.ClientCapabilities{
-			Fs: &schema.FileSystemCapabilities{ReadTextFile: &enabled, WriteTextFile: &enabled},
-		},
-		ClientInfo: &schema.Implementation{Name: "example-client", Version: "0.1.0"},
+	initialized, err := agent.Initialize(ctx, &acpv1.InitializeRequest{
+		ProtocolVersion:    acpv1.ProtocolVersion,
+		ClientCapabilities: acpv1.ClientCapabilitiesOf(client),
+		ClientInfo:         &schema.Implementation{Name: "example-client", Version: "0.1.0"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -136,18 +146,20 @@ func run(ctx context.Context) error {
 	fmt.Printf("Connected to agent (protocol v%d)\n", initialized.ProtocolVersion)
 
 	cwd, _ := os.Getwd()
-	created, err := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
+	session, err := agent.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
-	fmt.Printf("Created session: %s\nUser: Hello, agent!\n\n", created.SessionID)
+	fmt.Printf("Created session: %s\nUser: Hello, agent!\n\n", session.ID)
 
-	result, err := conn.Prompt(ctx, &acpv1.PromptRequest{
-		SessionID: created.SessionID,
-		Prompt: []acpv1.ContentBlock{
-			schema.NewContentBlock(schema.ContentBlockText{Text: "Hello, agent!"}),
-		},
-	})
+	turn, err := session.Prompt(ctx, acpv1.TextBlock("Hello, agent!"))
+	if err != nil {
+		return fmt.Errorf("prompt: %w", err)
+	}
+	for update := range turn.Updates() {
+		render(update)
+	}
+	result, err := turn.Wait()
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}

@@ -7,7 +7,7 @@ import schema "github.com/ironpark/go-acp/schema/v1"
 // method the connection would answer with "method not found":
 //
 //	caps := acpv1.CapabilitiesOf(a)
-//	caps.PromptCapabilities = &schema.PromptCapabilities{Image: &yes}
+//	caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)}
 //	return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion, AgentCapabilities: caps}, nil
 //
 // Group capabilities with their own sub-flags — providers and nes — are set to
@@ -18,8 +18,7 @@ import schema "github.com/ironpark/go-acp/schema/v1"
 func CapabilitiesOf(agent Agent) *schema.AgentCapabilities {
 	caps := &schema.AgentCapabilities{}
 	if _, ok := agent.(SessionLoader); ok {
-		yes := true
-		caps.LoadSession = &yes
+		caps.LoadSession = new(true)
 	}
 	session := &schema.SessionCapabilities{}
 	advertise := false
@@ -73,8 +72,7 @@ func ClientCapabilitiesOf(client Client) *schema.ClientCapabilities {
 		caps.Fs = &schema.FileSystemCapabilities{ReadTextFile: &read, WriteTextFile: &write}
 	}
 	if _, ok := client.(TerminalHandler); ok {
-		yes := true
-		caps.Terminal = &yes
+		caps.Terminal = new(true)
 	}
 	if _, ok := client.(ElicitationHandler); ok {
 		caps.Elicitation = &schema.ElicitationCapabilities{}

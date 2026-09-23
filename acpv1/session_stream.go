@@ -91,12 +91,11 @@ func (s *SessionStream) SendContent(ctx context.Context, content ContentBlock, o
 
 // StartToolCall reports a tool call that is now running.
 func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, locations ...ToolCallLocation) error {
-	status := schema.ToolCallStatusInProgress
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCall{
 		ToolCallID: id,
 		Title:      title,
 		Kind:       &kind,
-		Status:     &status,
+		Status:     new(schema.ToolCallStatusInProgress),
 		Locations:  locations,
 	}))
 }
@@ -111,20 +110,18 @@ func (s *SessionStream) UpdateToolCallStatus(ctx context.Context, id ToolCallID,
 
 // CompleteToolCall marks a tool call completed, with its output if any.
 func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	status := schema.ToolCallStatusCompleted
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
-		Status:     &status,
+		Status:     new(schema.ToolCallStatusCompleted),
 		Content:    content,
 	}))
 }
 
 // FailToolCall marks a tool call failed, with any error output.
 func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	status := schema.ToolCallStatusFailed
 	return s.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
-		Status:     &status,
+		Status:     new(schema.ToolCallStatusFailed),
 		Content:    content,
 	}))
 }

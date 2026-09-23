@@ -34,8 +34,11 @@ go get github.com/ironpark/go-acp
 - **요청 단위 취소** - 양방향 `$/cancel_request`, `-32800` 응답
 - **플러그형 Transport** - stdio, HTTP+SSE
 - **미들웨어** - 요청/알림 양쪽을 감싸는 조합 가능한 체인
-- **SessionManager** - 세션 생성/로드/목록/삭제 메서드 제공
+- **SessionManager** - 세션 생성/로드/목록/삭제 메서드와 턴 취소 제공
 - **SessionStream** - 세션 업데이트 전송 편의 API
+- **ClientSession / Turn** - 클라이언트에서 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽는 API
+- **타입 있는 확장 메서드** - `acp.CallExt`, `acp.ExtRouter`, 그리고 `_meta`용 `schema.Meta`
+- **모르는 union variant 보존** - 새 버전 피어의 variant도 디코드 실패 없이 `…Unknown`으로 보존
 - **선택적 인터페이스** - 구현하지 않은 메서드는 자동으로 `-32601` 응답
 
 ## 빠른 시작
@@ -52,45 +55,63 @@ if err := conn.Start(context.Background()); err != nil {
 }
 ```
 
-`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `Authenticate`, `NewSession`,
-`Prompt`, `Cancel` 다섯 개뿐입니다. 나머지는 선택적 인터페이스(`acpv1.SessionLoader`,
+`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `NewSession`, `Prompt`, `Cancel`
+네 개뿐입니다. 나머지는 선택적 인터페이스(`acpv1.Authenticator`, `acpv1.SessionLoader`,
 `acpv1.SessionLister`, `acpv1.SessionModeSetter`, `acpv1.NesHandler` 등)로 구현합니다.
 `acpv1.CapabilitiesOf(agent)`가 구현된 인터페이스에서 capability를 유도해 주므로, `Initialize`
 응답이 연결이 거부할 메서드를 광고하는 일이 없습니다:
 
 ```go
 caps := acpv1.CapabilitiesOf(a)
-caps.PromptCapabilities = &schema.PromptCapabilities{Image: &yes} // 콘텐츠 capability는 직접 설정
+caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)} // 콘텐츠 capability는 직접 설정
 return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion, AgentCapabilities: caps}, nil
 ```
 
 ### 클라이언트 구현
 
 ```go
-conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
-    return &MyClient{}
-}, "my-agent")
+client := &MyClient{}
+agent, err := acpv1.SpawnAgent(ctx, exec.Command("my-agent"), func(*acpv1.ClientSideConnection) acpv1.Client {
+    return client
+})
 if err != nil {
     log.Fatal(err)
 }
-go conn.Start(ctx)
+defer agent.Close()
 
-conn.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
-session, _ := conn.NewSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd, MCPServers: []schema.MCPServer{}})
-conn.Prompt(ctx, &acpv1.PromptRequest{SessionID: session.SessionID, Prompt: prompt})
+agent.Initialize(ctx, &acpv1.InitializeRequest{
+    ProtocolVersion:    acpv1.ProtocolVersion,
+    ClientCapabilities: acpv1.ClientCapabilitiesOf(client),
+})
+session, _ := agent.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
+
+turn, _ := session.Prompt(ctx, acpv1.TextBlock("README.md를 요약해줘"))
+for update := range turn.Updates() {
+    render(update) // 도구 호출, 계획, 메시지 조각...
+}
+response, err := turn.Wait() // 또는: text, err := turn.Text()
 ```
 
+`SpawnAgent`는 읽기 루프를 이미 시작한 상태로 돌려주며, `agent.Wait()`가 프로세스와 연결이 어떻게
+끝났는지 알려 줍니다. `cmd.Stderr`를 지정하지 않으면 에이전트의 stderr는 부모 프로세스로 전달됩니다.
+`acpv1.Pipe`는 에이전트와 클라이언트를 메모리에서 연결하므로 테스트에 유용합니다.
+
 `Client` 인터페이스에 필요한 메서드는 `SessionUpdate`와 `RequestPermission` 두 개입니다.
+`SessionUpdate`는 `Turn` 밖의 업데이트까지 모두 받습니다. 알림은 읽기 루프에서 순서대로 처리되므로,
+핸들러 안에서 에이전트 호출의 응답을 기다리면 교착 상태가 됩니다.
 파일 시스템·터미널·elicitation 지원은 `acpv1.FileReader`, `acpv1.FileWriter`,
 `acpv1.TerminalHandler`, `acpv1.ElicitationHandler`로 추가하며, `acpv1.ClientCapabilitiesOf(client)`가
 대응하는 플래그를 유도합니다.
 
 ## 아키텍처
 
-- **`acp`** (루트): `Option`, `Transport`(stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`
+- **`acp`** (루트): `Option`, `Transport`(stdio, HTTP+SSE), `Middleware`, `RequestError`, `SessionStore`,
+  `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`)
 - **`acpv1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
 - **`acpv1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
-- **`acpv1.SessionManager`**: 스토어 기반 세션 수명주기 메서드
+- **`acpv1.SpawnAgent`**, **`acpv1.Pipe`**: 자식 프로세스 에이전트, 또는 메모리 내 양쪽 연결
+- **`acpv1.ClientSession`**, **`acpv1.Turn`**: 세션에 프롬프트를 보내고 그 턴의 업데이트를 읽음
+- **`acpv1.SessionManager`**: 스토어 기반 세션 수명주기와 턴 취소
 - **`acpv1.SessionStream`**: union을 직접 만들지 않고 세션 업데이트 전송
 - **`acpv1.TerminalHandle`**: 터미널 ID와 세션 ID를 묶은 핸들
 - **`acpv1.CapabilitiesOf`**: 에이전트가 구현한 인터페이스에서 capability 유도
@@ -105,7 +126,42 @@ conn.Prompt(ctx, &acpv1.PromptRequest{SessionID: session.SessionID, Prompt: prom
 나가는 호출의 컨텍스트를 취소하면 해당 요청 ID로 `$/cancel_request`를 보냅니다.
 받는 쪽에서는 해당 핸들러의 컨텍스트가 취소되고, 핸들러가 먼저 응답하지 않으면
 `-32800 Request cancelled`가 전달됩니다. 프롬프트 턴 전체를 취소하는
-`session/cancel`과는 별개입니다.
+`session/cancel`과는 별개입니다([세션 관리](#세션-관리) 참고).
+
+### 에러
+
+핸들러에서 `acp.Err…` 생성자를 반환하면 상대에게 갈 코드를 고를 수 있고, 그 외 에러는 `-32603`이 됩니다.
+상대가 보낸 에러는 `*acp.RequestError`로 돌아옵니다:
+
+```go
+if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
+    // 인증 후 재시도
+}
+```
+
+### 확장 메서드와 `_meta`
+
+```go
+type MyAgent struct {
+    acp.ExtRouter // ExtMethodHandler와 ExtNotificationHandler를 구현
+    // ...
+}
+
+acp.HandleExt(&a.ExtRouter, "_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
+    return &IndexResult{Files: 42}, nil
+})
+
+result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexParams{Path: "."})
+```
+
+파라미터 디코드에 실패하면 `-32602`, 등록되지 않은 메서드는 `-32601`로 응답하고, 등록되지 않은 알림은
+무시합니다. 모든 `_meta` 필드는 값을 원본 JSON 그대로 보관하는 `schema.Meta` 타입입니다:
+
+```go
+var meta schema.Meta
+meta.Set("trace", Trace{ID: "abc"})
+trace, ok, err := params.Meta.Get[Trace]("trace")
+```
 
 ### v1과 v2 동시 지원
 
@@ -133,11 +189,36 @@ manager := acpv1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acpv1.SessionManager[*MySession] // NewSession, LoadSession, ListSessions, DeleteSession 제공
+    *acpv1.SessionManager[*MySession] // NewSession, Cancel, LoadSession, ListSessions, DeleteSession 제공
+}
+
+func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+    ctx, done := a.BeginTurn(ctx, params.SessionID) // 매니저의 Cancel이 ctx를 취소
+    defer done()
+    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
+        return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+    } else if err != nil {
+        return nil, err
+    }
+    return &acpv1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 ```
 
 에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다.
+
+### SessionStream
+
+```go
+stream := acpv1.NewSessionStream(client, sessionID)
+
+stream.SendText(ctx, "안녕하세요!")
+stream.StartToolCall(ctx, toolID, "파일 읽기", schema.ToolKindRead)
+stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
+stream.Send(ctx, anyUpdate) // 헬퍼가 없는 variant용
+```
+
+흔한 텍스트 콘텐츠는 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.ToolText`로 다룹니다. v2 `SessionStream`은
+메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
 
 ### 미들웨어
 
@@ -159,8 +240,8 @@ conn := acpv1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
 ```go
 switch update := notification.Update.Variant().(type) {
 case schema.SessionUpdateAgentMessageChunk:
-    if text, ok := update.Content.Variant().(schema.ContentBlockText); ok {
-        fmt.Print(text.Text)
+    if text, ok := acpv1.TextOf(update.Content); ok {
+        fmt.Print(text)
     }
 case schema.SessionUpdateToolCall:
     fmt.Println(update.Title)
@@ -168,6 +249,10 @@ case schema.SessionUpdateToolCall:
 
 update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
 ```
+
+이 SDK가 모르는 태그가 와도 메시지가 실패하지 않습니다. 스키마가 정의한 `Custom` variant가 있으면 그쪽으로,
+없으면 생성된 `…Unknown` variant(예: `schema.SessionUpdateUnknown`)로 디코드되며, `Raw` 필드에 받은 객체가
+그대로 담겨 다시 인코딩할 때도 바뀌지 않습니다. `default` 케이스에서 처리하거나, 프로토콜 권고대로 무시하면 됩니다.
 
 ### 연결 옵션
 
@@ -188,7 +273,8 @@ ACP 프로토콜 버전 1 ([`schema/typescript/REVISION`](../schema/typescript/R
 
 | 메서드 | Go 인터페이스 |
 | --- | --- |
-| `initialize`, `authenticate`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
+| `initialize`, `session/new`, `session/prompt`, `session/cancel` | `Agent` (필수) |
+| `authenticate` | `Authenticator` |
 | `session/load` | `SessionLoader` |
 | `session/list` | `SessionLister` |
 | `session/delete` | `SessionDeleter` |
@@ -230,8 +316,8 @@ v1의 `mcp/*` 메서드는 참조 SDK와 마찬가지로 전용 핸들러가 없
 | `mcp/connect`, `mcp/message`, `mcp/disconnect` | `MCPConnector` (unstable) |
 | `elicitation/create`, `elicitation/complete` | `ElicitationHandler` |
 
-v2에는 `fs/*`·`terminal/*` 메서드가 없고(파일·셸 접근은 MCP 경유) `SessionStream`과 `TerminalHandle`은
-v1 패키지에만 있습니다.
+v2에는 `fs/*`·`terminal/*` 메서드가 없으므로(파일·셸 접근은 MCP 경유) `TerminalHandle`은 v1 패키지에만
+있습니다. v2에서 prompt 응답은 메시지 접수만 뜻하며, `Turn`은 에이전트가 idle 상태를 보고할 때 끝납니다.
 
 ## 예제
 
