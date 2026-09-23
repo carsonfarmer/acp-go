@@ -18,10 +18,9 @@ import (
 
 type generator struct {
 	defs         map[string]*tsdef.Type
-	docs         map[string]string     // TypeScript name -> the definition's comment
-	refs         map[string]int        // TypeScript name -> references to it across the schema
-	absorbed     map[string]absorption // TypeScript name -> the tagged union that took the type over
-	variantRules []variantRule         // Zod rules for absorbed types, emitted with the others
+	docs         map[string]string      // TypeScript name -> the definition's comment
+	refs         map[string]int         // TypeScript name -> references to it across the schema
+	absorbed     map[string]*absorption // Go name -> the tagged union that took the type over
 	pending      []tsdef.Definition
 	names        map[string]bool
 	aliases      map[string]bool     // Go names declared with "type X = ..."
@@ -95,7 +94,7 @@ type Files map[string][]byte
 func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 	g := &generator{
 		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
-		absorbed: map[string]absorption{},
+		absorbed: map[string]*absorption{},
 		names:    map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
 		pkg: pkg, buffers: map[string]*bytes.Buffer{},
 	}

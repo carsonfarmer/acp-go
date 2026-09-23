@@ -3,6 +3,8 @@ package tsgen
 import (
 	"encoding/json/jsontext"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,6 +61,10 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 	defs := append([]tsdef.Definition(nil), schema.Types...)
 	sort.Slice(defs, func(i, j int) bool { return defs[i].Name < defs[j].Name })
 	var types, unmarshalers []string
+	register := func(goName, key string) {
+		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", goName, key))
+		unmarshalers = append(unmarshalers, fmt.Sprintf("zod.Unmarshaler[%s](zodSchemas, %q)", goName, key))
+	}
 	for _, d := range defs {
 		key := "z" + d.Name
 		if schema.Validators[key] == nil {
@@ -73,10 +79,13 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 		if g.isAbsorbed(name) {
 			continue // registered below under the rule its variant carries
 		}
-		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", name, key))
-		unmarshalers = append(unmarshalers, fmt.Sprintf("zod.Unmarshaler[%s](zodSchemas, %q)", name, key))
+		register(name, key)
 	}
-	for _, v := range g.variantRules {
+	for _, goName := range slices.Sorted(maps.Keys(g.absorbed)) {
+		v := g.absorbed[goName]
+		if v.variant == "" {
+			continue // the union was never emitted
+		}
 		// The variant writes its tag, so its rule is the absorbed type's
 		// own rule intersected with that tag.
 		key := fmt.Sprintf("z%s&%s=%s", v.base, v.tag, v.value)
@@ -88,8 +97,7 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 			return err
 		}
 		registry = append(registry, fmt.Sprintf("%s: %s,", strconv.Quote(key), rule))
-		types = append(types, fmt.Sprintf("reflect.TypeFor[%s](): %q", v.goName, key))
-		unmarshalers = append(unmarshalers, fmt.Sprintf("zod.Unmarshaler[%s](zodSchemas, %q)", v.goName, key))
+		register(v.variant, key)
 	}
 	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n%s\n}\n\n", strings.Join(registry, "\n"))
 	g.write("// zodTypes maps generated Go types to their Zod rule. Type aliases are not\n// listed; they share a reflect.Type with their underlying type.\nvar zodTypes = map[reflect.Type]string{\n%s,\n}\n\n", strings.Join(types, ",\n"))

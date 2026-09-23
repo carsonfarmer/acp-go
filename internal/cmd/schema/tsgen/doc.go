@@ -89,17 +89,16 @@ func paragraphs(s string) []string {
 // leadingWords rewrites the opening word of an SDK comment so the sentence
 // starts with the declared name: "Request to start…" becomes "X is a request
 // to start…". Articles cover most comments; the nouns cover the SDK's
-// article-less openings.
-var leadingWords = map[string]string{
-	"A": "a", "An": "an", "The": "the", "Unique": "a unique",
-	"Marker": "a marker", "Notification": "a notification", "Request": "a request",
-	"Response": "a response",
+// article-less openings and take an article only when a preposition or
+// participle follows ("Request to…", not "Request parameters for…").
+var leadingWords = map[string]struct {
+	lower string
+	noun  bool
+}{
+	"A": {lower: "a"}, "An": {lower: "an"}, "The": {lower: "the"}, "Unique": {lower: "a unique"},
+	"Marker": {"a marker", true}, "Notification": {"a notification", true},
+	"Request": {"a request", true}, "Response": {"a response", true},
 }
-
-// nounOpenings are the leadingWords that are nouns; they take an article only
-// when a preposition or participle follows ("Request to…", not "Request
-// parameters for…").
-var nounOpenings = map[string]bool{"Marker": true, "Notification": true, "Request": true, "Response": true}
 
 var nounFollowers = map[string]bool{
 	"about": true, "for": true, "from": true, "of": true, "returned": true,
@@ -114,11 +113,11 @@ var finiteVerbs = regexp.MustCompile(`\b(is|are|was|were|has|have|had|can|may|mu
 // opening allows, reporting whether it did. Other openings are kept.
 func leadWithName(name, sdk string) (string, bool) {
 	word, rest, ok := strings.Cut(sdk, " ")
-	lower, known := leadingWords[word]
+	opening, known := leadingWords[word]
 	if !ok || !known {
 		return sdk, false
 	}
-	if next, _, _ := strings.Cut(rest, " "); nounOpenings[word] && !nounFollowers[next] {
+	if next, _, _ := strings.Cut(rest, " "); opening.noun && !nounFollowers[next] {
 		return sdk, false
 	}
 	sentence, _, _ := strings.Cut(sdk, ". ")
@@ -126,7 +125,7 @@ func leadWithName(name, sdk string) (string, bool) {
 	if finiteVerbs.MatchString(sentence) {
 		return sdk, false
 	}
-	return name + " is " + lower + " " + rest, true
+	return name + " is " + opening.lower + " " + rest, true
 }
 
 // metaDoc keeps what a _meta member's comment says beyond the extensibility
@@ -188,7 +187,7 @@ func (g *generator) polishComments(src []byte) []byte {
 			continue
 		}
 		text = rustLink.ReplaceAllStringFunc(text, g.goDocLink)
-		text = strings.NewReplacer(`\[`, "[", `\]`, "]").Replace(text)
+		text = unescapeBrackets.Replace(text)
 		switch {
 		case strings.HasPrefix(text, " - ") || strings.HasPrefix(text, " * "):
 			text, inList = "   -"+text[2:], true
@@ -201,6 +200,8 @@ func (g *generator) polishComments(src []byte) []byte {
 	}
 	return []byte(strings.Join(lines, "\n"))
 }
+
+var unescapeBrackets = strings.NewReplacer(`\[`, "[", `\]`, "]")
 
 // goDocLink resolves one Rust intra-doc link against the generated package.
 func (g *generator) goDocLink(m string) string {
@@ -224,12 +225,10 @@ func (g *generator) goDocLink(m string) string {
 // declaredAs returns the Go type declared under name, following a type a
 // tagged union took over to its variant, or "" when there is none.
 func (g *generator) declaredAs(name string) string {
-	for _, v := range g.variantRules {
-		if Name(v.base) == name {
-			return v.goName
-		}
+	if a := g.absorbed[name]; a != nil {
+		return a.variant
 	}
-	if !g.names[name] || g.isAbsorbed(name) {
+	if !g.names[name] {
 		return ""
 	}
 	return name

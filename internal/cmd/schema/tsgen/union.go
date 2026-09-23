@@ -41,21 +41,6 @@ type taggedMember struct {
 	value  string      // quoted tag literal of literal and nested members
 }
 
-// nestedTagged recognizes `Ref & { tag: "literal" }` where Ref is, or expands
-// to, a union, which cannot be flattened into one struct without losing its
-// variants.
-func (g *generator) nestedTagged(m *tsdef.Type) (ref, tag, value string, ok bool) {
-	ref, tagField, ok := g.tagIntersection(m)
-	if !ok {
-		return "", "", "", false
-	}
-	target, err := g.expand(&tsdef.Type{Kind: "ref", Name: ref}, map[string]bool{})
-	if err != nil || target.Kind != "union" {
-		return "", "", "", false
-	}
-	return ref, tagField.Name, tagField.Type.Literal, true
-}
-
 // tagIntersection recognizes `Ref & { tag: "literal" }`, returning the
 // reference and the tag member.
 func (g *generator) tagIntersection(m *tsdef.Type) (string, tsdef.Field, bool) {
@@ -101,10 +86,15 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 	var shapes []taggedShape
 	candidates := map[string]bool{}
 	for _, m := range t.Members {
-		if ref, tagName, value, ok := g.nestedTagged(m); ok {
-			shapes = append(shapes, taggedShape{nested: ref, nestedTag: tagName, nestedValue: value})
-			candidates[tagName] = true
-			continue
+		base, tagField, intersection := g.tagIntersection(m)
+		if intersection {
+			// `Ref & { tag: "literal" }` where Ref expands to a union cannot be
+			// flattened into one struct without losing its variants.
+			if target, err := g.expand(&tsdef.Type{Kind: "ref", Name: base}, map[string]bool{}); err == nil && target.Kind == "union" {
+				shapes = append(shapes, taggedShape{nested: base, nestedTag: tagField.Name, nestedValue: tagField.Type.Literal})
+				candidates[tagField.Name] = true
+				continue
+			}
 		}
 		expanded, err := g.expand(m, map[string]bool{})
 		if err != nil {
@@ -114,7 +104,7 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 			return "", nil, false, nil
 		}
 		shape := taggedShape{expanded: expanded}
-		if base, _, ok := g.tagIntersection(m); ok {
+		if intersection {
 			shape.base = base
 		}
 		if m.Kind == "ref" {
@@ -260,6 +250,7 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	g.unmarshalers = append(g.unmarshalers, "json.UnmarshalFromFunc("+unmarshalFn+")")
 	variantNames := make([]string, len(members))
 	schemaNamed := make([]bool, len(members)) // the variant is a type the schema names and reserves
+	absorbed := make([]*absorption, len(members))
 	custom, open, defaultIndex := -1, false, -1
 	known := openTags{tag: tag}
 	for i, m := range members {
@@ -272,7 +263,10 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 			continue
 		case memberDefault:
 			defaultIndex = i
-			if m.ref != "" && g.defaultVariant(m.ref) {
+			// The schema type itself can be the default variant when nothing
+			// else refers to it: the variant methods leave its JSON unchanged,
+			// since the default variant has no tag.
+			if _, ok := g.soleStruct(m.ref); ok {
 				variantNames[i], schemaNamed[i] = Name(m.ref), true
 				continue
 			}
@@ -284,7 +278,7 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 			}
 			known.values = append(known.values, value)
 			variantNames[i] = name + Name(value)
-			if a, ok := g.absorbedBy(m.base, name, m.value); ok && a.goName == variantNames[i] {
+			if absorbed[i] = g.absorbedBy(m.base, name, m.value); absorbed[i] != nil && Name(m.base) == variantNames[i] {
 				schemaNamed[i] = true
 				continue
 			}
@@ -442,11 +436,11 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 			g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return union.UnspliceTag(dec, %q, %s, &v.Value) }\n", vname, tag, m.value)
 		case memberLiteral:
 			variantDoc := fmt.Sprintf("%s is the %s variant with %s %s.", vname, name, tag, m.value)
-			if _, ok := g.absorbedBy(m.base, name, m.value); ok {
+			if a := absorbed[i]; a != nil {
 				// The variant took over the schema type it extends: it keeps
 				// that type's comment and inherits its Zod rule, with the tag.
 				g.write("%s", doc(vname, g.docs[m.base], variantDoc))
-				g.variantRules = append(g.variantRules, variantRule{goName: vname, base: m.base, tag: tag, value: m.value})
+				a.variant = vname
 			} else {
 				g.write("// %s\n", variantDoc)
 			}
@@ -472,16 +466,15 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	return nil
 }
 
-// defaultVariant reports whether the schema type ref can itself be a tagged
-// union's default variant: an object struct that nothing but this union
-// refers to. The variant methods it gains leave its JSON unchanged, since the
-// default variant has no tag.
-func (g *generator) defaultVariant(ref string) bool {
+// soleStruct reports whether the schema type ref is an object struct that only
+// one reference in the schema uses, returning its expansion. A tagged union
+// can take such a type over as one of its variants.
+func (g *generator) soleStruct(ref string) (*tsdef.Type, bool) {
 	if g.refs[ref] != 1 {
-		return false
+		return nil, false
 	}
-	f, _, err := g.form(g.defs[ref])
-	return err == nil && f == formStruct
+	f, t, err := g.form(g.defs[ref])
+	return t, err == nil && f == formStruct
 }
 
 // tagClash reports a variant struct that would declare a field named Tag
@@ -498,21 +491,20 @@ func tagClash(variant string, object *tsdef.Type, skip string) error {
 // absorption records a schema type that a tagged union took over as the
 // variant for one of its tags.
 type absorption struct {
-	goName string // the type's Go name
-	union  string // Go name of the union
-	value  string // quoted tag literal
+	base    string // TypeScript name of the absorbed type
+	union   string // Go name of the union
+	tag     string // the union's tag member
+	value   string // quoted tag literal
+	variant string // Go name of the variant, set when the union is emitted
 }
 
-// absorbedBy reports whether base was taken over by union's variant for value.
-func (g *generator) absorbedBy(base, union, value string) (absorption, bool) {
-	a, ok := g.absorbed[base]
-	return a, ok && a.union == union && a.value == value
-}
-
-// variantRule is a Zod rule synthesized for an absorbed type: its own rule
-// with the tag the variant carries.
-type variantRule struct {
-	goName, base, tag, value string
+// absorbedBy returns the absorption of base by union's variant for value, or
+// nil when there is none.
+func (g *generator) absorbedBy(base, union, value string) *absorption {
+	if a := g.absorbed[Name(base)]; a != nil && a.base == base && a.union == union && a.value == value {
+		return a
+	}
+	return nil
 }
 
 // planVariants finds, before anything is emitted, the schema types that
@@ -526,7 +518,7 @@ func (g *generator) planVariants() error {
 		if err != nil || f != formUnion {
 			continue
 		}
-		_, members, ok, err := g.tagged(t)
+		tag, members, ok, err := g.tagged(t)
 		if err != nil {
 			return fmt.Errorf("%s: %w", d.Name, err)
 		}
@@ -534,13 +526,13 @@ func (g *generator) planVariants() error {
 			continue
 		}
 		for _, m := range members {
-			if m.kind != memberLiteral || m.base == "" || g.refs[m.base] != 1 {
+			if m.kind != memberLiteral || m.base == "" {
 				continue
 			}
-			if bf, bt, err := g.form(g.defs[m.base]); err != nil || bf != formStruct || len(requiredLiterals(bt)) > 0 {
+			if bt, ok := g.soleStruct(m.base); !ok || len(requiredLiterals(bt)) > 0 {
 				continue
 			}
-			g.absorbed[m.base] = absorption{goName: Name(m.base), union: d.Name, value: m.value}
+			g.absorbed[Name(m.base)] = &absorption{base: m.base, union: d.Name, tag: tag, value: m.value}
 		}
 	}
 	return nil
@@ -555,7 +547,7 @@ func (g *generator) memberLabel(m, expanded *tsdef.Type) (string, error) {
 	case "ref":
 		return Name(m.Name), nil
 	case "literal":
-		if k, _ := literals(m); k == "string" {
+		if stringLiteral(m) {
 			value, err := strconv.Unquote(m.Literal)
 			if err != nil {
 				return "", err
@@ -785,10 +777,5 @@ func (g *generator) altRule(expanded *tsdef.Type) string {
 // isAbsorbed reports whether the schema type with the given Go name was taken
 // over by a tagged union, which declares it.
 func (g *generator) isAbsorbed(goName string) bool {
-	for _, a := range g.absorbed {
-		if a.goName == goName {
-			return true
-		}
-	}
-	return false
+	return g.absorbed[goName] != nil
 }
