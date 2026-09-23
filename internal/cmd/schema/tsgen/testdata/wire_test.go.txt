@@ -39,11 +39,14 @@ func TestTaggedUnionRoundTrip(t *testing.T) {
 	default:
 		t.Fatalf("wrong variant %T", m)
 	}
-	if _, err := json.Marshal(Message{}); err != nil {
-		t.Fatal(err)
+	if b, err := json.Marshal(Message{}); err == nil {
+		t.Fatalf("zero value encoded as %s; want an error", b)
 	}
-	if b, _ := json.Marshal(Message{}); string(b) != "null" {
-		t.Fatalf("zero value should encode as null: %s", b)
+	var optional struct {
+		M Message `json:"m,omitzero"`
+	}
+	if b, err := json.Marshal(optional); err != nil || string(b) != "{}" {
+		t.Fatalf("omitzero field: %s, %v; want {}", b, err)
 	}
 	if err := json.Unmarshal([]byte("null"), &back); err != nil || back.Variant() != nil {
 		t.Fatalf("null should reset the union: %v %v", err, back.Variant())
@@ -467,5 +470,14 @@ func TestGetters(t *testing.T) {
 	}
 	if holder.GetOptions() != holder.Options {
 		t.Fatal("a struct getter must return the field's pointer")
+	}
+}
+
+func TestZeroRawUnionEncoding(t *testing.T) {
+	if b, err := json.Marshal(LiteralChoice{}); err == nil {
+		t.Fatalf("zero LiteralChoice encoded as %s; want an error", b)
+	}
+	if b, err := json.Marshal(NullableChoice{}); err != nil || string(b) != "null" {
+		t.Fatalf("zero NullableChoice: %s, %v; want null, since null is an alternative", b, err)
 	}
 }

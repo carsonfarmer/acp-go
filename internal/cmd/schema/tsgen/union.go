@@ -319,7 +319,7 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 		implementers = append(implementers, "["+v+"]")
 	}
 	g.decls[name] = Decl{Interface: iface, Constraint: constraint, Constructor: "New" + name, Variants: variants}
-	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s is a tagged union discriminated by the %q member. The zero value\nencodes as null; use [New%s] or a type switch on [%s.Variant] to work with it.", name, tag, name, name)))
+	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s is a tagged union discriminated by the %q member. Use [New%s]\nor a type switch on [%s.Variant] to work with it. The zero value holds no\nvariant: an omitzero field omits it, and encoding it anywhere else fails.", name, tag, name, name)))
 	g.write("type %s struct{ value %s }\n", name, iface)
 	g.write("// %s is implemented by %s.\n", iface, strings.Join(implementers, ", "))
 	g.write("type %s interface { %s(); Tag() string }\n", iface, marker)
@@ -336,7 +336,7 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	g.write("// IsZero reports whether no variant is set, so omitzero omits the field.\n")
 	g.write("func (u %s) IsZero() bool { return u.value == nil }\n", name)
 	g.write("%s", marshalDoc)
-	g.write("func (u %s) MarshalJSONTo(enc *jsontext.Encoder) error { if u.value == nil { return enc.WriteToken(jsontext.Null) }; return json.MarshalEncode(enc, u.value) }\n", name)
+	g.write("func (u %s) MarshalJSONTo(enc *jsontext.Encoder) error { if u.value == nil { return errors.New(\"%s: no variant set; use New%s\") }; return json.MarshalEncode(enc, u.value) }\n", name, name, name)
 	g.write("%s", unmarshalDoc)
 	g.write("func (u *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return %s(dec, &u.value) }\n", name, unmarshalFn)
 	g.write("// %s decodes a %s by its %q member; it backs Unmarshalers.\n", unmarshalFn, iface, tag)
@@ -718,7 +718,15 @@ func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 			rules[key] = append(rules[key], rule)
 		}
 	}
-	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s preserves the complete JSON payload, including future variants.\nUse [%s.As] to read one alternative and [New%s] to build one.", name, name, name)))
+	// The zero value holds no payload. It encodes as null where null is one
+	// of the alternatives, and otherwise fails to encode.
+	empty := fmt.Sprintf("errors.New(%q)", name+": no value set; use New"+name)
+	zeroDoc := "The zero value holds no payload: an omitzero field omits it, and encoding it\nanywhere else fails."
+	if g.acceptsNull(t, map[string]bool{}) {
+		empty = "enc.WriteToken(jsontext.Null)"
+		zeroDoc = "The zero value holds no payload and encodes as null."
+	}
+	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s preserves the complete JSON payload, including future variants.\nUse [%s.As] to read one alternative and [New%s] to build one.\n%s", name, name, name, zeroDoc)))
 	g.write("type %s struct { raw jsontext.Value }\n", name)
 	g.write("// %s is the set of Go types %s can hold.\n", constraint, name)
 	g.write("type %s interface { %s }\n", constraint, strings.Join(terms, " | "))
@@ -736,7 +744,7 @@ func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 	g.write("// IsZero reports whether no payload is stored, so omitzero omits the field.\n")
 	g.write("func (v %s) IsZero() bool {return len(v.raw)==0}\n", name)
 	g.write("%s", marshalDoc)
-	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return enc.WriteToken(jsontext.Null)};return enc.WriteValue(v.raw)}\n", name)
+	g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error {if len(v.raw)==0{return %s};return enc.WriteValue(v.raw)}\n", name, empty)
 	g.write("%s", unmarshalDoc)
 	g.write("func (v *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {raw,err:=dec.ReadValue();if err!=nil{return err};v.raw=raw.Clone();return nil}\n", name)
 	return nil

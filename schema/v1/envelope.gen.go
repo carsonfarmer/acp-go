@@ -4,6 +4,7 @@ package schema
 
 import (
 	"encoding/json/jsontext"
+	"errors"
 
 	"github.com/ironpark/acp-go/schema/internal/union"
 )
@@ -20,6 +21,7 @@ type AgentRequest struct {
 
 // RequestID preserves the complete JSON payload, including future variants.
 // Use [RequestID.As] to read one alternative and [NewRequestID] to build one.
+// The zero value holds no payload and encodes as null.
 //
 // # JSON RPC Request Id
 //
@@ -83,6 +85,8 @@ func (v *RequestID) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 //
 // AgentResponse preserves the complete JSON payload, including future variants.
 // Use [AgentResponse.As] to read one alternative and [NewAgentResponse] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 type AgentResponse struct{ raw jsontext.Value }
 
 // AgentResponseAlternative is the set of Go types AgentResponse can hold.
@@ -116,7 +120,7 @@ func (v AgentResponse) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v AgentResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("AgentResponse: no value set; use NewAgentResponse")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -173,6 +177,8 @@ type ClientRequest struct {
 //
 // ClientResponse preserves the complete JSON payload, including future variants.
 // Use [ClientResponse.As] to read one alternative and [NewClientResponse] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 type ClientResponse struct{ raw jsontext.Value }
 
 // ClientResponseAlternative is the set of Go types ClientResponse can hold.
@@ -206,7 +212,7 @@ func (v ClientResponse) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ClientResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ClientResponse: no value set; use NewClientResponse")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -231,6 +237,7 @@ type ClientNotification struct {
 
 // AgentRequestParams preserves the complete JSON payload, including future variants.
 // Use [AgentRequestParams.As] to read one alternative and [NewAgentRequestParams] to build one.
+// The zero value holds no payload and encodes as null.
 type AgentRequestParams struct{ raw jsontext.Value }
 
 // AgentRequestParamsAlternative is the set of Go types AgentRequestParams can hold.
@@ -306,6 +313,7 @@ type AgentResponseError struct {
 
 // AgentNotificationParams preserves the complete JSON payload, including future variants.
 // Use [AgentNotificationParams.As] to read one alternative and [NewAgentNotificationParams] to build one.
+// The zero value holds no payload and encodes as null.
 type AgentNotificationParams struct{ raw jsontext.Value }
 
 // AgentNotificationParamsAlternative is the set of Go types AgentNotificationParams can hold.
@@ -358,6 +366,7 @@ func (v *AgentNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 
 // ClientRequestParams preserves the complete JSON payload, including future variants.
 // Use [ClientRequestParams.As] to read one alternative and [NewClientRequestParams] to build one.
+// The zero value holds no payload and encodes as null.
 type ClientRequestParams struct{ raw jsontext.Value }
 
 // ClientRequestParamsAlternative is the set of Go types ClientRequestParams can hold.
@@ -441,6 +450,7 @@ type ClientResponseError struct {
 
 // ClientNotificationParams preserves the complete JSON payload, including future variants.
 // Use [ClientNotificationParams.As] to read one alternative and [NewClientNotificationParams] to build one.
+// The zero value holds no payload and encodes as null.
 type ClientNotificationParams struct{ raw jsontext.Value }
 
 // ClientNotificationParamsAlternative is the set of Go types ClientNotificationParams can hold.
@@ -499,6 +509,7 @@ func (v *ClientNotificationParams) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 
 // AgentResponseResultResult preserves the complete JSON payload, including future variants.
 // Use [AgentResponseResultResult.As] to read one alternative and [NewAgentResponseResultResult] to build one.
+// The zero value holds no payload and encodes as null.
 type AgentResponseResultResult struct{ raw jsontext.Value }
 
 // AgentResponseResultResultAlternative is the set of Go types AgentResponseResultResult can hold.
@@ -567,6 +578,7 @@ func (v *AgentResponseResultResult) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 
 // ClientResponseResultResult preserves the complete JSON payload, including future variants.
 // Use [ClientResponseResultResult.As] to read one alternative and [NewClientResponseResultResult] to build one.
+// The zero value holds no payload and encodes as null.
 type ClientResponseResultResult struct{ raw jsontext.Value }
 
 // ClientResponseResultResultAlternative is the set of Go types ClientResponseResultResult can hold.

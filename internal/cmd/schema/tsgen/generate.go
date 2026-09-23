@@ -277,7 +277,7 @@ func (g *generator) write(f string, a ...any) { fmt.Fprintf(g.out, f, a...) }
 // importPaths maps the package names generated code may reference to their
 // import paths; flush imports exactly those a file uses.
 var importPaths = map[string]string{
-	"json": "encoding/json/v2", "jsontext": "encoding/json/jsontext", "fmt": "fmt",
+	"json": "encoding/json/v2", "jsontext": "encoding/json/jsontext", "errors": "errors", "fmt": "fmt",
 	"reflect": "reflect", "regexp": "regexp",
 	"union": UnionRuntime, "zod": ZodRuntime, "meta": MetaRuntime,
 }

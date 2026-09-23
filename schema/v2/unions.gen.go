@@ -5,6 +5,7 @@ package schema
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 
 	"github.com/ironpark/acp-go/schema/internal/union"
@@ -12,8 +13,9 @@ import (
 
 // RequestPermissionSubject is the operation requiring permission.
 //
-// RequestPermissionSubject is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewRequestPermissionSubject] or a type switch on [RequestPermissionSubject.Variant] to work with it.
+// RequestPermissionSubject is a tagged union discriminated by the "type" member. Use [NewRequestPermissionSubject]
+// or a type switch on [RequestPermissionSubject.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type RequestPermissionSubject struct {
 	value RequestPermissionSubjectVariant
 }
@@ -63,7 +65,7 @@ func (u RequestPermissionSubject) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u RequestPermissionSubject) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("RequestPermissionSubject: no variant set; use NewRequestPermissionSubject")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -211,8 +213,9 @@ func (RequestPermissionSubjectCustom) requestPermissionSubjectVariant() {}
 // Tag returns the "type" member.
 func (v RequestPermissionSubjectCustom) Tag() string { return v.Type }
 
-// ToolCallContent is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewToolCallContent] or a type switch on [ToolCallContent.Variant] to work with it.
+// ToolCallContent is a tagged union discriminated by the "type" member. Use [NewToolCallContent]
+// or a type switch on [ToolCallContent.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Content produced by a tool call.
 //
@@ -270,7 +273,7 @@ func (u ToolCallContent) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u ToolCallContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ToolCallContent: no variant set; use NewToolCallContent")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -476,8 +479,9 @@ func (ToolCallContentCustom) toolCallContentVariant() {}
 // Tag returns the "type" member.
 func (v ToolCallContentCustom) Tag() string { return v.Type }
 
-// ContentBlock is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewContentBlock] or a type switch on [ContentBlock.Variant] to work with it.
+// ContentBlock is a tagged union discriminated by the "type" member. Use [NewContentBlock]
+// or a type switch on [ContentBlock.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Content blocks represent displayable information in the Agent Client Protocol.
 //
@@ -541,7 +545,7 @@ func (u ContentBlock) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u ContentBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ContentBlock: no variant set; use NewContentBlock")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -845,6 +849,8 @@ func (v ContentBlockCustom) Tag() string { return v.Type }
 
 // EmbeddedResourceResource preserves the complete JSON payload, including future variants.
 // Use [EmbeddedResourceResource.As] to read one alternative and [NewEmbeddedResourceResource] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 //
 // Resource content that can be embedded in a message.
 type EmbeddedResourceResource struct{ raw jsontext.Value }
@@ -880,7 +886,7 @@ func (v EmbeddedResourceResource) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v EmbeddedResourceResource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("EmbeddedResourceResource: no value set; use NewEmbeddedResourceResource")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -895,8 +901,9 @@ func (v *EmbeddedResourceResource) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	return nil
 }
 
-// DiffChange is a tagged union discriminated by the "operation" member. The zero value
-// encodes as null; use [NewDiffChange] or a type switch on [DiffChange.Variant] to work with it.
+// DiffChange is a tagged union discriminated by the "operation" member. Use [NewDiffChange]
+// or a type switch on [DiffChange.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // One file-level change described by a [ToolCallContentDiff].
 //
@@ -947,7 +954,7 @@ func (u DiffChange) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u DiffChange) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("DiffChange: no variant set; use NewDiffChange")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -1272,6 +1279,8 @@ func (v DiffChangeCustom) Tag() string { return v.Operation }
 //
 // CreateElicitationRequest preserves the complete JSON payload, including future variants.
 // Use [CreateElicitationRequest.As] to read one alternative and [NewCreateElicitationRequest] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 type CreateElicitationRequest struct{ raw jsontext.Value }
 
 // CreateElicitationRequestAlternative is the set of Go types CreateElicitationRequest can hold.
@@ -1309,7 +1318,7 @@ func (v CreateElicitationRequest) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v CreateElicitationRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("CreateElicitationRequest: no value set; use NewCreateElicitationRequest")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -1324,8 +1333,9 @@ func (v *CreateElicitationRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	return nil
 }
 
-// ElicitationPropertySchema is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewElicitationPropertySchema] or a type switch on [ElicitationPropertySchema.Variant] to work with it.
+// ElicitationPropertySchema is a tagged union discriminated by the "type" member. Use [NewElicitationPropertySchema]
+// or a type switch on [ElicitationPropertySchema.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Property schema for elicitation form fields.
 //
@@ -1384,7 +1394,7 @@ func (u ElicitationPropertySchema) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u ElicitationPropertySchema) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ElicitationPropertySchema: no variant set; use NewElicitationPropertySchema")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -1768,8 +1778,9 @@ func (ElicitationPropertySchemaCustom) elicitationPropertySchemaVariant() {}
 // Tag returns the "type" member.
 func (v ElicitationPropertySchemaCustom) Tag() string { return v.Type }
 
-// MultiSelectItems is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewMultiSelectItems] or a type switch on [MultiSelectItems.Variant] to work with it.
+// MultiSelectItems is a tagged union discriminated by the "type" member. Use [NewMultiSelectItems]
+// or a type switch on [MultiSelectItems.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Items for a multi-select (array) property schema.
 type MultiSelectItems struct{ value MultiSelectItemsVariant }
@@ -1819,7 +1830,7 @@ func (u MultiSelectItems) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u MultiSelectItems) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("MultiSelectItems: no variant set; use NewMultiSelectItems")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -1933,6 +1944,8 @@ func (TitledMultiSelectItems) Tag() string { return "" }
 
 // ElicitationFormMode preserves the complete JSON payload, including future variants.
 // Use [ElicitationFormMode.As] to read one alternative and [NewElicitationFormMode] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 //
 // Form-based elicitation mode where the client renders a form from the provided schema.
 type ElicitationFormMode struct{ raw jsontext.Value }
@@ -1968,7 +1981,7 @@ func (v ElicitationFormMode) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationFormMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ElicitationFormMode: no value set; use NewElicitationFormMode")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -1985,6 +1998,8 @@ func (v *ElicitationFormMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // ElicitationURLMode preserves the complete JSON payload, including future variants.
 // Use [ElicitationURLMode.As] to read one alternative and [NewElicitationURLMode] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 //
 // URL-based elicitation mode where the client directs the user to a URL.
 type ElicitationURLMode struct{ raw jsontext.Value }
@@ -2020,7 +2035,7 @@ func (v ElicitationURLMode) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationURLMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ElicitationURLMode: no value set; use NewElicitationURLMode")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -2035,8 +2050,9 @@ func (v *ElicitationURLMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// AuthMethod is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewAuthMethod] or a type switch on [AuthMethod.Variant] to work with it.
+// AuthMethod is a tagged union discriminated by the "type" member. Use [NewAuthMethod]
+// or a type switch on [AuthMethod.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Describes an available authentication method.
 //
@@ -2083,7 +2099,7 @@ func (u AuthMethod) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u AuthMethod) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("AuthMethod: no variant set; use NewAuthMethod")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -2256,8 +2272,9 @@ func (v AuthMethodCustom) Tag() string { return v.Type }
 
 // SessionConfigOption is a session configuration option selector and its current state.
 //
-// SessionConfigOption is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewSessionConfigOption] or a type switch on [SessionConfigOption.Variant] to work with it.
+// SessionConfigOption is a tagged union discriminated by the "type" member. Use [NewSessionConfigOption]
+// or a type switch on [SessionConfigOption.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type SessionConfigOption struct{ value SessionConfigOptionVariant }
 
 // SessionConfigOptionVariant is implemented by [SessionConfigOptionSelect], [SessionConfigOptionBoolean], [SessionConfigOptionCustom].
@@ -2305,7 +2322,7 @@ func (u SessionConfigOption) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u SessionConfigOption) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("SessionConfigOption: no variant set; use NewSessionConfigOption")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -2472,6 +2489,8 @@ func (v SessionConfigOptionCustom) Tag() string { return v.Type }
 
 // SessionConfigSelectOptions preserves the complete JSON payload, including future variants.
 // Use [SessionConfigSelectOptions.As] to read one alternative and [NewSessionConfigSelectOptions] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 //
 // Possible values for a session configuration option.
 type SessionConfigSelectOptions struct{ raw jsontext.Value }
@@ -2507,7 +2526,7 @@ func (v SessionConfigSelectOptions) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v SessionConfigSelectOptions) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("SessionConfigSelectOptions: no value set; use NewSessionConfigSelectOptions")
 	}
 	return enc.WriteValue(v.raw)
 }
@@ -2524,8 +2543,9 @@ func (v *SessionConfigSelectOptions) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 
 // NesSuggestion is a suggestion returned by the agent.
 //
-// NesSuggestion is a tagged union discriminated by the "kind" member. The zero value
-// encodes as null; use [NewNesSuggestion] or a type switch on [NesSuggestion.Variant] to work with it.
+// NesSuggestion is a tagged union discriminated by the "kind" member. Use [NewNesSuggestion]
+// or a type switch on [NesSuggestion.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type NesSuggestion struct{ value NesSuggestionVariant }
 
 // NesSuggestionVariant is implemented by [NesSuggestionEdit], [NesSuggestionJump], [NesSuggestionRename], [NesSuggestionSearchAndReplace], [NesSuggestionCustom].
@@ -2570,7 +2590,7 @@ func (u NesSuggestion) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u NesSuggestion) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("NesSuggestion: no variant set; use NewNesSuggestion")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -2826,8 +2846,9 @@ func (NesSuggestionCustom) nesSuggestionVariant() {}
 // Tag returns the "kind" member.
 func (v NesSuggestionCustom) Tag() string { return v.Kind }
 
-// SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. The zero value
-// encodes as null; use [NewSessionUpdate] or a type switch on [SessionUpdate.Variant] to work with it.
+// SessionUpdate is a tagged union discriminated by the "sessionUpdate" member. Use [NewSessionUpdate]
+// or a type switch on [SessionUpdate.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Different types of updates that can be sent while a session exists.
 //
@@ -2896,7 +2917,7 @@ func (u SessionUpdate) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u SessionUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("SessionUpdate: no variant set; use NewSessionUpdate")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -3971,8 +3992,9 @@ func (SessionUpdateCustom) sessionUpdateVariant() {}
 // Tag returns the "sessionUpdate" member.
 func (v SessionUpdateCustom) Tag() string { return v.SessionUpdate }
 
-// StateUpdate is a tagged union discriminated by the "state" member. The zero value
-// encodes as null; use [NewStateUpdate] or a type switch on [StateUpdate.Variant] to work with it.
+// StateUpdate is a tagged union discriminated by the "state" member. Use [NewStateUpdate]
+// or a type switch on [StateUpdate.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // The state of the agent's foreground work has changed.
 //
@@ -4021,7 +4043,7 @@ func (u StateUpdate) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u StateUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("StateUpdate: no variant set; use NewStateUpdate")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -4213,8 +4235,9 @@ func (StateUpdateCustom) stateUpdateVariant() {}
 // Tag returns the "state" member.
 func (v StateUpdateCustom) Tag() string { return v.State }
 
-// PlanUpdateContent is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewPlanUpdateContent] or a type switch on [PlanUpdateContent.Variant] to work with it.
+// PlanUpdateContent is a tagged union discriminated by the "type" member. Use [NewPlanUpdateContent]
+// or a type switch on [PlanUpdateContent.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Updated content for a plan.
 type PlanUpdateContent struct{ value PlanUpdateContentVariant }
@@ -4265,7 +4288,7 @@ func (u PlanUpdateContent) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u PlanUpdateContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("PlanUpdateContent: no variant set; use NewPlanUpdateContent")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -4468,8 +4491,9 @@ func (v PlanUpdateContentCustom) Tag() string { return v.Type }
 
 // AvailableCommandInput is the input specification for a command.
 //
-// AvailableCommandInput is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewAvailableCommandInput] or a type switch on [AvailableCommandInput.Variant] to work with it.
+// AvailableCommandInput is a tagged union discriminated by the "type" member. Use [NewAvailableCommandInput]
+// or a type switch on [AvailableCommandInput.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type AvailableCommandInput struct{ value AvailableCommandInputVariant }
 
 // AvailableCommandInputVariant is implemented by [AvailableCommandInputText], [AvailableCommandInputCustom].
@@ -4516,7 +4540,7 @@ func (u AvailableCommandInput) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u AvailableCommandInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("AvailableCommandInput: no variant set; use NewAvailableCommandInput")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -4614,8 +4638,9 @@ func (AvailableCommandInputCustom) availableCommandInputVariant() {}
 // Tag returns the "type" member.
 func (v AvailableCommandInputCustom) Tag() string { return v.Type }
 
-// MCPServer is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewMCPServer] or a type switch on [MCPServer.Variant] to work with it.
+// MCPServer is a tagged union discriminated by the "type" member. Use [NewMCPServer]
+// or a type switch on [MCPServer.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Configuration for connecting to an MCP (Model Context Protocol) server.
 //
@@ -4668,7 +4693,7 @@ func (u MCPServer) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u MCPServer) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("MCPServer: no variant set; use NewMCPServer")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -4874,8 +4899,9 @@ func (MCPServerCustom) mcpServerVariant() {}
 // Tag returns the "type" member.
 func (v MCPServerCustom) Tag() string { return v.Type }
 
-// ReplayFrom is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewReplayFrom] or a type switch on [ReplayFrom.Variant] to work with it.
+// ReplayFrom is a tagged union discriminated by the "type" member. Use [NewReplayFrom]
+// or a type switch on [ReplayFrom.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Inclusive cursor describing where replayed session history should begin.
 //
@@ -4921,7 +4947,7 @@ func (u ReplayFrom) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u ReplayFrom) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ReplayFrom: no variant set; use NewReplayFrom")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -5018,8 +5044,9 @@ func (ReplayFromCustom) replayFromVariant() {}
 // Tag returns the "type" member.
 func (v ReplayFromCustom) Tag() string { return v.Type }
 
-// SetSessionConfigOptionRequest is a tagged union discriminated by the "type" member. The zero value
-// encodes as null; use [NewSetSessionConfigOptionRequest] or a type switch on [SetSessionConfigOptionRequest.Variant] to work with it.
+// SetSessionConfigOptionRequest is a tagged union discriminated by the "type" member. Use [NewSetSessionConfigOptionRequest]
+// or a type switch on [SetSessionConfigOptionRequest.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 //
 // Request parameters for setting a session configuration option.
 type SetSessionConfigOptionRequest struct {
@@ -5071,7 +5098,7 @@ func (u SetSessionConfigOptionRequest) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u SetSessionConfigOptionRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("SetSessionConfigOptionRequest: no variant set; use NewSetSessionConfigOptionRequest")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -5226,8 +5253,9 @@ func (v SetSessionConfigOptionRequestCustom) Tag() string { return v.Type }
 
 // RequestPermissionOutcome is the outcome of a permission request.
 //
-// RequestPermissionOutcome is a tagged union discriminated by the "outcome" member. The zero value
-// encodes as null; use [NewRequestPermissionOutcome] or a type switch on [RequestPermissionOutcome.Variant] to work with it.
+// RequestPermissionOutcome is a tagged union discriminated by the "outcome" member. Use [NewRequestPermissionOutcome]
+// or a type switch on [RequestPermissionOutcome.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type RequestPermissionOutcome struct {
 	value RequestPermissionOutcomeVariant
 }
@@ -5277,7 +5305,7 @@ func (u RequestPermissionOutcome) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u RequestPermissionOutcome) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("RequestPermissionOutcome: no variant set; use NewRequestPermissionOutcome")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -5416,8 +5444,9 @@ func (v RequestPermissionOutcomeCustom) Tag() string { return v.Outcome }
 
 // CreateElicitationResponse is a response from the client to an elicitation request.
 //
-// CreateElicitationResponse is a tagged union discriminated by the "action" member. The zero value
-// encodes as null; use [NewCreateElicitationResponse] or a type switch on [CreateElicitationResponse.Variant] to work with it.
+// CreateElicitationResponse is a tagged union discriminated by the "action" member. Use [NewCreateElicitationResponse]
+// or a type switch on [CreateElicitationResponse.Variant] to work with it. The zero value holds no
+// variant: an omitzero field omits it, and encoding it anywhere else fails.
 type CreateElicitationResponse struct {
 	value CreateElicitationResponseVariant
 }
@@ -5468,7 +5497,7 @@ func (u CreateElicitationResponse) IsZero() bool { return u.value == nil }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (u CreateElicitationResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if u.value == nil {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("CreateElicitationResponse: no variant set; use NewCreateElicitationResponse")
 	}
 	return json.MarshalEncode(enc, u.value)
 }
@@ -5651,6 +5680,8 @@ func (v CreateElicitationResponseCustom) Tag() string { return v.Action }
 
 // ElicitationContentValue preserves the complete JSON payload, including future variants.
 // Use [ElicitationContentValue.As] to read one alternative and [NewElicitationContentValue] to build one.
+// The zero value holds no payload: an omitzero field omits it, and encoding it
+// anywhere else fails.
 //
 // Allowed wire representations for [ElicitationContentValue].
 type ElicitationContentValue struct{ raw jsontext.Value }
@@ -5688,7 +5719,7 @@ func (v ElicitationContentValue) IsZero() bool { return len(v.raw) == 0 }
 // MarshalJSONTo implements [json.MarshalerTo].
 func (v ElicitationContentValue) MarshalJSONTo(enc *jsontext.Encoder) error {
 	if len(v.raw) == 0 {
-		return enc.WriteToken(jsontext.Null)
+		return errors.New("ElicitationContentValue: no value set; use NewElicitationContentValue")
 	}
 	return enc.WriteValue(v.raw)
 }
