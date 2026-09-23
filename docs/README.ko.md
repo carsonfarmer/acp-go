@@ -273,9 +273,9 @@ stream := acp1.NewSessionStream(client, sessionID)
 
 stream.SendText(ctx, "안녕하세요!")
 stream.StartToolCall(ctx, toolID, "파일 읽기", acp1.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, acp1.ToolText(contents))
-stream.CompleteToolCall(ctx, editID, acp1.ToolDiff(path, &oldText, newText))
-stream.CompleteToolCall(ctx, runID, acp1.ToolTerminal(terminal.ID)) // conn.NewTerminal로 만든 터미널
+stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
+stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
+stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // conn.NewTerminal로 만든 터미널
 stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
 stream.WithMeta(meta).SendText(ctx, "…")                                    // 모든 알림에 _meta 첨부
 ```

@@ -171,7 +171,7 @@ func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, ses
 		}
 	}
 
-	if err := stream.StartToolCall(ctx, id, act.title, act.kind, act.locations...); err != nil {
+	if err := stream.StartToolCall(ctx, id, act.title, act.kind, acp1.WithLocations(act.locations...)); err != nil {
 		return "", err
 	}
 	result, content, err := act.run(ctx, stream, id)
@@ -185,9 +185,9 @@ func (a *openAgent) runTool(ctx context.Context, stream *acp1.SessionStream, ses
 		if result == "" {
 			result = "Error: " + err.Error()
 		}
-		return result, stream.FailToolCall(ctx, id, content...)
+		return result, stream.FailToolCall(ctx, id, acp1.WithToolContent(content...))
 	}
-	return result, stream.CompleteToolCall(ctx, id, content...)
+	return result, stream.CompleteToolCall(ctx, id, acp1.WithToolContent(content...))
 }
 
 // parseTool decodes the model's arguments into an action. A model can call a

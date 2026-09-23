@@ -2,9 +2,52 @@ package acp2
 
 import (
 	"context"
+	"encoding/json/jsontext"
 
 	schema "github.com/ironpark/acp-go/schema/v2"
 )
+
+// ToolCallOption sets optional fields on the tool call updates
+// [SessionStream.StartToolCall], [SessionStream.CompleteToolCall] and
+// [SessionStream.FailToolCall] send.
+type ToolCallOption func(*toolCallOptions)
+
+type toolCallOptions struct {
+	content   []ToolCallContent
+	locations []ToolCallLocation
+	rawInput  jsontext.Value
+	rawOutput jsontext.Value
+}
+
+// WithToolContent sets the tool call's content: its output, a diff or a
+// terminal.
+func WithToolContent(content ...ToolCallContent) ToolCallOption {
+	return func(o *toolCallOptions) { o.content = append(o.content, content...) }
+}
+
+// WithLocations sets the files the tool call works on, so the client can
+// follow along.
+func WithLocations(locations ...ToolCallLocation) ToolCallOption {
+	return func(o *toolCallOptions) { o.locations = append(o.locations, locations...) }
+}
+
+// WithRawInput sets the raw input the tool was called with.
+func WithRawInput(raw jsontext.Value) ToolCallOption {
+	return func(o *toolCallOptions) { o.rawInput = raw }
+}
+
+// WithRawOutput sets the raw output the tool returned.
+func WithRawOutput(raw jsontext.Value) ToolCallOption {
+	return func(o *toolCallOptions) { o.rawOutput = raw }
+}
+
+func applyToolCallOptions(opts []ToolCallOption) toolCallOptions {
+	var o toolCallOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+	return o
+}
 
 // SessionStream sends session/update notifications for one session.
 //
@@ -16,7 +59,7 @@ import (
 //	stream.Running(ctx)
 //	stream.SendText(ctx, messageID, "Reading the file…")
 //	stream.StartToolCall(ctx, toolID, "Read file", acp2.ToolKindRead)
-//	stream.CompleteToolCall(ctx, toolID, acp2.ToolText(contents))
+//	stream.CompleteToolCall(ctx, toolID, acp2.WithToolContent(acp2.ToolText(contents)))
 //	stream.Idle(ctx, schema.StopReasonEndTurn)
 //
 // Use [SessionStream.Send] for any update the helpers do not cover.
@@ -69,13 +112,17 @@ func (s *SessionStream) SendUserMessage(ctx context.Context, id MessageID, conte
 }
 
 // StartToolCall reports a tool call that is now running.
-func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, locations ...ToolCallLocation) error {
+func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title string, kind ToolKind, opts ...ToolCallOption) error {
+	o := applyToolCallOptions(opts)
 	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
 		Title:      &title,
 		Kind:       &kind,
 		Status:     new(schema.ToolCallStatusInProgress),
-		Locations:  locations,
+		Content:    o.content,
+		Locations:  o.locations,
+		RawInput:   o.rawInput,
+		RawOutput:  o.rawOutput,
 	})
 }
 
@@ -89,23 +136,27 @@ func (s *SessionStream) SendToolOutput(ctx context.Context, id ToolCallID, conte
 	return s.Send(ctx, schema.SessionUpdateToolCallContentChunk{ToolCallID: id, Content: content})
 }
 
-// CompleteToolCall marks a tool call completed, replacing its content with
-// the given output if any.
-func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
-	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
-		ToolCallID: id,
-		Status:     new(schema.ToolCallStatusCompleted),
-		Content:    content,
-	})
+// CompleteToolCall marks a tool call completed; [WithToolContent] replaces
+// its content with the output.
+func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
+	return s.finishToolCall(ctx, id, schema.ToolCallStatusCompleted, opts)
 }
 
-// FailToolCall marks a tool call failed, replacing its content with any error
-// output.
-func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, content ...ToolCallContent) error {
+// FailToolCall marks a tool call failed; [WithToolContent] replaces its
+// content with the error output.
+func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
+	return s.finishToolCall(ctx, id, schema.ToolCallStatusFailed, opts)
+}
+
+func (s *SessionStream) finishToolCall(ctx context.Context, id ToolCallID, status ToolCallStatus, opts []ToolCallOption) error {
+	o := applyToolCallOptions(opts)
 	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
-		Status:     new(schema.ToolCallStatusFailed),
-		Content:    content,
+		Status:     &status,
+		Content:    o.content,
+		Locations:  o.locations,
+		RawInput:   o.rawInput,
+		RawOutput:  o.rawOutput,
 	})
 }
 

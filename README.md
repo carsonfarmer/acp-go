@@ -339,9 +339,9 @@ stream.SendText(ctx, "Hello!")
 stream.SendThought(ctx, "thinking...")
 
 stream.StartToolCall(ctx, toolID, "Reading file", acp1.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, acp1.ToolText(contents))
-stream.CompleteToolCall(ctx, editID, acp1.ToolDiff(path, &oldText, newText))
-stream.CompleteToolCall(ctx, runID, acp1.ToolTerminal(terminal.ID)) // terminal from conn.NewTerminal
+stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
+stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
+stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // terminal from conn.NewTerminal
 
 stream.SendPlan(ctx, entries)
 stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper

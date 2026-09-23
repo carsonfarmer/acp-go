@@ -61,7 +61,7 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 		return err
 	}
 	if !a.terminal {
-		return stream.CompleteToolCall(ctx, id, acp1.ToolText("This client cannot run commands."))
+		return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText("This client cannot run commands.")))
 	}
 
 	terminal, err := a.client.NewTerminal(ctx, &acp1.CreateTerminalRequest{
@@ -71,7 +71,7 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 		Cwd:       &sess.cwd,
 	})
 	if err != nil {
-		return stream.FailToolCall(ctx, id, acp1.ToolText(err.Error()))
+		return stream.FailToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText(err.Error())))
 	}
 	// Release frees the terminal; the client still shows the output of the
 	// tool calls that embed it.
@@ -85,9 +85,9 @@ func (a *exampleAgent) runCommand(ctx context.Context, stream *acp1.SessionStrea
 	// No exit code means a signal ended it, so ExitCode is checked for nil
 	// rather than read with GetExitCode, which would give 0.
 	if exit.ExitCode == nil || *exit.ExitCode != 0 {
-		return stream.FailToolCall(ctx, id, acp1.ToolTerminal(terminal.ID))
+		return stream.FailToolCall(ctx, id, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID)))
 	}
-	return stream.CompleteToolCall(ctx, id, acp1.ToolTerminal(terminal.ID))
+	return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID)))
 }
 
 func readProject(ctx context.Context, stream *acp1.SessionStream) error {
@@ -98,7 +98,7 @@ func readProject(ctx context.Context, stream *acp1.SessionStream) error {
 	if err := pause(ctx); err != nil {
 		return err
 	}
-	return stream.CompleteToolCall(ctx, id, acp1.ToolText("# My Project"))
+	return stream.CompleteToolCall(ctx, id, acp1.WithToolContent(acp1.ToolText("# My Project")))
 }
 
 // editConfig proposes a change to config.json and reports it as a diff. In
@@ -106,7 +106,7 @@ func readProject(ctx context.Context, stream *acp1.SessionStream) error {
 func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStream, sess *session) error {
 	id := acp1.GenerateToolCallID()
 	path := filepath.Join(sess.cwd, "config.json")
-	if err := stream.StartToolCall(ctx, id, "Modifying configuration", acp1.ToolKindEdit, acp1.ToolCallLocation{Path: path}); err != nil {
+	if err := stream.StartToolCall(ctx, id, "Modifying configuration", acp1.ToolKindEdit, acp1.WithLocations(acp1.ToolCallLocation{Path: path})); err != nil {
 		return err
 	}
 	oldText, newText := "{\"debug\": false}\n", "{\"debug\": true}\n"
@@ -124,7 +124,7 @@ func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStrea
 			return stream.SendText(ctx, " Skipping the configuration update.")
 		}
 	}
-	if err := stream.CompleteToolCall(ctx, id, diff); err != nil {
+	if err := stream.CompleteToolCall(ctx, id, acp1.WithToolContent(diff)); err != nil {
 		return err
 	}
 	return stream.SendText(ctx, " Configuration updated.")
