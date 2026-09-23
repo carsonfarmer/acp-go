@@ -306,7 +306,7 @@ func (l *linker) literalField(m *Rule, name string) (string, bool) {
 		if f.Name != name || f.Schema.Kind != KindLiteral || f.Schema.Value.Kind() != '"' {
 			continue
 		}
-		return unquote(f.Schema.Value), true
+		return Unquote(f.Schema.Value), true
 	}
 	return "", false
 }

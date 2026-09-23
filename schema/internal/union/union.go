@@ -159,9 +159,11 @@ const maxPooledTag = 64 << 10
 
 // ReadTag reads the string discriminator member tag of the JSON object raw
 // without decoding the other members. present is false when the member is
-// absent or null; any other non-string value is an error. Every member is
-// still scanned, so duplicate names are rejected unless opts allow them, and
-// then the last one wins, as when unmarshaling.
+// absent or null; any other non-string value is an error. raw must already
+// have been read by a jsontext.Decoder with the same opts, which rejected
+// duplicate names unless opts allow them: then the scan goes on to the last
+// tag member, which wins as when unmarshaling, and otherwise stops at the
+// first.
 func ReadTag(raw jsontext.Value, tag string, opts ...jsontext.Options) (value string, present bool, err error) {
 	r := tagReaders.Get().(*tagReader)
 	defer func() {
@@ -172,7 +174,7 @@ func ReadTag(raw jsontext.Value, tag string, opts ...jsontext.Options) (value st
 		r.dec.Reset(&r.buf)
 		tagReaders.Put(r)
 	}()
-	// Only the options that change how the object scans are passed on:
+	// Only the options that change how the object scans are honoured:
 	// options from a decoder inside an unmarshal call would forbid Reset.
 	var dup, invalid bool
 	for _, o := range opts {
@@ -185,24 +187,23 @@ func ReadTag(raw jsontext.Value, tag string, opts ...jsontext.Options) (value st
 	}
 	r.buf.Write(raw)
 	r.dec.Reset(&r.buf, jsontext.AllowDuplicateNames(dup), jsontext.AllowInvalidUTF8(invalid))
-	dec := &r.dec
-	if tok, err := dec.ReadToken(); err != nil {
+	if tok, err := r.dec.ReadToken(); err != nil {
 		return "", false, err
 	} else if tok.Kind() != '{' {
 		return "", false, fmt.Errorf("expected object, got %s", tok.Kind())
 	}
-	for dec.PeekKind() != '}' {
-		name, err := dec.ReadValue()
+	for r.dec.PeekKind() != '}' {
+		name, err := r.dec.ReadValue()
 		if err != nil {
 			return "", false, err
 		}
 		if !isName(name, tag) {
-			if err := dec.SkipValue(); err != nil {
+			if err := r.dec.SkipValue(); err != nil {
 				return "", false, err
 			}
 			continue
 		}
-		member, err := dec.ReadValue()
+		member, err := r.dec.ReadValue()
 		if err != nil {
 			return "", false, err
 		}
@@ -210,16 +211,13 @@ func ReadTag(raw jsontext.Value, tag string, opts ...jsontext.Options) (value st
 		case 'n':
 			value, present = "", false
 		case '"':
-			if value, err = unquote(member); err != nil {
-				return "", false, err
-			}
-			present = true
+			value, present = zod.Unquote(member), true
 		default:
 			return "", false, fmt.Errorf("member %q: expected string, got %s", tag, member.Kind())
 		}
-	}
-	if _, err := dec.ReadToken(); err != nil {
-		return "", false, err
+		if !dup {
+			return value, present, nil
+		}
 	}
 	return value, present, nil
 }
@@ -230,17 +228,7 @@ func isName(quoted jsontext.Value, name string) bool {
 	if bytes.IndexByte(quoted, '\\') < 0 {
 		return string(quoted[1:len(quoted)-1]) == name
 	}
-	unquoted, err := unquote(quoted)
-	return err == nil && unquoted == name
-}
-
-// unquote decodes a JSON string the decoder has already validated.
-func unquote(quoted jsontext.Value) (string, error) {
-	if bytes.IndexByte(quoted, '\\') < 0 {
-		return string(quoted[1 : len(quoted)-1]), nil
-	}
-	b, err := jsontext.AppendUnquote(nil, quoted)
-	return string(b), err
+	return zod.Unquote(quoted) == name
 }
 
 // SpliceTag writes payload as an object with the discriminator as its first member.

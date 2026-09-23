@@ -79,9 +79,9 @@ func TestReadTag(t *testing.T) {
 		{raw: `{"type":null}`},
 		{raw: `{"type":"text"}`, value: "text", present: true},
 		{raw: `{"type":1}`, fails: true},
-		{raw: `{"type":"a","type":"b"}`, fails: true},
+		{raw: `{"type":"a","type":"b"}`, value: "a", present: true},
 		{raw: `[]`, fails: true},
-		{raw: `{"type":"a",}`, fails: true},
+		{raw: `{"a":,"type":"x"}`, fails: true},
 	}
 	for _, c := range cases {
 		value, present, err := ReadTag(jsontext.Value(c.raw), "type")

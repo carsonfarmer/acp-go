@@ -40,7 +40,13 @@ const (
 	KindObject       // Fields, and Element for a string index signature
 )
 
-var kindNames = [...]string{"invalid", "ref", "string", "number", "boolean", "unknown", "any", "never", "null", "literal", "union", "intersection", "array", "object"}
+var kindNames = [...]string{
+	KindInvalid: "invalid", KindRef: "ref",
+	KindString: "string", KindNumber: "number", KindBoolean: "boolean", KindUnknown: "unknown",
+	KindAny: "any", KindNever: "never", KindNull: "null",
+	KindLiteral: "literal", KindUnion: "union", KindIntersection: "intersection",
+	KindArray: "array", KindObject: "object",
+}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

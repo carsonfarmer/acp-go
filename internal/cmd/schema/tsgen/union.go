@@ -344,12 +344,14 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	decode := func(variant string) string {
 		return fmt.Sprintf("var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variant)
 	}
+	present := "_"
 	if defaultIndex >= 0 {
 		// A missing tag selects the default variant, so absent is told from empty.
-		g.write("tag, present, err := union.ReadTag(raw, %q, dec.Options()); if err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", tag, name)
+		present = "present"
+	}
+	g.write("tag, %s, err := union.ReadTag(raw, %q, dec.Options()); if err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", present, tag, name)
+	if defaultIndex >= 0 {
 		g.write("if !present { %sreturn nil }\n", decode(variantNames[defaultIndex]))
-	} else {
-		g.write("tag, _, err := union.ReadTag(raw, %q, dec.Options()); if err != nil { return fmt.Errorf(\"%s: %%w\", err) }\n", tag, name)
 	}
 	g.write("switch tag {\n")
 	for i, m := range members {
@@ -623,9 +625,11 @@ func labelUnions(labels []string, expanded []*tsdef.Type) {
 	used := map[string]bool{}
 	for i := range labels {
 		// The numbered label can itself be taken, by an earlier member
-		// labelled Form3 for instance; extend it until it is not.
-		for used[labels[i]] {
-			labels[i] += strconv.Itoa(i + 1)
+		// labelled Form3 for instance; count on until one is free.
+		if base := labels[i]; used[base] {
+			for n := i + 1; used[labels[i]]; n++ {
+				labels[i] = base + strconv.Itoa(n)
+			}
 		}
 		used[labels[i]] = true
 	}

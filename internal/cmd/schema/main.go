@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"maps"
@@ -58,16 +59,25 @@ func run(args []string) error {
 			results = append(results, result{filepath.Join(*facadeRoot, spec.Dir, name), facadeFiles[name]})
 		}
 	}
-	// Every *.gen.go in an output directory is ours: one the generator no
-	// longer produces is stale, so -check reports it and a write removes it.
+	// A result is stale when its file differs. Every *.gen.go in an output
+	// directory is ours: one the generator no longer produces is an orphan.
+	// -check reports both; a write replaces the one and removes the other.
 	produced := map[string]bool{}
-	dirs := map[string]bool{}
 	for _, r := range results {
 		produced[r.path] = true
-		dirs[filepath.Dir(r.path)] = true
 	}
+	var stale []result
 	var orphans []string
-	for _, dir := range slices.Sorted(maps.Keys(dirs)) {
+	globbed := map[string]bool{}
+	for _, r := range results {
+		if existing, err := os.ReadFile(r.path); err != nil || !bytes.Equal(existing, r.data) {
+			stale = append(stale, r)
+		}
+		dir := filepath.Dir(r.path)
+		if globbed[dir] {
+			continue
+		}
+		globbed[dir] = true
 		matches, err := filepath.Glob(filepath.Join(dir, "*.gen.go"))
 		if err != nil {
 			return err
@@ -79,21 +89,15 @@ func run(args []string) error {
 		}
 	}
 	if *check {
-		for _, r := range results {
-			existing, err := os.ReadFile(r.path)
-			if err != nil {
-				return err
-			}
-			if string(existing) != string(r.data) {
-				return fmt.Errorf("%s is stale; run go generate ./...", r.path)
-			}
+		if len(stale) > 0 {
+			return fmt.Errorf("%s is stale; run go generate ./...", stale[0].path)
 		}
 		if len(orphans) > 0 {
 			return fmt.Errorf("%s is no longer generated; run go generate ./...", orphans[0])
 		}
 		return nil
 	}
-	if err := write(results); err != nil {
+	if err := write(stale); err != nil {
 		return err
 	}
 	for _, path := range orphans {
@@ -110,9 +114,8 @@ type result struct {
 	data []byte
 }
 
-// write stages every changed file next to its destination before renaming
-// any, so a failed write leaves the previous output in place; files whose
-// contents are unchanged are not touched.
+// write stages every file next to its destination before renaming any, so a
+// failed write leaves the previous output in place.
 func write(results []result) error {
 	type staged struct{ temp, path string }
 	var pending []staged
@@ -122,9 +125,6 @@ func write(results []result) error {
 		}
 	}()
 	for _, r := range results {
-		if existing, err := os.ReadFile(r.path); err == nil && string(existing) == string(r.data) {
-			continue
-		}
 		dir := filepath.Dir(r.path)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err

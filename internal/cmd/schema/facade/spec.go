@@ -106,20 +106,17 @@ func Generate(spec *Spec, schema *tsdef.Schema, decls tsgen.Decls) (map[string][
 		g.types[tsgen.Name(d.Name)] = true
 	}
 	for _, c := range schema.Constants {
-		if c.Name == "PROTOCOL_METHODS" {
-			for _, m := range c.Members {
-				if wire := strings.Trim(m.Value, `"`); !slices.Contains(connectionMethods, wire) {
-					return nil, fmt.Errorf("PROTOCOL_METHODS: %s is not handled by the JSON-RPC connection", wire)
-				}
-			}
-			continue
-		}
-		if c.Name != "AGENT_METHODS" && c.Name != "CLIENT_METHODS" {
+		if c.Name != "AGENT_METHODS" && c.Name != "CLIENT_METHODS" && c.Name != "PROTOCOL_METHODS" {
 			continue
 		}
 		for _, m := range c.Members {
 			wire := strings.Trim(m.Value, `"`)
 			g.constants[c.Name+" "+wire] = tsgen.ConstantName(c.Name, m.Name)
+		}
+	}
+	for key := range g.constants {
+		if table, wire, _ := strings.Cut(key, " "); table == "PROTOCOL_METHODS" && !slices.Contains(connectionMethods, wire) {
+			return nil, fmt.Errorf("PROTOCOL_METHODS: %s is not handled by the JSON-RPC connection", wire)
 		}
 	}
 	sides := []side{
@@ -147,7 +144,7 @@ func Generate(spec *Spec, schema *tsdef.Schema, decls tsgen.Decls) (map[string][
 type emitter struct {
 	spec      *Spec
 	types     map[string]bool
-	constants map[string]string // "AGENT_METHODS session/load" -> Go constant
+	constants map[string]string // "AGENT_METHODS session/load" -> Go constant, for every method table
 	out       strings.Builder
 }
 

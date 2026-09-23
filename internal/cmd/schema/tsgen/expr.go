@@ -52,6 +52,10 @@ func literals(t *tsdef.Type) (string, bool) {
 	return kind, true
 }
 
+// primitiveKinds maps the primitive schema kinds to the Go kinds literals
+// reports for their values.
+var primitiveKinds = map[tsdef.Kind]string{tsdef.KindString: "string", tsdef.KindNumber: "float64", tsdef.KindBoolean: "bool"}
+
 // openEnum reports literal unions that also admit any value of the same
 // primitive type, such as "a" | "b" | string. The primitive member is returned
 // so its numeric hint can be used for the Go base type.
@@ -81,8 +85,7 @@ func openEnum(t *tsdef.Type) (base *tsdef.Type, members []*tsdef.Type, ok bool) 
 	if base == nil || len(members) == 0 {
 		return nil, nil, false
 	}
-	baseKind := map[tsdef.Kind]string{tsdef.KindString: "string", tsdef.KindNumber: "float64", tsdef.KindBoolean: "bool"}[base.Kind]
-	if baseKind != kind {
+	if primitiveKinds[base.Kind] != kind {
 		return nil, nil, false
 	}
 	return base, members, true

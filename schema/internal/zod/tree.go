@@ -60,10 +60,10 @@ func (n *node) get(name string) *node {
 }
 
 // text decodes a string node.
-func (n *node) text() string { return unquote(n.raw) }
+func (n *node) text() string { return Unquote(n.raw) }
 
-// unquote decodes a valid JSON string.
-func unquote(raw []byte) string {
+// Unquote decodes a valid JSON string.
+func Unquote(raw []byte) string {
 	body := raw[1 : len(raw)-1]
 	if bytes.IndexByte(body, '\\') < 0 {
 		return string(body)
@@ -192,7 +192,7 @@ func (p *parser) value(i int) (*node, int) {
 // string serves every name without escapes, instead of a copy per name.
 func (p *parser) name(start, end int) string {
 	if bytes.IndexByte(p.data[start+1:end-1], '\\') >= 0 {
-		return unquote(p.data[start:end])
+		return Unquote(p.data[start:end])
 	}
 	if p.text == "" {
 		p.text = string(p.data)
