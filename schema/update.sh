@@ -1,81 +1,26 @@
-#!/bin/bash
-
-# Script to update ACP schema files from the official repository
-# Official repository: https://github.com/zed-industries/agent-client-protocol
-#
-# Usage:
-#   ./update.sh            # Update stable schemas only
-#   ./update.sh --unstable # Update both stable and unstable schemas
-
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA_DIR="$SCRIPT_DIR"
-
-OFFICIAL_REPO_BASE="https://raw.githubusercontent.com/zed-industries/agent-client-protocol/refs/heads/main/schema"
-
-# Files to download: name and target path
-STABLE_FILES=("schema.json" "meta.json")
-UNSTABLE_FILES=("schema.unstable.json" "meta.unstable.json")
-
-download_file() {
-    local file="$1"
-    echo "Downloading $file..."
-    if curl -fsSL "$OFFICIAL_REPO_BASE/$file" -o "$SCHEMA_DIR/$file.tmp"; then
-        mv "$SCHEMA_DIR/$file.tmp" "$SCHEMA_DIR/$file"
-        echo "  OK"
-    else
-        echo "  FAILED"
-        rm -f "$SCHEMA_DIR/$file.tmp"
-        exit 1
-    fi
-}
-
-# Parse arguments
-INCLUDE_UNSTABLE=false
-for arg in "$@"; do
-    case "$arg" in
-        --unstable) INCLUDE_UNSTABLE=true ;;
-        *)
-            echo "Unknown option: $arg"
-            echo "Usage: $0 [--unstable]"
-            exit 1
-            ;;
-    esac
-done
-
-echo "Updating ACP schema files from official repository..."
-echo "Schema directory: $SCHEMA_DIR"
-echo ""
-
-# Download stable files
-for file in "${STABLE_FILES[@]}"; do
-    download_file "$file"
-done
-
-# Download unstable files if requested
-if [ "$INCLUDE_UNSTABLE" = true ]; then
-    echo ""
-    echo "Including unstable schemas..."
-    for file in "${UNSTABLE_FILES[@]}"; do
-        download_file "$file"
-    done
+#!/usr/bin/env bash
+# Refresh the checked-in TypeScript SDK snapshot at an explicit commit.
+set -euo pipefail
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+revision="${1:-$(cat "$script_dir/typescript/REVISION")}"
+if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Usage: $0 <full 40-character typescript-sdk commit SHA>" >&2
+  exit 1
 fi
-
-# Show file information
-echo ""
-echo "Updated files:"
-if [ "$INCLUDE_UNSTABLE" = true ]; then
-    ls -la "$SCHEMA_DIR"/schema*.json "$SCHEMA_DIR"/meta*.json
-else
-    ls -la "$SCHEMA_DIR/schema.json" "$SCHEMA_DIR/meta.json"
-fi
-
-echo ""
-echo "Done."
-echo ""
-echo "Next steps:"
-echo "  1. Review the changes in the updated schema files"
-echo "  2. Update Go types if necessary"
-echo "  3. Run tests to ensure compatibility: go test ./..."
-echo "  4. Update documentation if new features are added"
+stage="$(mktemp -d "$script_dir/.typescript.XXXXXX")"
+trap 'rm -rf "$stage"' EXIT
+base="https://raw.githubusercontent.com/agentclientprotocol/typescript-sdk/$revision"
+for version in v1 v2; do
+  upstream="src/schema"
+  if [[ "$version" == v2 ]]; then upstream="src/v2/schema"; fi
+  mkdir -p "$stage/$version"
+  for name in types.gen.ts index.ts zod.gen.ts guards.gen.ts; do
+    curl --fail --silent --show-error --location "$base/$upstream/$name" -o "$stage/$version/$name"
+  done
+done
+curl --fail --silent --show-error --location "$base/src/schema-deserialize.ts" -o "$stage/schema-deserialize.ts"
+curl --fail --silent --show-error --location "$base/LICENSE" -o "$stage/LICENSE"
+printf '%s\n' "$revision" > "$stage/REVISION"
+# Do not replace any source until all downloads have succeeded.
+cp -R "$stage/." "$script_dir/typescript/"
+printf 'Updated TypeScript SDK snapshot to %s. Run go generate ./... and both module test suites.\n' "$revision"

@@ -1,0 +1,113 @@
+[
+  {
+    "schema": "zCost",
+    "input": {
+      "amount": 1.5,
+      "currency": "USD"
+    },
+    "success": true,
+    "output": {
+      "amount": 1.5,
+      "currency": "USD"
+    }
+  },
+  {
+    "schema": "zCost",
+    "input": {
+      "amount": 1.5,
+      "currency": "usd"
+    },
+    "success": false
+  },
+  {
+    "schema": "zCost",
+    "input": {
+      "amount": 1.5,
+      "currency": "USD",
+      "extra": true
+    },
+    "success": true,
+    "output": {
+      "amount": 1.5,
+      "currency": "USD"
+    }
+  },
+  {
+    "schema": "zRequestPermissionRequest",
+    "input": {
+      "sessionId": "s",
+      "title": "Permission",
+      "options": []
+    },
+    "success": false
+  },
+  {
+    "schema": "zAnnotations",
+    "input": {
+      "lastModified": "2026-09-22T10:20:30+09:00",
+      "priority": 2
+    },
+    "success": true,
+    "output": {
+      "lastModified": "2026-09-22T10:20:30+09:00"
+    }
+  },
+  {
+    "schema": "zAnnotations",
+    "input": {
+      "lastModified": "2026-09-22T10:20:30+24:00"
+    },
+    "success": true,
+    "output": {}
+  },
+  {
+    "schema": "zIcon",
+    "input": {
+      "src": "mailto:user@example.com",
+      "sizes": [
+        "32x32",
+        42
+      ]
+    },
+    "success": true,
+    "output": {
+      "src": "mailto:user@example.com",
+      "sizes": [
+        "32x32"
+      ]
+    }
+  },
+  {
+    "schema": "zIcon",
+    "input": {
+      "src": "relative/path"
+    },
+    "success": false
+  },
+  {
+    "schema": "zMultiSelectItems",
+    "input": {
+      "type": "future",
+      "_meta": 42,
+      "vendor": {
+        "key": "value"
+      }
+    },
+    "success": true,
+    "output": {
+      "type": "future",
+      "_meta": 42,
+      "vendor": {
+        "key": "value"
+      }
+    }
+  },
+  {
+    "schema": "zMultiSelectItems",
+    "input": {
+      "type": "string",
+      "enum": "bad"
+    },
+    "success": false
+  }
+]

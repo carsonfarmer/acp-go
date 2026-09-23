@@ -1,11 +1,8 @@
-
 path: internal/cmd/schema
-desc: json 스키마에서 golang 정의 파일을 생성하기 위한 cli 프로그램
+desc: TypeScript SDK 스키마를 부분 파싱하여 버전별 Go wire 타입을 생성하는 CLI
 
-
-## 테스트 가이드
-go.mod, go.sum 파일이 내부에 있음으로 테스트 코드를 실행할때는 프로젝트 루트가 아니라 `internal/cmd/schema` 내부에서 실행해야함
-
-- 테스트를 위해 빌드파일을 생성하지 마시오. `go run` 사용
-- 아웃풋 파일을 검사해야 하는경우 출력 위치를 임시폴더에 생성
-- CLI 프로그램이 정상 실행되는지 확인해야 하는경우 프로젝트 루트에서 `go generate` 실행
+- 별도 Go 모듈이다. 테스트는 이 디렉터리에서 `go test ./...` 실행.
+- 파서는 go-tree-sitter와 TypeScript grammar를 사용한다. 실행에는 CGO와 C 컴파일러가 필요하다.
+- 테스트용 실행 파일을 만들지 않는다. `go run` 사용.
+- CLI 검증은 프로젝트 루트에서 `go generate ./...` 실행.
+- 실제 SDK 스냅샷은 `schema/typescript/{v1,v2}`이며 REVISION에 원본 커밋을 기록한다.

@@ -1,83 +1,88 @@
 package acp
 
-import "fmt"
+import (
+	"errors"
 
-// RequestError represents a JSON-RPC error with a structured error code.
+	"github.com/ironpark/go-acp/internal/jsonrpc"
+)
+
+// RequestError is a JSON-RPC error carried as a Go error.
 //
-// This type is used to return protocol-level errors from handlers with
-// the correct JSON-RPC error code, matching the behavior of the
-// TypeScript and Python reference SDKs.
+// Returning one from a handler controls the code, message and data the peer
+// receives; any other error becomes an internal error. Errors from the peer
+// are returned to callers in this same shape, so errors.As recovers the code.
+type RequestError = jsonrpc.RequestError
+
+// IsCode reports whether err is, or wraps, a [RequestError] with the given
+// code:
 //
-// Use the factory functions (ErrParseError, ErrMethodNotFound, etc.)
-// to create errors with the correct codes.
-type RequestError struct {
-	Code    ErrorCode
-	Msg     string
-	Details any
+//	if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
+//		// authenticate, then retry
+//	}
+func IsCode(err error, code ErrorCode) bool {
+	var reqErr *RequestError
+	return errors.As(err, &reqErr) && reqErr.Code == code
 }
 
-func (e *RequestError) Error() string {
-	if e.Details != nil {
-		return fmt.Sprintf("JSON-RPC error %d: %s (details: %v)", e.Code, e.Msg, e.Details)
-	}
-	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Msg)
+// ErrorCode is a JSON-RPC error code.
+type ErrorCode = jsonrpc.ErrorCode
+
+// Error codes defined by JSON-RPC 2.0 and by ACP.
+const (
+	ErrorCodeParseError       = jsonrpc.CodeParseError
+	ErrorCodeInvalidRequest   = jsonrpc.CodeInvalidRequest
+	ErrorCodeMethodNotFound   = jsonrpc.CodeMethodNotFound
+	ErrorCodeInvalidParams    = jsonrpc.CodeInvalidParams
+	ErrorCodeInternalError    = jsonrpc.CodeInternalError
+	ErrorCodeRequestCancelled = jsonrpc.CodeRequestCancelled
+	ErrorCodeAuthRequired     = jsonrpc.CodeAuthRequired
+	ErrorCodeResourceNotFound = jsonrpc.CodeResourceNotFound
+)
+
+// ErrParseError reports invalid JSON (-32700).
+func ErrParseError(data any, detail ...string) *RequestError {
+	return jsonrpc.ParseError(data, detail...)
 }
 
-// ErrParseError creates a parse error (-32700).
-func ErrParseError(data any, msg ...string) *RequestError {
-	m := "Parse error"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
-	return &RequestError{Code: ErrorCodeParseError, Msg: m, Details: data}
+// ErrInvalidRequest reports a malformed request object (-32600).
+func ErrInvalidRequest(data any, detail ...string) *RequestError {
+	return jsonrpc.InvalidRequest(data, detail...)
 }
 
-// ErrInvalidRequest creates an invalid request error (-32600).
-func ErrInvalidRequest(data any, msg ...string) *RequestError {
-	m := "Invalid request"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
-	return &RequestError{Code: ErrorCodeInvalidRequest, Msg: m, Details: data}
-}
-
-// ErrMethodNotFound creates a method not found error (-32601).
+// ErrMethodNotFound reports an unknown or unsupported method (-32601).
+//
+// The connection returns this automatically when an optional method's
+// interface is not implemented.
 func ErrMethodNotFound(method string) *RequestError {
-	return &RequestError{Code: ErrorCodeMethodNotFound, Msg: fmt.Sprintf("Method not found: %s", method)}
+	return jsonrpc.MethodNotFound(method)
 }
 
-// ErrInvalidParams creates an invalid params error (-32602).
-func ErrInvalidParams(data any, msg ...string) *RequestError {
-	m := "Invalid params"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
-	return &RequestError{Code: ErrorCodeInvalidParams, Msg: m, Details: data}
+// ErrInvalidParams reports parameters that failed validation (-32602).
+func ErrInvalidParams(data any, detail ...string) *RequestError {
+	return jsonrpc.InvalidParams(data, detail...)
 }
 
-// ErrInternalError creates an internal error (-32603).
-func ErrInternalError(data any, msg ...string) *RequestError {
-	m := "Internal error"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
-	return &RequestError{Code: ErrorCodeInternalError, Msg: m, Details: data}
+// ErrInternalError reports a handler failure (-32603).
+func ErrInternalError(data any, detail ...string) *RequestError {
+	return jsonrpc.InternalError(data, detail...)
 }
 
-// ErrAuthRequired creates an authentication required error (-32000).
-func ErrAuthRequired(data any, msg ...string) *RequestError {
-	m := "Authentication required"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
-	return &RequestError{Code: ErrorCodeAuthenticationRequired, Msg: m, Details: data}
+// ErrRequestCancelled reports a request abandoned before completion (-32800).
+//
+// The connection returns this automatically when a handler's context is
+// cancelled, either by the peer's $/cancel_request or by shutdown.
+func ErrRequestCancelled(data any, detail ...string) *RequestError {
+	return jsonrpc.RequestCancelled(data, detail...)
 }
 
-// ErrResourceNotFound creates a resource not found error (-32002).
+// ErrAuthRequired reports that the caller must authenticate first (-32000).
+//
+// Agents return this from NewSession when no credentials are available yet.
+func ErrAuthRequired(data any, detail ...string) *RequestError {
+	return jsonrpc.AuthRequired(data, detail...)
+}
+
+// ErrResourceNotFound reports a missing resource such as a file (-32002).
 func ErrResourceNotFound(uri ...string) *RequestError {
-	m := "Resource not found"
-	if len(uri) > 0 {
-		m = fmt.Sprintf("Resource not found: %s", uri[0])
-	}
-	return &RequestError{Code: ErrorCodeResourceNotFound, Msg: m}
+	return jsonrpc.ResourceNotFound(uri...)
 }

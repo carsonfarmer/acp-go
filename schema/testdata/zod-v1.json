@@ -1,0 +1,114 @@
+[
+  {
+    "schema": "zReadTextFileRequest",
+    "input": {
+      "sessionId": "s",
+      "path": "/tmp/a",
+      "line": "bad",
+      "limit": 3,
+      "_meta": 42
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "path": "/tmp/a",
+      "limit": 3
+    }
+  },
+  {
+    "schema": "zReadTextFileRequest",
+    "input": {
+      "sessionId": "s",
+      "path": "/tmp/a",
+      "line": null
+    },
+    "success": true,
+    "output": {
+      "sessionId": "s",
+      "path": "/tmp/a",
+      "line": null
+    }
+  },
+  {
+    "schema": "zReadTextFileRequest",
+    "input": {
+      "path": "/tmp/a"
+    },
+    "success": false
+  },
+  {
+    "schema": "zProtocolVersion",
+    "input": 65536,
+    "success": false
+  },
+  {
+    "schema": "zProtocolVersion",
+    "input": 1,
+    "success": true,
+    "output": 1
+  },
+  {
+    "schema": "zPromptCapabilities",
+    "input": {},
+    "success": true,
+    "output": {
+      "image": false,
+      "audio": false,
+      "embeddedContext": false
+    }
+  },
+  {
+    "schema": "zElicitationSchema",
+    "input": {},
+    "success": true,
+    "output": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "schema": "zAnnotations",
+    "input": {
+      "priority": 2,
+      "audience": [
+        "user",
+        "invalid",
+        "assistant"
+      ]
+    },
+    "success": true,
+    "output": {
+      "audience": [
+        "user",
+        "assistant"
+      ],
+      "priority": 2
+    }
+  },
+  {
+    "schema": "zMultiSelectItems",
+    "input": {
+      "type": "future",
+      "_meta": 42,
+      "vendor": {
+        "key": "value"
+      }
+    },
+    "success": true,
+    "output": {
+      "type": "future",
+      "_meta": 42,
+      "vendor": {
+        "key": "value"
+      }
+    }
+  },
+  {
+    "schema": "zMultiSelectItems",
+    "input": {
+      "type": "string",
+      "enum": "bad"
+    },
+    "success": false
+  }
+]
