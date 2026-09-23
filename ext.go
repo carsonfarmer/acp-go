@@ -26,6 +26,29 @@ type Conn interface {
 	Done() <-chan struct{}
 }
 
+// ExtMethodHandler handles methods outside the spec. Prefix custom methods
+// with a unique identifier such as a domain name. Its method has a Serve
+// prefix, like http.Handler's, so an agent or client can embed both a handler,
+// such as [ExtRouter], and its connection, whose ExtMethod sends requests.
+// Every protocol version's façade dispatches unknown methods to it.
+//
+// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+type ExtMethodHandler interface {
+	ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
+}
+
+// ExtNotificationHandler handles notifications outside the spec.
+//
+// The connection answers $/cancel_request itself, so it never reaches here.
+type ExtNotificationHandler interface {
+	ServeExtNotification(ctx context.Context, method string, params jsontext.Value) error
+}
+
+var (
+	_ ExtMethodHandler       = (*ExtRouter)(nil)
+	_ ExtNotificationHandler = (*ExtRouter)(nil)
+)
+
 // CallExt sends an extension request and decodes its result into an R. A null
 // or empty result decodes to the zero value.
 //
@@ -41,8 +64,8 @@ func CallExt[R any](ctx context.Context, conn ExtCaller, method string, params a
 }
 
 // ExtRouter serves extension methods and notifications through typed handlers.
-// Embed it in an agent or client to implement the façade's ExtMethodHandler
-// and ExtNotificationHandler:
+// Embed it in an agent or client to implement [ExtMethodHandler] and
+// [ExtNotificationHandler]:
 //
 //	type myAgent struct {
 //		acp.ExtRouter

@@ -28,7 +28,7 @@ var _ Agent = (*ClientSideConnection)(nil)
 func NewClientSideConnection(newClient func(*ClientSideConnection) Client, transport acp.Transport, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
-	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, transport, opts)
+	c.conn = jsonrpc.New(c.handleRequest, c.handleNotification, transport, opts...)
 	return c
 }
 

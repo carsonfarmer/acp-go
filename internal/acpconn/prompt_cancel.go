@@ -21,12 +21,13 @@ const (
 	methodSessionCancel = "session/cancel"
 )
 
-// NewAgentConnection is [NewConnection] for the agent side. It also lets a
+// NewAgentConnection builds the JSON-RPC connection behind an agent-side
+// façade over transport. It also lets a
 // session/cancel reach a prompt that arrived before it but whose handler has
 // not started its turn yet: requests run in their own goroutines while
 // notifications run on the read loop, so without this the cancel could find
 // no turn to cancel and be lost. See [PromptCancelSignal].
-func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, transport jsonrpc.Transport, opts []Option) *jsonrpc.Connection {
+func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, transport jsonrpc.Transport, opts []jsonrpc.Option) *jsonrpc.Connection {
 	prompts := &pendingPrompts{sessions: map[string][]*pendingPrompt{}}
 	notify := func(ctx context.Context, method string, params jsontext.Value) error {
 		if method == methodSessionCancel {
@@ -35,7 +36,7 @@ func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.Not
 		return notification(ctx, method, params)
 	}
 	opts = append(slices.Clone(opts), jsonrpc.WithRequestContext(prompts.accept))
-	return NewConnection(request, notify, transport, opts)
+	return jsonrpc.New(request, notify, transport, opts...)
 }
 
 // PromptCancelSignal returns the signal a session/prompt request's context

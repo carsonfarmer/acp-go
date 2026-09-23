@@ -22,22 +22,11 @@
 // conversation are required, everything gated by a capability is optional.
 package acp2
 
-import (
-	"context"
-	"encoding/json/jsontext"
-)
+import acp "github.com/ironpark/acp-go"
 
-// ExtMethodHandler handles methods outside the spec. Prefix custom methods
-// with a unique identifier such as a domain name. Its method has a Serve
-// prefix, like http.Handler's, so an agent or client can embed both a handler,
-// such as acp.ExtRouter, and its connection, whose ExtMethod sends requests.
-type ExtMethodHandler interface {
-	ServeExtMethod(ctx context.Context, method string, params jsontext.Value) (any, error)
-}
+// ExtMethodHandler handles methods outside the spec; see [acp.ExtMethodHandler].
+type ExtMethodHandler = acp.ExtMethodHandler
 
-// ExtNotificationHandler handles notifications outside the spec.
-//
-// The connection answers $/cancel_request itself, so it never reaches here.
-type ExtNotificationHandler interface {
-	ServeExtNotification(ctx context.Context, method string, params jsontext.Value) error
-}
+// ExtNotificationHandler handles notifications outside the spec; see
+// [acp.ExtNotificationHandler].
+type ExtNotificationHandler = acp.ExtNotificationHandler
