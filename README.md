@@ -2,6 +2,8 @@
 
 # Agent Client Protocol - Go Implementation
 
+English | [한국어](./docs/README.ko.md)
+
 A Go implementation of the Agent Client Protocol (ACP), which standardizes communication between _code editors_ (interactive programs for viewing and editing source code) and _coding agents_ (programs that use generative AI to autonomously modify code).
 
 This is an **unofficial** implementation of the ACP specification in Go. The official protocol specification and reference implementations can be found at the [official repository](https://github.com/zed-industries/agent-client-protocol).
@@ -11,9 +13,9 @@ This is an **unofficial** implementation of the ACP specification in Go. The off
 
 Learn more about the protocol at [agentclientprotocol.com](https://agentclientprotocol.com/).
 
-## `next` branch
+## Overview
 
-This branch requires Go 1.27+ and is a rebuild of the SDK on `encoding/json/v2`.
+The SDK requires Go 1.27+ and is built on `encoding/json/v2`.
 Wire types are generated from the official TypeScript SDK with `go-tree-sitter` — see
 [schema generation](schema/README.md) for inputs, regeneration and current limits.
 The root `acp` package holds what every protocol version shares — options, transports, middleware,

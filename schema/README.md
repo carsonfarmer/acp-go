@@ -1,4 +1,4 @@
-# TypeScript schema generation (`next`)
+# TypeScript schema generation
 
 The generator reads the official [TypeScript SDK](https://github.com/agentclientprotocol/typescript-sdk)
 using [go-tree-sitter](https://github.com/tree-sitter/go-tree-sitter) and the TypeScript grammar.

@@ -2,6 +2,8 @@
 
 # Agent Client Protocol - Go 구현체
 
+[English](../README.md) | 한국어
+
 Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(소스 코드를 보고 편집하는 대화형 프로그램)와 _코딩 에이전트_(생성형 AI를 사용하여 자율적으로 코드를 수정하는 프로그램) 간의 통신을 표준화합니다.
 
 이것은 Go로 작성된 ACP 사양의 **비공식** 구현체입니다. 공식 프로토콜 사양과 참조 구현체는 [공식 저장소](https://github.com/zed-industries/agent-client-protocol)에서 찾을 수 있습니다.
@@ -11,9 +13,9 @@ Agent Client Protocol (ACP)의 Go 구현체입니다. ACP는 _코드 에디터_(
 
 프로토콜에 대한 자세한 내용은 [agentclientprotocol.com](https://agentclientprotocol.com/)에서 확인하세요.
 
-## `next` 브랜치
+## 개요
 
-이 브랜치는 Go 1.27+ 를 요구하며 SDK를 `encoding/json/v2` 기반으로 다시 만든 버전입니다.
+SDK는 Go 1.27+ 를 요구하며 `encoding/json/v2` 기반으로 만들어졌습니다.
 와이어 타입은 공식 TypeScript SDK에서 `go-tree-sitter`로 생성합니다
 ([스키마 생성](../schema/README.md) 참고).
 루트 `acp` 패키지는 모든 프로토콜 버전이 공유하는 것 — 옵션, transport, 미들웨어, 에러 타입,

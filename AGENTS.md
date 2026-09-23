@@ -7,14 +7,14 @@ ACP(Agent Client Protocol) for golang
 - What is ACP `reference/agent-client-protocol/docs/get-started/introduction.mdx`
 - Protocol Details `reference/agent-client-protocol/docs/protocol`
 
-### Go baseline (`next`)
+### Go baseline
 
 - Both modules require Go 1.27 or newer.
 - New schema code uses `encoding/json/v2` and `encoding/json/jsontext`.
 - Use generics for reusable typed operations; do not maintain pre-generics compatibility.
 - Optional pointer fields use `omitzero` so explicit empty values survive JSON v2 encoding.
 
-### Schema generation (`next`)
+### Schema generation
 
 - Inputs: `schema/typescript/v1/*.ts`, `schema/typescript/v2/*.ts`
 - Upstream revision: `schema/typescript/REVISION`
@@ -25,7 +25,7 @@ ACP(Agent Client Protocol) for golang
 - Adding or regrouping a protocol method: edit the façade table, run `go generate ./...`; never edit `*.gen.go`
 - Shared Zod evaluator: `schema/zod`
 
-### Packages (`next`)
+### Packages
 
 - Root `acp`: version-neutral runtime API — options, transports, middleware, errors, session store, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`). Imports no façade.
 - `acp1` / `acp2`: protocol façades on `schema/v1` / `schema/v2`; symmetric, both import root.
