@@ -843,6 +843,8 @@ func Decode[T any](raw []byte) (T, error) {
 
 // Validate reports whether the supported SDK Zod parser accepts raw as a T.
 // Recovery and defaults are applied; use Decode to obtain the normalized value.
+// Unlike the SDK, unknown tags of tagged unions are accepted: they decode into
+// the union's Unknown variant.
 func Validate[T any](raw []byte) error {
 	name, err := zodRule[T]()
 	if err != nil {

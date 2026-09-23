@@ -15,7 +15,8 @@ and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`
 The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and the
 union runtime (alternative matching for raw unions, tag splicing for tagged unions) once in
 `schema/union`; both are shared by the versions as runtime dependencies of the generated packages,
-not public APIs.
+not public APIs. Every `_meta` member is generated as `Meta`, an alias of the public
+`schema/meta.Meta` map, which keeps values as raw JSON and adds `Of`, `Set` and `Get[T]`.
 
 ```sh
 # From the repository root:
@@ -102,7 +103,11 @@ out := acpv2.NewSessionUpdate(acpv2.SessionUpdateAgentMessageChunk{Content: bloc
 ```
 
 A catch-all `{ tag: string; [key: string]: unknown }` member becomes `<Type>Custom`, so unknown
-tags round-trip unchanged including large numbers. Members of the form `Inner & { tag: "x" }`
+tags round-trip unchanged including large numbers. A tagged union without one gets a generated
+`<Type>Unknown{Raw jsontext.Value}` variant instead: unknown tags decode into it and `Raw` is
+encoded unchanged, so a peer on a newer schema never fails the whole message. Its `Validated`
+rule is wrapped in a Go-only `OpenTags` rule that lets unknown tags through while known tags are
+still validated in full; this is deliberately more lenient than the TypeScript SDK. Members of the form `Inner & { tag: "x" }`
 where `Inner` is itself a union (for example `StateUpdate` inside `SessionUpdate`) become
 `struct { Value Inner }`; the outer tag is spliced into the inner object on encode and removed
 on decode. Missing required members are not rejected by plain decoding; use `Validated` for
@@ -165,6 +170,8 @@ err = acpv2.Validate[acpv2.RequestPermissionRequest](data)
 `Decode` validates and normalizes according to the supported Zod rules, then decodes
 into the generated Go type. `Validate` reports whether that same Zod parser accepts the
 input, **including recovery/default behavior**; it is not a strict no-recovery validator.
+The one intended difference from the SDK is `OpenTags`: unknown tags of tagged unions without a
+catch-all are accepted (see above).
 Rules are emitted as typed Go composite literals (`zod.Rule`) so mistakes fail at compile time;
 regular expressions are compiled once at package init. Plain `json.Unmarshal` without
 `Validated`, union `Parse…` and `As[T]` stay lenient.

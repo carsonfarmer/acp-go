@@ -19,7 +19,7 @@ type Conn interface {
 
 // Spawn starts cmd, connects to its stdio through connect and starts the
 // connection's read loop. The process is killed when ctx is done, and the
-// connection is closed once the process exits.
+// connection stops once the process exits.
 //
 // The returned wait blocks until both have stopped. It reports ctx's error if
 // ctx ended the process, otherwise the process's exit error, otherwise the
@@ -51,30 +51,27 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(r io.Reader, w io.Wr
 		_ = stdin.Close()
 	}()
 
-	loopDone := make(chan error, 1)
-	go func() { loopDone <- conn.Start(ctx) }()
-
-	processDone := make(chan error, 1)
+	// Every way out ends the read loop first: the agent exiting or being
+	// killed closes its stdout (EOF), and Close reaches it through stdin.
+	// cmd.Wait closes the stdout pipe, so it must only run after the loop has
+	// read everything the agent wrote.
+	done := make(chan error, 1)
 	go func() {
-		// cmd.Wait returns once the process exits, so this goroutine always ends.
-		err := cmd.Wait()
+		loopErr := conn.Start(ctx)
+		processErr := cmd.Wait()
 		stopKill()
-		_ = conn.Close()
-		processDone <- err
-	}()
-
-	return sync.OnceValue(func() error {
-		loopErr, processErr := <-loopDone, <-processDone
 		switch {
 		case ctx.Err() != nil:
-			return ctx.Err()
+			done <- ctx.Err()
 		case processErr != nil:
-			return fmt.Errorf("agent process: %w", processErr)
+			done <- fmt.Errorf("agent process: %w", processErr)
 		case errors.Is(loopErr, context.Canceled):
-			return nil // closed after the process exited cleanly
+			done <- nil // closed by the caller, and the agent exited cleanly
+		default:
+			done <- loopErr
 		}
-		return loopErr
-	}), nil
+	}()
+	return sync.OnceValue(func() error { return <-done }), nil
 }
 
 // Pipe connects two connections in memory and starts both read loops. When
