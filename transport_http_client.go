@@ -18,6 +18,11 @@ import (
 // whose reply carries the connection id; it then opens the connection stream,
 // and a session's stream as soon as a message names the session.
 //
+// A stream that drops is reopened, backing off up to 5 seconds between tries,
+// until the server answers that the connection or session is gone, refuses
+// the stream (as with 401), or about 15 seconds of tries fail. Messages the
+// server sent into a dropped stream may be lost: ACP v1 has no replay.
+//
 // Close deletes the connection on the server. A connection never closes its
 // transport, so the caller does, after the connection stops.
 type HTTPClientTransport struct {
@@ -44,22 +49,28 @@ type HTTPClientTransport struct {
 type HTTPClientOption func(*httpClientConfig)
 
 type httpClientConfig struct {
-	client *http.Client
-	header http.Header
-	jar    http.CookieJar
+	client       *http.Client
+	header       http.Header
+	jar          http.CookieJar
+	pingInterval time.Duration
 }
 
 // newHTTPClientConfig applies opts over the defaults: a client with a cookie
 // jar, since the protocol requires clients to keep the server's cookies for
 // the connection.
 func newHTTPClientConfig(opts []HTTPClientOption) httpClientConfig {
-	jar, _ := cookiejar.New(nil)
-	c := httpClientConfig{client: &http.Client{Jar: jar}, header: http.Header{}}
+	c := httpClientConfig{header: http.Header{}, pingInterval: keepaliveInterval}
 	for _, opt := range opts {
 		opt(&c)
 	}
-	if c.jar != nil {
-		client := *c.client
+	switch {
+	case c.client == nil:
+		if c.jar == nil {
+			c.jar, _ = cookiejar.New(nil)
+		}
+		c.client = &http.Client{Jar: c.jar}
+	case c.jar != nil:
+		client := *c.client // leave the caller's client as it is
 		client.Jar = c.jar
 		c.client = &client
 	}
@@ -83,6 +94,15 @@ func WithHTTPClient(client *http.Client) HTTPClientOption {
 // the saved session. Messages sent while disconnected are not replayed.
 func WithCookieJar(jar http.CookieJar) HTTPClientOption {
 	return func(c *httpClientConfig) { c.jar = jar }
+}
+
+// WithPingInterval sets how often [DialWebSocket] pings the server; a server
+// that does not answer within the next interval is disconnected, and
+// ReadMessage reports it. The default is 15 seconds; zero or less disables
+// pinging. Streamable HTTP ignores it. Servers set theirs with
+// [WithWebSocketPing].
+func WithPingInterval(interval time.Duration) HTTPClientOption {
+	return func(c *httpClientConfig) { c.pingInterval = interval }
 }
 
 // WithHTTPHeader adds a header to every request, such as Authorization.
@@ -233,9 +253,40 @@ func (t *HTTPClientTransport) accepted(resp *http.Response) error {
 	return statusError("POST", resp)
 }
 
+// httpStatusError is a request the server answered with an unexpected status.
+type httpStatusError struct {
+	what   string
+	status int
+	body   []byte
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("acp: %s: HTTP %d: %s", e.what, e.status, e.body)
+}
+
 func statusError(what string, resp *http.Response) error {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
-	return fmt.Errorf("acp: %s: HTTP %d: %s", what, resp.StatusCode, bytes.TrimSpace(body))
+	return &httpStatusError{what: what, status: resp.StatusCode, body: bytes.TrimSpace(body)}
+}
+
+// Reopening a dropped stream waits streamBackoff, doubling per try up to
+// maxStreamBackoff, and gives up after streamRetries tries in a row. A stream
+// that stayed open for streamStable counts as healthy: tries start over.
+const (
+	streamBackoff    = 100 * time.Millisecond
+	maxStreamBackoff = 5 * time.Second
+	streamRetries    = 8
+	streamStable     = 10 * time.Second
+)
+
+// retryableStatus reports a stream answer that reopening may change:
+// timeouts, conflicts, rate limits and server errors.
+func retryableStatus(status int) bool {
+	switch status {
+	case http.StatusRequestTimeout, http.StatusConflict, http.StatusTooManyRequests:
+		return true
+	}
+	return status >= 500
 }
 
 func (t *HTTPClientTransport) setHeaders(req *http.Request, header http.Header) {
@@ -262,7 +313,7 @@ func (t *HTTPClientTransport) openStream(session string) {
 	t.mu.Unlock()
 
 	t.streams.Go(func() {
-		err := t.readStream(connectionID, session)
+		err := t.followStream(connectionID, session)
 		if session != "" {
 			t.mu.Lock()
 			delete(t.sessions, session)
@@ -277,6 +328,37 @@ func (t *HTTPClientTransport) openStream(session string) {
 		}
 		close(t.streamEnded)
 	})
+}
+
+// followStream reads a stream, reopening it when it drops, until the server
+// no longer knows it (nil), the transport closes (nil), the server refuses it
+// for good, as with 401, or reopening fails streamRetries times in a row (the
+// last error, or nil if the stream kept ending cleanly).
+func (t *HTTPClientTransport) followStream(connectionID, session string) error {
+	for failures := 0; ; {
+		opened := time.Now()
+		err := t.readStream(connectionID, session)
+		status, _ := errors.AsType[*httpStatusError](err)
+		switch {
+		case t.streamCtx.Err() != nil:
+			return nil
+		case status != nil && status.status == http.StatusNotFound:
+			return nil // the connection or session is gone
+		case status != nil && !retryableStatus(status.status):
+			return err
+		}
+		if time.Since(opened) >= streamStable {
+			failures = 0
+		}
+		if failures++; failures > streamRetries {
+			return err
+		}
+		select {
+		case <-time.After(min(streamBackoff<<(failures-1), maxStreamBackoff)):
+		case <-t.streamCtx.Done():
+			return nil
+		}
+	}
 }
 
 func (t *HTTPClientTransport) readStream(connectionID, session string) error {

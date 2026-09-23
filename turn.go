@@ -13,7 +13,7 @@ import (
 // apart from other cancellation:
 //
 //	if context.Cause(ctx) == acp.ErrTurnCancelled {
-//		return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+//		return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
 //	}
 var ErrTurnCancelled = errors.New("acp: turn cancelled by the client")
 

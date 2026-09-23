@@ -20,6 +20,10 @@ const (
 	// keepaliveInterval is how often an idle SSE stream sends a comment, so
 	// proxies do not time it out. It matches the TypeScript and Python SDKs.
 	keepaliveInterval = 15 * time.Second
+	// defaultIdleTimeout is how long a Streamable HTTP connection may go
+	// without a connection stream before the server ends it; see
+	// [WithIdleTimeout].
+	defaultIdleTimeout = 5 * time.Minute
 )
 
 // HTTPServer serves agents over Streamable HTTP and WebSocket on one
@@ -28,7 +32,7 @@ const (
 // when the connection ends:
 //
 //	server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
-//		conn := acpv1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(t))
+//		conn := acp1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(t))
 //		return conn.Start(ctx)
 //	})
 //	http.Handle("/acp", server)
@@ -41,8 +45,10 @@ const (
 // ctx is cancelled when the client deletes the connection or the server
 // closes.
 type HTTPServer struct {
-	serve   func(ctx context.Context, t Transport) error
-	origins []string
+	serve        func(ctx context.Context, t Transport) error
+	origins      []string
+	idleTimeout  time.Duration
+	pingInterval time.Duration
 
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -62,11 +68,35 @@ func WithWebSocketOrigins(patterns ...string) HTTPServerOption {
 	return func(s *HTTPServer) { s.origins = append(s.origins, patterns...) }
 }
 
+// WithWebSocketPing sets how often the server pings each WebSocket client;
+// a client that does not answer within the next interval is disconnected,
+// ending its connection. The default is 15 seconds; zero or less disables
+// pinging, leaving a vanished client to TCP. Clients set theirs with
+// [WithPingInterval].
+func WithWebSocketPing(interval time.Duration) HTTPServerOption {
+	return func(s *HTTPServer) { s.pingInterval = interval }
+}
+
+// WithIdleTimeout sets how long a Streamable HTTP connection may go without
+// its connection stream open before the server ends it, as if the client had
+// deleted it. A client that vanishes without a DELETE, because it crashed or
+// lost the network, would otherwise keep its agent running forever. The wait
+// starts when initialize returns the connection id, and POSTs restart it; it
+// must leave the client time to open its stream. The default is five
+// minutes; zero or less disables it.
+//
+// It is unrelated to http.Server.IdleTimeout, which closes idle TCP
+// connections. WebSocket connections are checked with pings instead.
+func WithIdleTimeout(d time.Duration) HTTPServerOption {
+	return func(s *HTTPServer) { s.idleTimeout = d }
+}
+
 // NewHTTPServer returns a handler that runs serve once per connection.
 func NewHTTPServer(serve func(ctx context.Context, t Transport) error, opts ...HTTPServerOption) *HTTPServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &HTTPServer{
 		serve: serve, ctx: ctx, cancel: cancel,
+		idleTimeout: defaultIdleTimeout, pingInterval: keepaliveInterval,
 		conns: map[string]*httpServerConn{}, sockets: map[string]*WebSocketTransport{},
 	}
 	for _, opt := range opts {
@@ -193,6 +223,7 @@ func (s *HTTPServer) post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown session", http.StatusNotFound)
 		return
 	}
+	c.touch()
 	if err := c.deliver(r.Context(), msg, e); err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
@@ -238,6 +269,9 @@ func (s *HTTPServer) initialize(w http.ResponseWriter, r *http.Request, msg json
 	defer timer.Stop()
 	select {
 	case response := <-c.initResponse:
+		// The client can open its stream once it has the id, so the idle
+		// wait starts here; initializeTimeout covered the time before.
+		c.watchIdle(s.idleTimeout, func() { s.remove(c.id) })
 		w.Header().Set(ConnectionIDHeader, c.id)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(response)
@@ -264,39 +298,54 @@ func (s *HTTPServer) stream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown session", http.StatusNotFound)
 		return
 	}
-	if !out.attach() {
-		http.Error(w, "stream already open", http.StatusConflict)
-		return
-	}
-	defer out.detach()
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
+	// A client reopens a stream when it thinks it dropped, which may be
+	// before the server notices: the newer GET takes over.
+	replaced, ok := out.attach(r.Context())
+	if !ok {
+		http.Error(w, "stream closed", http.StatusNotFound)
+		return
+	}
+	defer out.detach()
+	if out == c.connStream {
+		c.streamOpened()
+		defer c.streamClosed()
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	rc := http.NewResponseController(w)
 	keepalive := time.NewTicker(keepaliveInterval)
 	defer keepalive.Stop()
 	for {
-		select {
-		case msg := <-out.messages:
-			if writeSSE(w, msg) != nil {
+		msg := out.takeUnsent()
+		if msg == nil {
+			select {
+			case msg = <-out.messages:
+			case <-keepalive.C:
+				if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil || rc.Flush() != nil {
+					return
+				}
+				continue
+			case <-replaced:
+				return
+			case <-out.closed:
+				return
+			case <-r.Context().Done():
 				return
 			}
-			flusher.Flush()
-		case <-keepalive.C:
-			if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil {
-				return
-			}
-			flusher.Flush()
-		case <-out.closed:
-			return
-		case <-r.Context().Done():
+		}
+		if err := writeSSE(w, msg); err != nil || rc.Flush() != nil {
+			// The client's next GET sends it. A message lost after it was
+			// written is not: ACP v1 has no replay.
+			out.keepUnsent(msg)
 			return
 		}
 	}
@@ -334,6 +383,9 @@ type httpServerConn struct {
 	closeOnce    sync.Once
 
 	mu            sync.Mutex
+	idle          *time.Timer // ends the connection once it fires
+	idleTimeout   time.Duration
+	readers       int // GETs reading the connection stream
 	connStream    *outbound
 	sessions      map[string]*outbound
 	pendingRoutes map[string]string // request id -> session its reply goes to
@@ -353,6 +405,45 @@ func newHTTPServerConn(id, initID string) *httpServerConn {
 		pendingRoutes: map[string]string{},
 		pendingLoads:  map[string]string{},
 		provisional:   map[string]bool{},
+	}
+}
+
+// watchIdle calls onIdle once the connection stream has been closed for d,
+// counting from now. d <= 0 disables it.
+func (c *httpServerConn) watchIdle(d time.Duration, onIdle func()) {
+	if d <= 0 {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.idleTimeout = d
+	c.idle = time.AfterFunc(d, onIdle)
+}
+
+func (c *httpServerConn) streamOpened() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.readers++
+	if c.idle != nil {
+		c.idle.Stop()
+	}
+}
+
+func (c *httpServerConn) streamClosed() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.readers--
+	if c.idle != nil && c.readers == 0 {
+		c.idle.Reset(c.idleTimeout)
+	}
+}
+
+// touch restarts the idle wait of a connection without a stream.
+func (c *httpServerConn) touch() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.idle != nil && c.readers == 0 {
+		c.idle.Reset(c.idleTimeout)
 	}
 }
 
@@ -488,6 +579,9 @@ func (c *httpServerConn) Close() error {
 		close(c.done)
 		c.mu.Lock()
 		defer c.mu.Unlock()
+		if c.idle != nil {
+			c.idle.Stop()
+		}
 		c.connStream.close()
 		for _, out := range c.sessions {
 			out.close()
@@ -496,17 +590,24 @@ func (c *httpServerConn) Close() error {
 	return nil
 }
 
-// outbound buffers the messages of one SSE stream until its GET reads them.
+// outbound buffers the messages of one SSE stream until a GET reads them.
 type outbound struct {
 	messages  chan jsontext.Value
 	closed    chan struct{}
 	closeOnce sync.Once
-	mu        sync.Mutex
-	attached  bool
+	reader    chan struct{} // held by the GET reading the stream
+
+	mu       sync.Mutex
+	replaced chan struct{}  // closed when a newer GET takes over
+	unsent   jsontext.Value // taken by a GET that failed to write it
 }
 
 func newOutbound() *outbound {
-	return &outbound{messages: make(chan jsontext.Value, streamBuffer), closed: make(chan struct{})}
+	return &outbound{
+		messages: make(chan jsontext.Value, streamBuffer),
+		closed:   make(chan struct{}),
+		reader:   make(chan struct{}, 1),
+	}
 }
 
 // push queues msg, waiting while the buffer is full: dropping a reply would
@@ -524,20 +625,41 @@ func (o *outbound) push(ctx context.Context, msg jsontext.Value, done <-chan str
 	}
 }
 
-// attach claims the stream for one GET at a time.
-func (o *outbound) attach() bool {
+// attach makes the calling GET the stream's reader once the current one, if
+// any, has given way. The returned channel closes when a newer GET asks this
+// one to give way in turn.
+func (o *outbound) attach(ctx context.Context) (replaced <-chan struct{}, ok bool) {
+	mine := make(chan struct{})
 	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.attached {
-		return false
+	if o.replaced != nil {
+		close(o.replaced)
 	}
-	o.attached = true
-	return true
+	o.replaced = mine
+	o.mu.Unlock()
+	select {
+	case o.reader <- struct{}{}:
+		return mine, true
+	case <-o.closed:
+	case <-ctx.Done():
+	}
+	return nil, false
 }
 
-func (o *outbound) detach() {
+func (o *outbound) detach() { <-o.reader }
+
+// takeUnsent returns the message a previous GET failed to write, if any.
+func (o *outbound) takeUnsent() jsontext.Value {
 	o.mu.Lock()
-	o.attached = false
+	defer o.mu.Unlock()
+	msg := o.unsent
+	o.unsent = nil
+	return msg
+}
+
+// keepUnsent holds msg for the next GET, which sends it before the rest.
+func (o *outbound) keepUnsent(msg jsontext.Value) {
+	o.mu.Lock()
+	o.unsent = msg
 	o.mu.Unlock()
 }
 

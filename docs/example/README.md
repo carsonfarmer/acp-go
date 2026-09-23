@@ -6,12 +6,14 @@ different transport. Run each from the repository root.
 | Example | Shows | Run |
 |---|---|---|
 | [`echo`](./echo/main.go) | The smallest agent: the four required methods, streaming each prompt back | `go run ./docs/example/echo` |
-| [`agent`](./agent/main.go) | A complete agent: `SessionManager` sessions and cancellation, `SessionStream` tool calls, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./docs/example/agent` |
-| [`client`](./client/main.go) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, Ctrl-C cancellation, permission prompts, file system methods, `CallExt` | `go run ./docs/example/client [agent command...]` |
-| [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acp.HTTPServer` | `go run ./docs/example/http-agent` |
-| [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` with `ConnectAgent`, over Streamable HTTP or, with `-ws`, WebSocket | `go run ./docs/example/http-client [-ws]` |
-| [`dual-agent`](./dual-agent/main.go) | One binary serving ACP v1 and the draft v2 through `router.ProtocolRouter`, including the v2 prompt lifecycle | `go run ./docs/example/dual-agent` |
-| [`dual-client`](./dual-client/main.go) | `router.ClientConnector`: v2 when the agent supports it, v1 otherwise | `go run ./docs/example/dual-client [agent command...]` |
+| [`agent`](./agent/) | A complete agent: `SessionManager` sessions and cancellation, session modes, a plan, `SessionStream` tool calls with a command run in the client's terminal and a file diff, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./docs/example/agent` |
+| [`client`](./client/) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, plans and diffs, Ctrl-C cancellation, permission prompts, `/mode` switching, file system and terminal methods, `CallExt` | `go run ./docs/example/client [agent command...]` |
+| [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acp.HTTPServer`, with sessions that outlive a connection and an optional bearer token | `go run ./docs/example/http-agent [-token secret]` |
+| [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` with `ConnectAgent`, over Streamable HTTP or, with `-ws`, WebSocket; `-reconnect` then resumes the session with `session/load` | `go run ./docs/example/http-client [-ws] [-reconnect] [-token secret]` |
+| [`dual-agent`](./dual-agent/) | One binary serving ACP v1 and the draft v2 through `router.ProtocolRouter`, including the v2 prompt lifecycle and v2 session resume with history replay; each version's agent in its own file | `go run ./docs/example/dual-agent` |
+| [`dual-client`](./dual-client/) | `router.ClientConnector`: v2 when the agent supports it, v1 otherwise; on v2 it closes the session and resumes it with a replay | `go run ./docs/example/dual-client [agent command...]` |
+| [`inprocess`](./inprocess/main.go) | An agent and a client in one process, connected in memory with `acp1.Pipe` | `go run ./docs/example/inprocess` |
+| [`acpmcp/example`](../../acpmcp/example/main.go) | **Unstable.** MCP-over-ACP: the client provides an MCP server the agent calls over the ACP connection, with the [`acpmcp`](../../acpmcp/) module | `cd acpmcp && go run ./example` |
 
 ## Agent and client together
 
@@ -21,9 +23,10 @@ With no arguments, the client builds the `agent` example and talks to it:
 go run ./docs/example/client
 ```
 
-Type a message to start a turn, answer the permission prompt, press Ctrl-C to cancel a running turn, or send
-`/ping hello` to call the agent's `_example.com/ping` extension method. Ctrl-D quits. Pass `-v` to see the agent's
-logs.
+Type a message to start a turn: the agent shows its plan, runs `go version` in a terminal the client provides,
+and asks before applying a diff. Press Ctrl-C to cancel a running turn, send `/mode auto` to let the agent edit
+without asking (`/mode ask` switches back), or `/ping hello` to call the agent's `_example.com/ping` extension
+method. Ctrl-D quits. Pass `-v` to see the agent's logs.
 
 Any other stdio agent works too; give its command after the flags:
 
@@ -41,7 +44,11 @@ with it too. Start the agent, then run the client in another terminal:
 go run ./docs/example/http-agent
 go run ./docs/example/http-client      # Streamable HTTP
 go run ./docs/example/http-client -ws  # WebSocket
+go run ./docs/example/http-client -reconnect  # drop the connection, then load the session
 ```
+
+`http-agent -token secret` accepts only clients that send `Authorization: Bearer secret`, as
+`http-client -token secret` does. Authentication is ordinary `http.Handler` middleware in front of `acp.HTTPServer`.
 
 ## v1 and v2 together
 
@@ -120,3 +127,13 @@ $ git clone https://github.com/ironpark/acp-go.git
 
 ![Final state](../imgs/final.png)
 
+## MCP over ACP (unstable)
+
+MCP-over-ACP is an RFD-stage draft of the protocol, not yet stable: the TypeScript and Python SDKs mark it
+unstable, the Rust SDK hides it behind a feature flag, and its wire format may still change. The
+[`acpmcp`](../../acpmcp/) module connects it to the MCP Go SDK, and lives in its own module so the SDK does not
+depend on MCP. Its example runs from that module:
+
+```sh
+cd acpmcp && go run ./example
+```

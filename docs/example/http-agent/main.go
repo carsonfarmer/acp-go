@@ -4,63 +4,112 @@
 //	go run ./docs/example/http-agent        # listens on localhost:8000
 //	go run ./docs/example/http-client       # in another terminal
 //
+// With -token, it accepts only clients that send that bearer token, as
+// http-client -token does.
+//
 // acp.HTTPServer implements the remote transport the other ACP SDKs use, in
 // both its profiles on one endpoint: Streamable HTTP, where the client POSTs
 // messages and reads the agent's from Server-Sent Events streams, and
 // WebSocket. Each client gets its own connection and its own agent; the agent
-// code is the same as over stdio.
+// code is the same as over stdio. Sessions are shared by all connections, so a
+// client that reconnects can load its session: see http-client -reconnect.
 package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"flag"
 	"log"
 	"net/http"
+	"slices"
+	"sync"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
+	"github.com/ironpark/go-acp/acp1"
 )
 
+// history is what a session said. Sessions outlive connections, so a client
+// that reconnects can load one and see it again.
+type history struct {
+	mu    sync.Mutex
+	turns []turn
+}
+
+type turn struct{ prompt, reply string }
+
 // echoAgent is the echo example's agent, replying with an "echo: " prefix.
+// The embedded SessionManager creates and loads sessions; it is shared by
+// every connection.
 type echoAgent struct {
-	client acpv1.Client
+	*acp1.SessionManager[*history]
+	client acp1.Client
 }
 
-func (a *echoAgent) Initialize(_ context.Context, _ *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
-	return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion}, nil
+func (a *echoAgent) Initialize(_ context.Context, _ *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
+	// CapabilitiesOf advertises loadSession, since the agent can load.
+	return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion, AgentCapabilities: acp1.CapabilitiesOf(a)}, nil
 }
 
-func (a *echoAgent) NewSession(_ context.Context, _ *acpv1.NewSessionRequest) (*acpv1.NewSessionResponse, error) {
-	return &acpv1.NewSessionResponse{SessionID: acpv1.GenerateSessionID()}, nil
+func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
+	h, ok := a.Session(params.SessionID)
+	if !ok {
+		return nil, acp.ErrResourceNotFound("session " + string(params.SessionID))
+	}
+	stream := acp1.NewSessionStream(a.client, params.SessionID)
+	for text := range acp1.Texts(params.Prompt) {
+		reply := "echo: " + text
+		if err := stream.SendText(ctx, reply); err != nil {
+			return nil, err
+		}
+		h.mu.Lock()
+		h.turns = append(h.turns, turn{text, reply})
+		h.mu.Unlock()
+	}
+	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
 }
 
-func (a *echoAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
-	stream := acpv1.NewSessionStream(a.client, params.SessionID)
-	for text := range acpv1.Texts(params.Prompt) {
-		if err := stream.SendText(ctx, "echo: "+text); err != nil {
+// LoadSession replays the session's history before answering, as the
+// protocol asks.
+func (a *echoAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionRequest) (*acp1.LoadSessionResponse, error) {
+	h, ok := a.Session(params.SessionID)
+	if !ok {
+		return a.SessionManager.LoadSession(ctx, params) // not found
+	}
+	h.mu.Lock()
+	turns := slices.Clone(h.turns)
+	h.mu.Unlock()
+	stream := acp1.NewSessionStream(a.client, params.SessionID)
+	for _, t := range turns {
+		if err := stream.SendUserMessage(ctx, t.prompt); err != nil {
+			return nil, err
+		}
+		if err := stream.SendText(ctx, t.reply); err != nil {
 			return nil, err
 		}
 	}
-	return &acpv1.PromptResponse{StopReason: acpv1.StopReasonEndTurn}, nil
+	return &acp1.LoadSessionResponse{}, nil
 }
-
-func (a *echoAgent) Cancel(context.Context, *acpv1.CancelNotification) error { return nil }
 
 func main() {
 	addr := flag.String("addr", "localhost:8000", "address to listen on")
+	token := flag.String("token", "", "require this bearer token from clients")
 	flag.Parse()
 
+	sessions := acp1.NewSessionManager(acp1.NewMemoryStore[*history](),
+		func(context.Context, *acp1.NewSessionRequest) (acp1.SessionID, *history, error) {
+			return acp1.GenerateSessionID(), &history{}, nil
+		})
 	// serve runs once per connection, with that connection's transport.
 	server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
-		conn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
-			return &echoAgent{client: c}
+		conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
+			return &echoAgent{SessionManager: sessions, client: c}
 		}, nil, nil, acp.WithTransport(t))
 		return conn.Start(ctx)
 	})
 	defer server.Close()
 
 	mux := http.NewServeMux()
-	mux.Handle("/acp", server)
+	mux.Handle("/acp", requireToken(*token, server))
 	// The protocol asks for HTTP/2; plain-text HTTP/2 needs it enabled, and
 	// HTTP/1.1 keeps working for clients without it.
 	httpServer := &http.Server{Addr: *addr, Handler: mux, Protocols: new(http.Protocols)}
@@ -68,4 +117,23 @@ func main() {
 	httpServer.Protocols.SetUnencryptedHTTP2(true)
 	log.Printf("serving an ACP agent on http://%s/acp", *addr)
 	log.Fatal(httpServer.ListenAndServe())
+}
+
+// requireToken rejects requests without "Authorization: Bearer <token>", or
+// lets every request through when token is empty. HTTPServer is an ordinary
+// http.Handler, so authentication is ordinary middleware in front of it; it
+// covers POSTs, event streams and WebSocket upgrades alike.
+func requireToken(token string, next http.Handler) http.Handler {
+	if token == "" {
+		return next
+	}
+	want := []byte("Bearer " + token)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

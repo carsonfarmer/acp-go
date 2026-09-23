@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
-	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/go-acp/acp2"
 	schemav1 "github.com/ironpark/go-acp/schema/v1"
 	schemav2 "github.com/ironpark/go-acp/schema/v2"
 )
@@ -38,21 +38,21 @@ const (
 
 // ProtocolRouter routes each connection to a v1 or v2 agent implementation.
 type ProtocolRouter struct {
-	v1 func(*acpv1.AgentSideConnection) acpv1.Agent
-	v2 func(*acpv2.AgentSideConnection) acpv2.Agent
+	v1 func(*acp1.AgentSideConnection) acp1.Agent
+	v2 func(*acp2.AgentSideConnection) acp2.Agent
 }
 
 // New creates a router with no protocol versions configured.
 func New() *ProtocolRouter { return &ProtocolRouter{} }
 
 // WithV1 configures the ACP v1 agent implementation.
-func (r *ProtocolRouter) WithV1(newAgent func(*acpv1.AgentSideConnection) acpv1.Agent) *ProtocolRouter {
+func (r *ProtocolRouter) WithV1(newAgent func(*acp1.AgentSideConnection) acp1.Agent) *ProtocolRouter {
 	r.v1 = newAgent
 	return r
 }
 
 // WithV2 configures the draft ACP v2 agent implementation.
-func (r *ProtocolRouter) WithV2(newAgent func(*acpv2.AgentSideConnection) acpv2.Agent) *ProtocolRouter {
+func (r *ProtocolRouter) WithV2(newAgent func(*acp2.AgentSideConnection) acp2.Agent) *ProtocolRouter {
 	r.v2 = newAgent
 	return r
 }
@@ -116,9 +116,9 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 	opts = append(opts, acp.WithTransport(routed))
 	switch selected {
 	case 2:
-		return acpv2.NewAgentSideConnection(r.v2, nil, nil, opts...).Start(ctx)
+		return acp2.NewAgentSideConnection(r.v2, nil, nil, opts...).Start(ctx)
 	default:
-		return acpv1.NewAgentSideConnection(r.v1, nil, nil, opts...).Start(ctx)
+		return acp1.NewAgentSideConnection(r.v1, nil, nil, opts...).Start(ctx)
 	}
 }
 

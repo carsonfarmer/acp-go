@@ -8,25 +8,25 @@ import (
 	"testing"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
-	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/go-acp/acp2"
 	"github.com/ironpark/go-acp/router"
 )
 
 // TestMain doubles as the agent process for the ClientConnector tests.
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	newV1 := func(*acpv1.AgentSideConnection) acpv1.Agent {
-		return &v1Agent{initialized: make(chan *acpv1.InitializeRequest, 1)}
+	newV1 := func(*acp1.AgentSideConnection) acp1.Agent {
+		return &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
 	}
-	newV2 := func(*acpv2.AgentSideConnection) acpv2.Agent {
-		return &v2Agent{initialized: make(chan *acpv2.InitializeRequest, 1)}
+	newV2 := func(*acp2.AgentSideConnection) acp2.Agent {
+		return &v2Agent{initialized: make(chan *acp2.InitializeRequest, 1)}
 	}
 	switch os.Getenv("ROUTER_TEST_AGENT") {
 	case "v1":
 		// A plain v1 agent with no router: it receives the v2 initialize
 		// request as is.
-		_ = acpv1.NewAgentSideConnection(newV1, os.Stdin, os.Stdout).Start(ctx)
+		_ = acp1.NewAgentSideConnection(newV1, os.Stdin, os.Stdout).Start(ctx)
 		os.Exit(0)
 	case "both":
 		_ = router.New().WithV1(newV1).WithV2(newV2).ServeStdio(ctx, os.Stdin, os.Stdout)
@@ -45,22 +45,22 @@ func agentCommand(mode string) func() *exec.Cmd {
 
 type v1Client struct{}
 
-func (v1Client) SessionUpdate(context.Context, *acpv1.SessionNotification) error { return nil }
-func (v1Client) RequestPermission(context.Context, *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
+func (v1Client) SessionUpdate(context.Context, *acp1.SessionNotification) error { return nil }
+func (v1Client) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
 	return nil, nil
 }
 
 type v2Client struct{}
 
-func (v2Client) SessionUpdate(context.Context, *acpv2.UpdateSessionNotification) error { return nil }
-func (v2Client) RequestPermission(context.Context, *acpv2.RequestPermissionRequest) (*acpv2.RequestPermissionResponse, error) {
+func (v2Client) SessionUpdate(context.Context, *acp2.UpdateSessionNotification) error { return nil }
+func (v2Client) RequestPermission(context.Context, *acp2.RequestPermissionRequest) (*acp2.RequestPermissionResponse, error) {
 	return nil, nil
 }
 
 func connector() *router.ClientConnector {
 	return router.NewClient().
-		WithV1(func(*acpv1.ClientSideConnection) acpv1.Client { return v1Client{} }, nil).
-		WithV2(func(*acpv2.ClientSideConnection) acpv2.Client { return v2Client{} }, nil)
+		WithV1(func(*acp1.ClientSideConnection) acp1.Client { return v1Client{} }, nil).
+		WithV2(func(*acp2.ClientSideConnection) acp2.Client { return v2Client{} }, nil)
 }
 
 func TestClientPrefersV2(t *testing.T) {
@@ -72,7 +72,7 @@ func TestClientPrefersV2(t *testing.T) {
 	if agent.V2 == nil || agent.V1 != nil || agent.V2Init.ProtocolVersion != 2 {
 		t.Fatalf("got %+v", agent)
 	}
-	session, err := agent.V2.StartSession(t.Context(), &acpv2.NewSessionRequest{Cwd: "/tmp"})
+	session, err := agent.V2.StartSession(t.Context(), &acp2.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil || session.ID != "v2-session" {
 		t.Fatalf("got %+v %v", session, err)
 	}
@@ -87,7 +87,7 @@ func TestClientFallsBackToV1(t *testing.T) {
 	if agent.V1 == nil || agent.V2 != nil || agent.V1Init.ProtocolVersion != 1 {
 		t.Fatalf("got %+v", agent)
 	}
-	session, err := agent.V1.StartSession(t.Context(), &acpv1.NewSessionRequest{Cwd: "/tmp"})
+	session, err := agent.V1.StartSession(t.Context(), &acp1.NewSessionRequest{Cwd: "/tmp"})
 	if err != nil || session.ID != "v1-session" {
 		t.Fatalf("got %+v %v", session, err)
 	}
@@ -99,7 +99,7 @@ func TestClientFallsBackToV1(t *testing.T) {
 
 func TestClientWithoutV1RejectsV1Agent(t *testing.T) {
 	_, err := router.NewClient().
-		WithV2(func(*acpv2.ClientSideConnection) acpv2.Client { return v2Client{} }, nil).
+		WithV2(func(*acp2.ClientSideConnection) acp2.Client { return v2Client{} }, nil).
 		Spawn(t.Context(), agentCommand("v1"))
 	if !errors.Is(err, router.ErrNoCommonVersion) {
 		t.Fatalf("got %v", err)

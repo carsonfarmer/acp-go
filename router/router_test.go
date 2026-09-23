@@ -11,47 +11,47 @@ import (
 	"time"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
-	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/go-acp/acp2"
 	"github.com/ironpark/go-acp/router"
 	schemav2 "github.com/ironpark/go-acp/schema/v2"
 )
 
 // v1Agent records the initialize request the router hands it.
 type v1Agent struct {
-	initialized chan *acpv1.InitializeRequest
+	initialized chan *acp1.InitializeRequest
 }
 
-func (a *v1Agent) Initialize(_ context.Context, params *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
+func (a *v1Agent) Initialize(_ context.Context, params *acp1.InitializeRequest) (*acp1.InitializeResponse, error) {
 	a.initialized <- params
-	return &acpv1.InitializeResponse{ProtocolVersion: 1}, nil
+	return &acp1.InitializeResponse{ProtocolVersion: 1}, nil
 }
-func (a *v1Agent) Authenticate(context.Context, *acpv1.AuthenticateRequest) (*acpv1.AuthenticateResponse, error) {
+func (a *v1Agent) Authenticate(context.Context, *acp1.AuthenticateRequest) (*acp1.AuthenticateResponse, error) {
 	return nil, nil
 }
-func (a *v1Agent) NewSession(context.Context, *acpv1.NewSessionRequest) (*acpv1.NewSessionResponse, error) {
-	return &acpv1.NewSessionResponse{SessionID: "v1-session"}, nil
+func (a *v1Agent) NewSession(context.Context, *acp1.NewSessionRequest) (*acp1.NewSessionResponse, error) {
+	return &acp1.NewSessionResponse{SessionID: "v1-session"}, nil
 }
-func (a *v1Agent) Prompt(context.Context, *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+func (a *v1Agent) Prompt(context.Context, *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return nil, nil
 }
-func (a *v1Agent) Cancel(context.Context, *acpv1.CancelNotification) error { return nil }
+func (a *v1Agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
 
 type v2Agent struct {
-	initialized chan *acpv2.InitializeRequest
+	initialized chan *acp2.InitializeRequest
 }
 
-func (a *v2Agent) Initialize(_ context.Context, params *acpv2.InitializeRequest) (*acpv2.InitializeResponse, error) {
+func (a *v2Agent) Initialize(_ context.Context, params *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
 	a.initialized <- params
-	return &acpv2.InitializeResponse{ProtocolVersion: 2, Info: schemav2.Implementation{Name: "v2-agent", Version: "0"}}, nil
+	return &acp2.InitializeResponse{ProtocolVersion: 2, Info: schemav2.Implementation{Name: "v2-agent", Version: "0"}}, nil
 }
-func (a *v2Agent) NewSession(context.Context, *acpv2.NewSessionRequest) (*acpv2.NewSessionResponse, error) {
-	return &acpv2.NewSessionResponse{SessionID: "v2-session"}, nil
+func (a *v2Agent) NewSession(context.Context, *acp2.NewSessionRequest) (*acp2.NewSessionResponse, error) {
+	return &acp2.NewSessionResponse{SessionID: "v2-session"}, nil
 }
-func (a *v2Agent) Prompt(context.Context, *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
+func (a *v2Agent) Prompt(context.Context, *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 	return nil, nil
 }
-func (a *v2Agent) CancelSession(context.Context, *acpv2.CancelSessionNotification) error { return nil }
+func (a *v2Agent) CancelSession(context.Context, *acp2.CancelSessionNotification) error { return nil }
 
 // peer is a raw JSON-RPC client talking to a routed agent over pipes.
 type peer struct {
@@ -139,11 +139,11 @@ func errorOf(t *testing.T, msg map[string]jsontext.Value) (int64, string) {
 }
 
 func both() (*router.ProtocolRouter, *v1Agent, *v2Agent) {
-	v1 := &v1Agent{initialized: make(chan *acpv1.InitializeRequest, 1)}
-	v2 := &v2Agent{initialized: make(chan *acpv2.InitializeRequest, 1)}
+	v1 := &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
+	v2 := &v2Agent{initialized: make(chan *acp2.InitializeRequest, 1)}
 	r := router.New().
-		WithV1(func(*acpv1.AgentSideConnection) acpv1.Agent { return v1 }).
-		WithV2(func(*acpv2.AgentSideConnection) acpv2.Agent { return v2 })
+		WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 }).
+		WithV2(func(*acp2.AgentSideConnection) acp2.Agent { return v2 })
 	return r, v1, v2
 }
 
@@ -191,8 +191,8 @@ func TestNewerVersionIsCappedAtV2(t *testing.T) {
 }
 
 func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
-	v1 := &v1Agent{initialized: make(chan *acpv1.InitializeRequest, 1)}
-	r := router.New().WithV1(func(*acpv1.AgentSideConnection) acpv1.Agent { return v1 })
+	v1 := &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
+	r := router.New().WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 })
 	p := serve(t, r)
 
 	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":2,"info":{"name":"c","version":"9"},"capabilities":{"auth":{"terminal":{}},"elicitation":{"form":{}}}}}`)
@@ -227,8 +227,8 @@ func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
 
 func TestNewerVersionIsDowngradedForV1OnlyAgent(t *testing.T) {
 	// A version above 2 is parsed in the v2 shape and downgraded the same way.
-	v1 := &v1Agent{initialized: make(chan *acpv1.InitializeRequest, 1)}
-	p := serve(t, router.New().WithV1(func(*acpv1.AgentSideConnection) acpv1.Agent { return v1 }))
+	v1 := &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
+	p := serve(t, router.New().WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 }))
 
 	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":3,"info":{"name":"c","version":"0"}}}`)
 	if got := string(p.receive()["result"]); !strings.Contains(got, `"protocolVersion":1`) {
@@ -241,8 +241,8 @@ func TestNewerVersionIsDowngradedForV1OnlyAgent(t *testing.T) {
 }
 
 func TestTerminalAuthMetaCannotBeDowngraded(t *testing.T) {
-	v1 := &v1Agent{initialized: make(chan *acpv1.InitializeRequest, 1)}
-	p := serve(t, router.New().WithV1(func(*acpv1.AgentSideConnection) acpv1.Agent { return v1 }))
+	v1 := &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
+	p := serve(t, router.New().WithV1(func(*acp1.AgentSideConnection) acp1.Agent { return v1 }))
 
 	p.send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":2,"info":{"name":"c","version":"0"},"capabilities":{"auth":{"terminal":{"_meta":{"x":1}}}}}}`)
 	if code, msg := errorOf(t, p.receive()); code != int64(acp.ErrorCodeInvalidParams) || !strings.Contains(msg, "cannot be represented in v1") {
@@ -251,8 +251,8 @@ func TestTerminalAuthMetaCannotBeDowngraded(t *testing.T) {
 }
 
 func TestUnsupportedVersionIsRejected(t *testing.T) {
-	v2 := &v2Agent{initialized: make(chan *acpv2.InitializeRequest, 1)}
-	p := serve(t, router.New().WithV2(func(*acpv2.AgentSideConnection) acpv2.Agent { return v2 }))
+	v2 := &v2Agent{initialized: make(chan *acp2.InitializeRequest, 1)}
+	p := serve(t, router.New().WithV2(func(*acp2.AgentSideConnection) acp2.Agent { return v2 }))
 
 	p.send(`{"jsonrpc":"2.0","id":7,"method":"initialize","params":{"protocolVersion":1}}`)
 	msg := p.receive()

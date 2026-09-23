@@ -1,14 +1,14 @@
 package facade
 
-// V2 is the method table for the draft ACP v2 façade in acpv2.
+// V2 is the method table for the draft ACP v2 façade in acp2.
 //
 // Which methods are required is this table's call: the upstream v2 SDK
 // registers handlers per method and enforces nothing. The split keeps the
 // same shape as v1 — the methods every agent or client needs to hold a
 // conversation are required, everything gated by a capability is optional.
 var V2 = &Spec{
-	Package:    "acpv2",
-	Dir:        "acpv2",
+	Package:    "acp2",
+	Dir:        "acp2",
 	SchemaPath: "github.com/ironpark/go-acp/schema/v2",
 	ExtraTypes: []string{
 		"SessionID", "SessionInfo", "SessionConfigOption", "SessionUpdate", "MessageID",
@@ -16,6 +16,7 @@ var V2 = &Spec{
 		"StopReason", "ToolCallContent", "ToolCallLocation", "ToolCallStatus", "ToolKind",
 		"AvailableCommand", "Cost", "Implementation", "PermissionOption", "PermissionOptionKind",
 		"ToolCallUpdate", "RequestPermissionOutcome", "PlanEntryStatus", "PlanEntryPriority",
+		"ReplayFrom", "MCPServer",
 	},
 	Agent: []Group{
 		{

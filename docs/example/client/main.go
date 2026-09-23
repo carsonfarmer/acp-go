@@ -5,9 +5,10 @@
 //
 // It shows the client side of ACP: spawning an agent, driving turns with
 // ClientSession and Turn, rendering updates with a type switch over the
-// SessionUpdate union, cancelling a turn on Ctrl-C, answering permission
-// requests, serving the optional file system methods the agent may call, and
-// calling a typed extension method with acp.CallExt.
+// SessionUpdate union (render.go), cancelling a turn on Ctrl-C, answering
+// permission requests, switching session modes, serving the optional file
+// system methods and running commands in terminals for the agent
+// (terminal.go), and calling a typed extension method with acp.CallExt.
 package main
 
 import (
@@ -26,13 +27,15 @@ import (
 	"strings"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
+	"github.com/ironpark/go-acp/acp1"
 )
 
-// exampleClient implements acpv1.Client, plus acpv1.FileReader and
-// acpv1.FileWriter, which ClientCapabilitiesOf turns into the fs capabilities
-// it advertises.
+// exampleClient implements acp1.Client, plus acp1.FileReader,
+// acp1.FileWriter and, through the embedded terminals, acp1.TerminalHandler,
+// which ClientCapabilitiesOf turns into the fs and terminal capabilities it
+// advertises.
 type exampleClient struct {
+	*terminals
 	// input is shared by the prompt loop and permission requests, so input
 	// typed ahead is not lost in a discarded buffer.
 	input *bufio.Reader
@@ -41,49 +44,17 @@ type exampleClient struct {
 // SessionUpdate receives every update the agent sends. This client renders
 // the updates of its own turns from Turn.Updates instead, so it has nothing
 // to do here; a UI that shows background activity would update its state.
-func (c *exampleClient) SessionUpdate(context.Context, *acpv1.SessionNotification) error {
+func (c *exampleClient) SessionUpdate(context.Context, *acp1.SessionNotification) error {
 	return nil
 }
 
-// render prints one update with a type switch over the SessionUpdate union.
-func render(update acpv1.SessionUpdate) {
-	switch update := update.Variant().(type) {
-	case acpv1.SessionUpdateAgentMessageChunk:
-		if text, ok := acpv1.TextOf(update.Content); ok {
-			fmt.Print(text)
-		} else {
-			fmt.Print("[non-text content]")
-		}
-	case acpv1.SessionUpdateAgentThoughtChunk:
-		if text, ok := acpv1.TextOf(update.Content); ok {
-			fmt.Printf("\n💭 %s", text)
-		}
-	case acpv1.SessionUpdateToolCall:
-		fmt.Printf("\n🔧 %s", update.Title)
-		if update.Status != nil {
-			fmt.Printf(" (%s)", *update.Status)
-		}
-		fmt.Println()
-	case acpv1.SessionUpdateToolCallUpdate:
-		fmt.Printf("🔧 %s", update.ToolCallID)
-		if update.Status != nil {
-			fmt.Printf(": %s", *update.Status)
-		}
-		fmt.Println()
-	case acpv1.SessionUpdatePlan:
-		fmt.Printf("\n📋 plan with %d entries\n", len(update.Entries))
-	default:
-		// Includes acpv1.SessionUpdateUnknown: updates newer than this SDK
-		// are safe to ignore.
-	}
-}
-
-func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
+func (c *exampleClient) RequestPermission(_ context.Context, params *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
 	title := ""
 	if params.ToolCall.Title != nil {
 		title = *params.ToolCall.Title
 	}
 	fmt.Printf("\n🔐 Permission requested: %s\n", title)
+	c.renderContent(params.ToolCall.Content) // the change the agent proposes
 	for i, option := range params.Options {
 		fmt.Printf("   %d. %s (%s)\n", i+1, option.Name, option.Kind)
 	}
@@ -99,27 +70,27 @@ func (c *exampleClient) RequestPermission(_ context.Context, params *acpv1.Reque
 			fmt.Printf("Enter a number between 1 and %d.\n", len(params.Options))
 			continue
 		}
-		return &acpv1.RequestPermissionResponse{
-			Outcome: acpv1.NewRequestPermissionOutcome(acpv1.RequestPermissionOutcomeSelected{
+		return &acp1.RequestPermissionResponse{
+			Outcome: acp1.NewRequestPermissionOutcome(acp1.RequestPermissionOutcomeSelected{
 				OptionID: params.Options[choice-1].OptionID,
 			}),
 		}, nil
 	}
 }
 
-func (c *exampleClient) ReadTextFile(_ context.Context, params *acpv1.ReadTextFileRequest) (*acpv1.ReadTextFileResponse, error) {
+func (c *exampleClient) ReadTextFile(_ context.Context, params *acp1.ReadTextFileRequest) (*acp1.ReadTextFileResponse, error) {
 	content, err := os.ReadFile(params.Path)
 	if err != nil {
 		return nil, acp.ErrResourceNotFound(params.Path)
 	}
-	return &acpv1.ReadTextFileResponse{Content: string(content)}, nil
+	return &acp1.ReadTextFileResponse{Content: string(content)}, nil
 }
 
-func (c *exampleClient) WriteTextFile(_ context.Context, params *acpv1.WriteTextFileRequest) (*acpv1.WriteTextFileResponse, error) {
+func (c *exampleClient) WriteTextFile(_ context.Context, params *acp1.WriteTextFileRequest) (*acp1.WriteTextFileResponse, error) {
 	if err := os.WriteFile(params.Path, []byte(params.Content), 0o644); err != nil {
 		return nil, err
 	}
-	return &acpv1.WriteTextFileResponse{}, nil
+	return &acp1.WriteTextFileResponse{}, nil
 }
 
 // pingResult is the agent example's reply to its _example.com/ping extension.
@@ -155,8 +126,8 @@ func run(ctx context.Context, command []string, verbose bool) error {
 		cmd.Stderr = io.Discard // agent logs would interleave with the conversation
 	}
 
-	client := &exampleClient{input: bufio.NewReader(os.Stdin)}
-	agent, err := acpv1.SpawnAgent(ctx, cmd, func(*acpv1.ClientSideConnection) acpv1.Client {
+	client := &exampleClient{terminals: &terminals{}, input: bufio.NewReader(os.Stdin)}
+	agent, err := acp1.SpawnAgent(ctx, cmd, func(*acp1.ClientSideConnection) acp1.Client {
 		return client
 	})
 	if err != nil {
@@ -164,10 +135,10 @@ func run(ctx context.Context, command []string, verbose bool) error {
 	}
 	defer agent.Close()
 
-	initialized, err := agent.Initialize(ctx, &acpv1.InitializeRequest{
-		ProtocolVersion:    acpv1.ProtocolVersion,
-		ClientCapabilities: acpv1.ClientCapabilitiesOf(client),
-		ClientInfo:         &acpv1.Implementation{Name: "example-client", Version: "0.1.0"},
+	initialized, err := agent.Initialize(ctx, &acp1.InitializeRequest{
+		ProtocolVersion:    acp1.ProtocolVersion,
+		ClientCapabilities: acp1.ClientCapabilitiesOf(client),
+		ClientInfo:         &acp1.Implementation{Name: "example-client", Version: "0.1.0"},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
@@ -175,11 +146,20 @@ func run(ctx context.Context, command []string, verbose bool) error {
 	fmt.Printf("Connected to agent (protocol v%d)\n", initialized.ProtocolVersion)
 
 	cwd, _ := os.Getwd()
-	session, err := agent.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
+	// NewSession rather than StartSession: the response lists the modes.
+	created, err := agent.NewSession(ctx, &acp1.NewSessionRequest{Cwd: cwd})
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
+	session := agent.Session(created.SessionID)
 	fmt.Printf("Session %s. Type a message, /ping <text> to call the agent's\nextension method, Ctrl-C to cancel a turn, or Ctrl-D to quit.\n", session.ID)
+	if modes := created.Modes; modes != nil {
+		fmt.Printf("Mode: %s. Switch with /mode <id>:", modes.CurrentModeID)
+		for _, mode := range modes.AvailableModes {
+			fmt.Printf(" %s", mode.ID)
+		}
+		fmt.Println()
+	}
 
 	for {
 		fmt.Print("\n> ")
@@ -192,7 +172,9 @@ func run(ctx context.Context, command []string, verbose bool) error {
 			return err
 		}
 		line = strings.TrimSpace(line)
-		switch message, isPing := strings.CutPrefix(line, "/ping "); {
+		message, isPing := strings.CutPrefix(line, "/ping ")
+		mode, isMode := strings.CutPrefix(line, "/mode ")
+		switch {
 		case line == "":
 		case isPing:
 			result, err := acp.CallExt[pingResult](ctx, agent, "_example.com/ping", map[string]string{"message": message})
@@ -201,8 +183,15 @@ func run(ctx context.Context, command []string, verbose bool) error {
 				continue
 			}
 			fmt.Println(result.Reply)
+		case isMode:
+			_, err := agent.SetSessionMode(ctx, &acp1.SetSessionModeRequest{SessionID: session.ID, ModeID: acp1.SessionModeID(mode)})
+			if err != nil {
+				fmt.Printf("mode: %v\n", err)
+				continue
+			}
+			fmt.Printf("mode: %s\n", mode)
 		default:
-			if err := prompt(ctx, session, line); err != nil {
+			if err := client.prompt(ctx, session, line); err != nil {
 				return err
 			}
 		}
@@ -210,8 +199,8 @@ func run(ctx context.Context, command []string, verbose bool) error {
 }
 
 // prompt runs one turn, rendering its updates as they arrive.
-func prompt(ctx context.Context, session *acpv1.ClientSession, text string) error {
-	turn, err := session.Prompt(ctx, acpv1.TextBlock(text))
+func (c *exampleClient) prompt(ctx context.Context, session *acp1.ClientSession, text string) error {
+	turn, err := session.Prompt(ctx, acp1.TextBlock(text))
 	if err != nil {
 		return fmt.Errorf("prompt: %w", err)
 	}
@@ -230,7 +219,7 @@ func prompt(ctx context.Context, session *acpv1.ClientSession, text string) erro
 	}()
 
 	for update := range turn.Updates() {
-		render(update)
+		c.render(update)
 	}
 	result, err := turn.Wait()
 	if err != nil {

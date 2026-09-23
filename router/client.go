@@ -7,8 +7,8 @@ import (
 	"os/exec"
 
 	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
-	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/go-acp/acp2"
 	"github.com/ironpark/go-acp/internal/acpconn"
 )
 
@@ -17,8 +17,8 @@ import (
 // [ProtocolRouter]:
 //
 //	agent, err := router.NewClient().
-//		WithV1(newV1Client, &acpv1.InitializeRequest{ClientCapabilities: v1Caps}).
-//		WithV2(newV2Client, &acpv2.InitializeRequest{Info: info}).
+//		WithV1(newV1Client, &acp1.InitializeRequest{ClientCapabilities: v1Caps}).
+//		WithV2(newV2Client, &acp2.InitializeRequest{Info: info}).
 //		Spawn(ctx, func() *exec.Cmd { return exec.Command("my-agent") })
 //	defer agent.Close()
 //	switch {
@@ -37,13 +37,13 @@ type ClientConnector struct {
 }
 
 type clientV1 struct {
-	newClient func(*acpv1.ClientSideConnection) acpv1.Client
-	init      acpv1.InitializeRequest
+	newClient func(*acp1.ClientSideConnection) acp1.Client
+	init      acp1.InitializeRequest
 }
 
 type clientV2 struct {
-	newClient func(*acpv2.ClientSideConnection) acpv2.Client
-	init      acpv2.InitializeRequest
+	newClient func(*acp2.ClientSideConnection) acp2.Client
+	init      acp2.InitializeRequest
 }
 
 // NewClient creates a connector with no protocol versions configured.
@@ -51,23 +51,23 @@ func NewClient() *ClientConnector { return &ClientConnector{} }
 
 // WithV1 configures the ACP v1 client and the initialize request it sends.
 // The request's ProtocolVersion is set for you; init may be nil.
-func (c *ClientConnector) WithV1(newClient func(*acpv1.ClientSideConnection) acpv1.Client, init *acpv1.InitializeRequest) *ClientConnector {
+func (c *ClientConnector) WithV1(newClient func(*acp1.ClientSideConnection) acp1.Client, init *acp1.InitializeRequest) *ClientConnector {
 	c.v1 = &clientV1{newClient: newClient}
 	if init != nil {
 		c.v1.init = *init
 	}
-	c.v1.init.ProtocolVersion = acpv1.ProtocolVersion
+	c.v1.init.ProtocolVersion = acp1.ProtocolVersion
 	return c
 }
 
 // WithV2 configures the draft ACP v2 client and the initialize request it
 // sends. The request's ProtocolVersion is set for you; init may be nil.
-func (c *ClientConnector) WithV2(newClient func(*acpv2.ClientSideConnection) acpv2.Client, init *acpv2.InitializeRequest) *ClientConnector {
+func (c *ClientConnector) WithV2(newClient func(*acp2.ClientSideConnection) acp2.Client, init *acp2.InitializeRequest) *ClientConnector {
 	c.v2 = &clientV2{newClient: newClient}
 	if init != nil {
 		c.v2.init = *init
 	}
-	c.v2.init.ProtocolVersion = acpv2.ProtocolVersion
+	c.v2.init.ProtocolVersion = acp2.ProtocolVersion
 	return c
 }
 
@@ -76,13 +76,13 @@ func (c *ClientConnector) WithV2(newClient func(*acpv2.ClientSideConnection) acp
 // is the same agent for code that does not depend on the version.
 type Agent struct {
 	Connection
-	V1     *acpv1.RemoteAgent
-	V1Init *acpv1.InitializeResponse
-	V2     *acpv2.RemoteAgent
-	V2Init *acpv2.InitializeResponse
+	V1     *acp1.RemoteAgent
+	V1Init *acp1.InitializeResponse
+	V2     *acp2.RemoteAgent
+	V2Init *acp2.InitializeResponse
 }
 
-// Connection is what [acpv1.RemoteAgent] and [acpv2.RemoteAgent] share.
+// Connection is what [acp1.RemoteAgent] and [acp2.RemoteAgent] share.
 type Connection interface {
 	acp.Conn
 	// Wait blocks until the connection has stopped, and a spawned agent's
@@ -99,8 +99,8 @@ var ErrNoCommonVersion = errors.New("router: agent supports no configured protoc
 // only once. opts configure whichever connection is kept.
 func (c *ClientConnector) Spawn(ctx context.Context, newCmd func() *exec.Cmd, opts ...acp.Option) (*Agent, error) {
 	return c.negotiate(ctx,
-		func() (*acpv1.RemoteAgent, error) { return acpv1.SpawnAgent(ctx, newCmd(), c.v1.newClient, opts...) },
-		func() (*acpv2.RemoteAgent, error) { return acpv2.SpawnAgent(ctx, newCmd(), c.v2.newClient, opts...) })
+		func() (*acp1.RemoteAgent, error) { return acp1.SpawnAgent(ctx, newCmd(), c.v1.newClient, opts...) },
+		func() (*acp2.RemoteAgent, error) { return acp2.SpawnAgent(ctx, newCmd(), c.v2.newClient, opts...) })
 }
 
 // Connect is Spawn for an agent reached over a transport, such as Streamable
@@ -115,32 +115,32 @@ func (c *ClientConnector) Spawn(ctx context.Context, newCmd func() *exec.Cmd, op
 // a v2 attempt that falls back to v1 closes its transport first.
 func (c *ClientConnector) Connect(ctx context.Context, dial func(context.Context) (acp.Transport, error), opts ...acp.Option) (*Agent, error) {
 	return c.negotiate(ctx,
-		func() (*acpv1.RemoteAgent, error) {
-			t, err := dial(ctx)
-			if err != nil {
-				return nil, err
-			}
-			return acpv1.ConnectAgent(ctx, t, c.v1.newClient, opts...), nil
-		},
-		func() (*acpv2.RemoteAgent, error) {
-			t, err := dial(ctx)
-			if err != nil {
-				return nil, err
-			}
-			return acpv2.ConnectAgent(ctx, t, c.v2.newClient, opts...), nil
-		})
+		dialed(ctx, dial, func(t acp.Transport) *acp1.RemoteAgent { return acp1.ConnectAgent(ctx, t, c.v1.newClient, opts...) }),
+		dialed(ctx, dial, func(t acp.Transport) *acp2.RemoteAgent { return acp2.ConnectAgent(ctx, t, c.v2.newClient, opts...) }))
+}
+
+// dialed starts a connection over a freshly dialed transport.
+func dialed[A any](ctx context.Context, dial func(context.Context) (acp.Transport, error), connect func(acp.Transport) A) func() (A, error) {
+	return func() (A, error) {
+		t, err := dial(ctx)
+		if err != nil {
+			var zero A
+			return zero, err
+		}
+		return connect(t), nil
+	}
 }
 
 // negotiate initializes with v2 when configured, falling back to a fresh v1
 // connection when the agent answers protocolVersion 1.
-func (c *ClientConnector) negotiate(ctx context.Context, startV1 func() (*acpv1.RemoteAgent, error), startV2 func() (*acpv2.RemoteAgent, error)) (*Agent, error) {
+func (c *ClientConnector) negotiate(ctx context.Context, startV1 func() (*acp1.RemoteAgent, error), startV2 func() (*acp2.RemoteAgent, error)) (*Agent, error) {
 	switch {
 	case c.v2 != nil:
 		agent, negotiated, err := c.initializeV2(ctx, startV2)
 		if err != nil || agent != nil {
 			return agent, err
 		}
-		if negotiated != acpv1.ProtocolVersion || c.v1 == nil {
+		if negotiated != acp1.ProtocolVersion || c.v1 == nil {
 			return nil, fmt.Errorf("%w: agent answered protocolVersion %d", ErrNoCommonVersion, negotiated)
 		}
 		return c.initializeV1(ctx, startV1)
@@ -152,7 +152,7 @@ func (c *ClientConnector) negotiate(ctx context.Context, startV1 func() (*acpv1.
 
 // initializeV2 initializes with v2. It returns the agent when v2 was
 // accepted, or the version the agent answered after shutting it down.
-func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acpv2.RemoteAgent, error)) (*Agent, int, error) {
+func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acp2.RemoteAgent, error)) (*Agent, int, error) {
 	remote, err := start()
 	if err != nil {
 		return nil, 0, err
@@ -165,16 +165,16 @@ func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acpv2
 		if acp.IsCode(err, acp.ErrorCodeInvalidParams) || acp.IsCode(err, acp.ErrorCodeInvalidRequest) {
 			// A strict v1 agent may reject the v2 request shape outright
 			// rather than answer protocolVersion 1.
-			return nil, acpv1.ProtocolVersion, nil
+			return nil, acp1.ProtocolVersion, nil
 		}
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}
 	version, _ := protocolVersionOf(raw) // 0 if missing or malformed: no common version
-	if version != acpv2.ProtocolVersion {
+	if version != acp2.ProtocolVersion {
 		shutdown(remote)
 		return nil, int(version), nil
 	}
-	init, err := acpconn.DecodeResult[acpv2.InitializeResponse](raw)
+	init, err := acpconn.DecodeResult[acp2.InitializeResponse](raw)
 	if err != nil {
 		shutdown(remote)
 		return nil, 0, fmt.Errorf("initialize: %w", err)
@@ -182,7 +182,7 @@ func (c *ClientConnector) initializeV2(ctx context.Context, start func() (*acpv2
 	return &Agent{Connection: remote, V2: remote, V2Init: init}, 0, nil
 }
 
-func (c *ClientConnector) initializeV1(ctx context.Context, start func() (*acpv1.RemoteAgent, error)) (*Agent, error) {
+func (c *ClientConnector) initializeV1(ctx context.Context, start func() (*acp1.RemoteAgent, error)) (*Agent, error) {
 	remote, err := start()
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func (c *ClientConnector) initializeV1(ctx context.Context, start func() (*acpv1
 		shutdown(remote)
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
-	if init.ProtocolVersion != acpv1.ProtocolVersion {
+	if init.ProtocolVersion != acp1.ProtocolVersion {
 		shutdown(remote)
 		return nil, fmt.Errorf("%w: agent answered protocolVersion %d", ErrNoCommonVersion, init.ProtocolVersion)
 	}

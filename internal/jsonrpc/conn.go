@@ -26,6 +26,9 @@ const CancelRequestMethod = "$/cancel_request"
 // emptyObject is the result sent for a request whose handler returned no value.
 var emptyObject = jsontext.Value(`{}`)
 
+// errConnectionClosed fails the requests still pending when the connection stops.
+var errConnectionClosed = errors.New("connection closed")
+
 // RequestHandler handles an incoming request and returns the value to encode
 // as the JSON-RPC result. A nil value is encoded as an empty object.
 type RequestHandler func(ctx context.Context, method string, params jsontext.Value) (any, error)
@@ -68,6 +71,7 @@ type Connection struct {
 	writeQueue chan jsontext.Value
 	ctx        context.Context
 	cancel     context.CancelFunc
+	fail       context.CancelCauseFunc // cancels with the error that broke the connection
 
 	wg        sync.WaitGroup // write loop
 	handlerWg sync.WaitGroup // in-flight request handlers
@@ -140,7 +144,8 @@ func New(request RequestHandler, notification NotificationHandler, transport Tra
 	c.writeQueue = make(chan jsontext.Value, c.writeQueueSize)
 	// The connection is usable before Start: outgoing messages queue up and the
 	// write loop flushes them once it runs.
-	c.ctx, c.cancel = context.WithCancel(context.Background())
+	c.ctx, c.fail = context.WithCancelCause(context.Background())
+	c.cancel = func() { c.fail(nil) }
 
 	for _, mw := range slices.Backward(c.middlewares) {
 		if mw.Request != nil && c.request != nil {
@@ -161,18 +166,21 @@ func (c *Connection) Start(ctx context.Context) error {
 	defer stop()
 
 	if !c.goUnlessClosed(&c.wg, c.writeLoop) {
-		c.failPending(errors.New("connection closed"))
-		return c.ctx.Err()
+		c.failPending(errConnectionClosed)
+		return context.Cause(c.ctx)
 	}
 
 	err := c.readLoop()
+	if cause := context.Cause(c.ctx); cause != nil && errors.Is(err, context.Canceled) {
+		err = cause // why, if a write failed
+	}
 	// The reader is done (typically EOF). Let in-flight handlers finish so
 	// their responses reach the write loop, then let the write loop flush them
 	// before Start returns: a caller that exits on return must not lose a reply.
 	c.handlerWg.Wait()
 	c.cancel()
 	c.wg.Wait()
-	c.failPending(errors.New("connection closed"))
+	c.failPending(errConnectionClosed)
 	return err
 }
 
@@ -211,7 +219,7 @@ func (c *Connection) Close() error {
 	} else {
 		waitAll()
 	}
-	c.failPending(errors.New("connection closed"))
+	c.failPending(errConnectionClosed)
 	return nil
 }
 
@@ -282,18 +290,19 @@ func (c *Connection) readLoop() error {
 }
 
 func (c *Connection) writeLoop() {
-	write := func(ctx context.Context, data jsontext.Value) bool {
-		if err := c.transport.WriteMessage(ctx, data); err != nil {
-			c.logError(fmt.Errorf("write jsonrpc message: %w", err))
-			return false
+	write := func(ctx context.Context, data jsontext.Value) error {
+		err := c.transport.WriteMessage(ctx, data)
+		if err != nil {
+			err = fmt.Errorf("write jsonrpc message: %w", err)
+			c.logError(err)
 		}
-		return true
+		return err
 	}
 	for {
 		select {
 		case data := <-c.writeQueue:
-			if !write(c.ctx, data) {
-				c.cancel() // a broken transport ends the connection
+			if err := write(c.ctx, data); err != nil {
+				c.fail(err) // a broken transport ends the connection
 				return
 			}
 		case <-c.ctx.Done():
@@ -301,7 +310,7 @@ func (c *Connection) writeLoop() {
 			for {
 				select {
 				case data := <-c.writeQueue:
-					if !write(context.WithoutCancel(c.ctx), data) {
+					if write(context.WithoutCancel(c.ctx), data) != nil {
 						return
 					}
 				default:
@@ -323,7 +332,7 @@ func (c *Connection) send(msg wireMessage) error {
 	case c.writeQueue <- data:
 		return nil
 	case <-c.ctx.Done():
-		return c.ctx.Err()
+		return context.Cause(c.ctx)
 	}
 }
 
@@ -379,14 +388,12 @@ func (c *Connection) callRequest(ctx context.Context, method string, params json
 // that answered deliberately keeps its own error; one that merely gave up on a
 // cancelled context reports -32800.
 func toRequestError(ctx context.Context, err error) *RequestError {
-	var reqErr *RequestError
-	if errors.As(err, &reqErr) {
+	if reqErr, ok := errors.AsType[*RequestError](err); ok {
 		return reqErr
 	}
 	if ctx.Err() != nil {
 		if cause := context.Cause(ctx); cause != nil {
-			var cancelled *RequestError
-			if errors.As(cause, &cancelled) && cancelled.Code == CodeRequestCancelled {
+			if cancelled, ok := errors.AsType[*RequestError](cause); ok && cancelled.Code == CodeRequestCancelled {
 				return cancelled
 			}
 		}
@@ -514,7 +521,7 @@ func (c *Connection) SendRequest(ctx context.Context, method string, params any)
 		c.sendCancelRequest(id)
 		return nil, ctx.Err()
 	case <-c.ctx.Done():
-		return nil, c.ctx.Err()
+		return nil, context.Cause(c.ctx)
 	}
 }
 

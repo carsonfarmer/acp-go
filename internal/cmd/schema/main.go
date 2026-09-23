@@ -23,7 +23,7 @@ func run(args []string) error {
 	flags := flag.NewFlagSet("acp-schema", flag.ContinueOnError)
 	source := flags.String("source", "schema/typescript", "Directory containing v1 and v2 TypeScript schema snapshots")
 	output := flags.String("out", "schema", "Output directory for v1/*.gen.go and v2/*.gen.go")
-	facadeRoot := flags.String("facade", "", "Module root to write the acpv1 and acpv2 façade files into; skipped when empty")
+	facadeRoot := flags.String("facade", "", "Module root to write the acp1 and acp2 façade files into; skipped when empty")
 	check := flags.Bool("check", false, "Check generated files without writing")
 	if err := flags.Parse(args); err != nil {
 		return err

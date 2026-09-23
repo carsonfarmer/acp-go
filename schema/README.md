@@ -37,15 +37,15 @@ Inputs and outputs:
 | `src/schema/*.ts` | `typescript/v1` | `github.com/ironpark/go-acp/schema/v1` |
 | `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/go-acp/schema/v2` |
 
-Both Go packages are named `schema`; use aliases such as `acpv1` and `acpv2` when importing both.
-`acpv1` implements ACP v1 on top of `schema/v1`, `acpv2` implements the draft v2 on top of
+Both Go packages are named `schema`; use aliases such as `acp1` and `acp2` when importing both.
+`acp1` implements ACP v1 on top of `schema/v1`, `acp2` implements the draft v2 on top of
 `schema/v2`, the root `acp` package holds the runtime they share, and `router` serves both on one
 endpoint. The previous JSON Schema generator,
 inputs and configuration have been removed.
 
 ## Façade generation
 
-`-facade <module root>` also writes `types.gen.go` and `methods.gen.go` into `acpv1` and `acpv2`. Their input is the method table in `internal/cmd/schema/facade/{v1,v2}.go`: how
+`-facade <module root>` also writes `types.gen.go` and `methods.gen.go` into `acp1` and `acp2`. Their input is the method table in `internal/cmd/schema/facade/{v1,v2}.go`: how
 wire methods group into Go interfaces, which are required, and what their docs say. The generator
 checks the table against the schema constants and type names, so an upstream method that is
 neither in the table nor listed as `Unhandled` fails generation instead of silently going unrouted.
@@ -91,15 +91,15 @@ the discriminator member; the tag is implied by the Go type, written first by th
 and branch with a type switch:
 
 ```go
-var update acpv2.SessionUpdate
+var update acp2.SessionUpdate
 if err := json.Unmarshal(data, &update); err != nil { ... }
 switch v := update.Variant().(type) {
-case acpv2.SessionUpdateAgentMessageChunk:
+case acp2.SessionUpdateAgentMessageChunk:
 	// v.Content ...
-case acpv2.SessionUpdateCustom:
+case acp2.SessionUpdateCustom:
 	// v.SessionUpdate holds the unknown tag; v.AdditionalProperties keeps every member.
 }
-out := acpv2.NewSessionUpdate(acpv2.SessionUpdateAgentMessageChunk{Content: block})
+out := acp2.NewSessionUpdate(acp2.SessionUpdateAgentMessageChunk{Content: block})
 ```
 
 A catch-all `{ tag: string; [key: string]: unknown }` member becomes `<Type>Custom`, so unknown
@@ -129,7 +129,7 @@ Missing required members are not rejected by plain decoding; use `Validated` for
 SDK-level validation. The zero wrapper encodes as `null`, `null` decodes to the zero wrapper, and
 wrappers implement `IsZero`, so optional union fields are plain values omitted when unset.
 Callers that prefer interface-typed fields can declare `<Type>Variant` fields directly and decode
-with `json.WithUnmarshalers(acpv2.Unmarshalers)`; encoding needs no options.
+with `json.WithUnmarshalers(acp2.Unmarshalers)`; encoding needs no options.
 
 Unions that are not discriminated objects (`RequestId`, `AgentResponse`, `ElicitationContentValue`,
 method `params` unions, ...) preserve their JSON payload and expose a generic method `As[T]`, a
@@ -138,7 +138,7 @@ generated type set `<Union>Alternative`, so asking for a type the union cannot h
 error (generic methods require Go 1.27):
 
 ```go
-req, err := msg.Params.As[acpv1.PromptRequest]()          // (T, error)
+req, err := msg.Params.As[acp1.PromptRequest]()          // (T, error)
 id, err := schemav1.NewRequestID("abc")                     // string | float64 | jsontext.Value
 ```
 
@@ -211,10 +211,10 @@ type met while unmarshaling, at any nesting depth. The generic `Decode` and `Val
 functions do the same for one top-level value:
 
 ```go
-var req acpv2.PromptRequest
-err := json.Unmarshal(data, &req, acpv2.Validated)
-req, err = acpv2.Decode[acpv2.PromptRequest](data)
-err = acpv2.Validate[acpv2.RequestPermissionRequest](data)
+var req acp2.PromptRequest
+err := json.Unmarshal(data, &req, acp2.Validated)
+req, err = acp2.Decode[acp2.PromptRequest](data)
+err = acp2.Validate[acp2.RequestPermissionRequest](data)
 ```
 
 `Decode` validates and normalizes according to the supported Zod rules, then decodes

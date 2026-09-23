@@ -1,20 +1,18 @@
 package facade
 
-// V1 is the method table for the stable ACP v1 façade in acpv1.
+// V1 is the method table for the stable ACP v1 façade in acp1.
 var V1 = &Spec{
-	Package:    "acpv1",
-	Dir:        "acpv1",
+	Package:    "acp1",
+	Dir:        "acp1",
 	SchemaPath: "github.com/ironpark/go-acp/schema/v1",
-	Unhandled: []string{
-		// The reference SDKs leave MCP proxying to extensions in v1.
-		"mcp/connect", "mcp/message", "mcp/disconnect",
-	},
 	ExtraTypes: []string{
 		"SessionID", "SessionInfo", "SessionModeID", "SessionConfigOption", "SessionUpdate",
 		"MessageID", "TerminalID", "ToolCallID", "ToolCallContent", "ToolCallLocation",
 		"ToolCallStatus", "ToolKind", "ContentBlock", "PlanEntry", "AvailableCommand",
 		"Cost", "StopReason", "Implementation", "PermissionOption", "PermissionOptionKind",
 		"ToolCallUpdate", "RequestPermissionOutcome", "PlanEntryStatus", "PlanEntryPriority",
+		"SessionModeState", "SessionMode", "TerminalExitStatus",
+		"MCPServer", "MCPCapabilities", "MCPConnectionID", "MCPServerACPID",
 	},
 	Agent: []Group{
 		{
@@ -199,6 +197,22 @@ notifications.`,
 client's open editors.`,
 			Methods: documentMethods,
 		},
+		{
+			Interface:    "MCPMessageHandler",
+			Experimental: true,
+			Doc: `MCPMessageHandler receives the traffic an MCP server the client provides
+sends back to the agent over mcp/message: requests, answered with the MCP
+result, and notifications. Implementing it advertises the
+` + "`mcpCapabilities.acp`" + ` agent capability through [CapabilitiesOf].
+
+MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
+			Methods: []Method{
+				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
+					CallDoc: `MessageMCP forwards an MCP request to the agent and returns its result.`},
+				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
+					CallDoc: `NotifyMCP forwards an MCP notification to the agent.`},
+			},
+		},
 	},
 	Client: []Group{
 		{
@@ -275,6 +289,25 @@ a handle bound to the new terminal.`},
 					CallDoc: `WaitForTerminalExit blocks until the terminal's command exits.`},
 				{Wire: "terminal/kill", Name: "KillTerminal", Params: "KillTerminalRequest", Response: "KillTerminalResponse",
 					CallDoc: `KillTerminal kills the command but keeps the terminal id valid.`},
+			},
+		},
+		{
+			Interface:    "MCPConnector",
+			Experimental: true,
+			Doc: `MCPConnector serves the MCP servers the client lists with the "acp"
+transport in session/new: mcp/connect opens a connection to one, mcp/message
+carries requests and notifications over it, and mcp/disconnect closes it.
+
+MCP-over-ACP is an RFD-stage draft; the wire format may still change.`,
+			Methods: []Method{
+				{Wire: "mcp/connect", Name: "ConnectMCP", Params: "ConnectMCPRequest", Response: "ConnectMCPResponse",
+					CallDoc: `ConnectMCP opens a connection to an MCP server the client provides.`},
+				{Wire: "mcp/message", Name: "MessageMCP", Params: "MessageMCPRequest", Response: "MessageMCPResponse",
+					CallDoc: `MessageMCP sends an MCP request over a connection and returns its result.`},
+				{Wire: "mcp/message", Name: "NotifyMCP", Params: "MessageMCPNotification",
+					CallDoc: `NotifyMCP sends an MCP notification over a connection.`},
+				{Wire: "mcp/disconnect", Name: "DisconnectMCP", Params: "DisconnectMCPRequest", Response: "DisconnectMCPResponse",
+					CallDoc: `DisconnectMCP closes an MCP connection.`},
 			},
 		},
 		{

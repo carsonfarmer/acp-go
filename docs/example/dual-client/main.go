@@ -7,8 +7,8 @@
 //
 // router.ClientConnector spawns the agent and initializes with v2 first. An
 // agent that answers protocolVersion 1 is restarted and initialized with v1,
-// so each version sends its own initialize request. The session code below
-// then branches once on the version it got.
+// so each version sends its own initialize request. The session code then
+// branches once on the version it got, into v1.go or v2.go.
 package main
 
 import (
@@ -20,28 +20,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acpv1"
-	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/go-acp/acp2"
 	"github.com/ironpark/go-acp/router"
 )
-
-// The clients only receive updates; each Turn collects its own.
-type v1Client struct{}
-
-func (v1Client) SessionUpdate(context.Context, *acpv1.SessionNotification) error { return nil }
-
-func (v1Client) RequestPermission(context.Context, *acpv1.RequestPermissionRequest) (*acpv1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
-}
-
-type v2Client struct{}
-
-func (v2Client) SessionUpdate(context.Context, *acpv2.UpdateSessionNotification) error { return nil }
-
-func (v2Client) RequestPermission(context.Context, *acpv2.RequestPermissionRequest) (*acpv2.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
-}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
@@ -59,12 +41,13 @@ func run(ctx context.Context, command []string) error {
 		command = []string{binary}
 	}
 
-	clientInfo := &acpv1.Implementation{Name: "dual-client", Version: "0.1.0"}
+	clientInfo := &acp1.Implementation{Name: "dual-client", Version: "0.1.0"}
+	v2 := &v2Client{}
 	agent, err := router.NewClient().
-		WithV1(func(*acpv1.ClientSideConnection) acpv1.Client { return v1Client{} },
-			&acpv1.InitializeRequest{ClientInfo: clientInfo}).
-		WithV2(func(*acpv2.ClientSideConnection) acpv2.Client { return v2Client{} },
-			&acpv2.InitializeRequest{Info: acpv2.Implementation{Name: clientInfo.Name, Version: clientInfo.Version}}).
+		WithV1(func(*acp1.ClientSideConnection) acp1.Client { return v1Client{} },
+			&acp1.InitializeRequest{ClientInfo: clientInfo}).
+		WithV2(func(*acp2.ClientSideConnection) acp2.Client { return v2 },
+			&acp2.InitializeRequest{Info: acp2.Implementation{Name: clientInfo.Name, Version: clientInfo.Version}}).
 		// Spawn may start the agent twice, so it takes a command factory.
 		Spawn(ctx, func() *exec.Cmd { return exec.Command(command[0], command[1:]...) })
 	if err != nil {
@@ -74,39 +57,12 @@ func run(ctx context.Context, command []string) error {
 
 	cwd, _ := os.Getwd()
 	const prompt = "hello from dual-client"
-	switch {
-	case agent.V2 != nil:
+	if agent.V2 != nil {
 		fmt.Printf("negotiated v2 with %s\n", agent.V2Init.Info.Name)
-		session, err := agent.V2.StartSession(ctx, &acpv2.NewSessionRequest{Cwd: acpv2.AbsolutePath(cwd)})
-		if err != nil {
-			return err
-		}
-		turn, _, err := session.Prompt(ctx, acpv2.TextBlock(prompt))
-		if err != nil {
-			return err
-		}
-		text, reason, err := turn.Text()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("<< %s\nstop reason: %s\n", text, *reason)
-	case agent.V1 != nil:
-		fmt.Println("negotiated v1")
-		session, err := agent.V1.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
-		if err != nil {
-			return err
-		}
-		turn, err := session.Prompt(ctx, acpv1.TextBlock(prompt))
-		if err != nil {
-			return err
-		}
-		text, response, err := turn.Text()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("<< %s\nstop reason: %s\n", text, response.StopReason)
+		return promptV2(ctx, agent.V2, v2, cwd, prompt)
 	}
-	return nil
+	fmt.Println("negotiated v1")
+	return promptV1(ctx, agent.V1, cwd, prompt)
 }
 
 // buildDualAgent compiles the dual-agent example into a temporary directory.

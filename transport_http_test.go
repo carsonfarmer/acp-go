@@ -44,9 +44,9 @@ func fakeAgent(ctx context.Context, t Transport) error {
 	}
 }
 
-func newHTTPPair(t *testing.T) (*HTTPServer, *HTTPClientTransport, *httptest.Server) {
+func newHTTPPair(t *testing.T, opts ...HTTPServerOption) (*HTTPServer, *HTTPClientTransport, *httptest.Server) {
 	t.Helper()
-	server := NewHTTPServer(fakeAgent)
+	server := NewHTTPServer(fakeAgent, opts...)
 	ts := httptest.NewServer(server)
 	client := NewHTTPClientTransport(ts.URL)
 	t.Cleanup(func() {
@@ -64,9 +64,9 @@ func waitAttached(t *testing.T, server *HTTPServer) {
 		server.mu.Lock()
 		attached := false
 		for _, c := range server.conns {
-			c.connStream.mu.Lock()
-			attached = c.connStream.attached
-			c.connStream.mu.Unlock()
+			c.mu.Lock()
+			attached = c.readers > 0
+			c.mu.Unlock()
 		}
 		server.mu.Unlock()
 		if attached {
@@ -181,7 +181,6 @@ func TestHTTPServerRejects(t *testing.T) {
 		{"unknown session", "POST", `{"jsonrpc":"2.0","id":9,"method":"session/prompt","params":{"sessionId":"zz"}}`, map[string]string{"Content-Type": "application/json", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusNotFound},
 		{"stream without Accept", "GET", ``, map[string]string{ConnectionIDHeader: conn}, http.StatusNotAcceptable},
 		{"stream of unknown session", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn, SessionIDHeader: "zz"}, http.StatusNotFound},
-		{"second connection stream", "GET", ``, map[string]string{"Accept": "text/event-stream", ConnectionIDHeader: conn}, http.StatusConflict},
 		{"delete without connection", "DELETE", ``, nil, http.StatusBadRequest},
 		{"put", "PUT", ``, nil, http.StatusMethodNotAllowed},
 	}

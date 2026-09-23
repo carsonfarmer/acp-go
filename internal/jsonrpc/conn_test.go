@@ -424,3 +424,31 @@ func TestCloseRacesStart(t *testing.T) {
 		<-started
 	}
 }
+
+// brokenTransport fails every write, as a transport to an unreachable peer does.
+type brokenTransport struct{ err error }
+
+func (t brokenTransport) ReadMessage(ctx context.Context) (jsontext.Value, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (t brokenTransport) WriteMessage(context.Context, jsontext.Value) error { return t.err }
+
+func (brokenTransport) Close() error { return nil }
+
+// A failed write ends the connection with the write's error, not a bare
+// "context canceled".
+func TestWriteFailureIsReported(t *testing.T) {
+	refused := errors.New("connection refused")
+	conn := New(nil, nil, brokenTransport{refused})
+	started := make(chan error, 1)
+	go func() { started <- conn.Start(t.Context()) }()
+
+	if _, err := conn.SendRequest(t.Context(), "initialize", nil); !errors.Is(err, refused) {
+		t.Fatalf("SendRequest = %v, want the write error", err)
+	}
+	if err := <-started; !errors.Is(err, refused) {
+		t.Fatalf("Start = %v, want the write error", err)
+	}
+}
