@@ -11,7 +11,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 
@@ -99,18 +99,18 @@ func main() {
 	)
 
 	// Stdout carries the protocol, so logs go to stderr.
-	logger := log.New(os.Stderr, "", log.LstdFlags)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
 		a := &exampleAgent{SessionManager: manager, client: c}
 		a.HandleExt(pingMethod, a.ping)
 		return a
 	}, os.Stdin, os.Stdout,
-		acp.WithMiddleware(acp.LoggingMiddleware(logger.Printf)),
-		acp.WithErrorHandler(func(err error) { logger.Printf("acp: %v", err) }),
+		acp.WithMiddleware(acp.LoggingMiddleware(logger)),
+		acp.WithErrorHandler(func(err error) { logger.Error("acp", "error", err) }),
 	)
 
 	if err := conn.Start(context.Background()); err != nil {
-		logger.Printf("connection error: %v", err)
+		logger.Error("connection ended", "error", err)
 		os.Exit(1)
 	}
 }

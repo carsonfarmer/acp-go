@@ -276,11 +276,14 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 ```go
 conn := acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
-        acp.LoggingMiddleware(logger.Printf),
+        acp.LoggingMiddleware(slog.Default()), // 메서드, 소요 시간, 오류를 slog로 기록
         acp.TimeoutMiddleware(30*time.Second),
     ),
 )
 ```
+
+`LoggingMiddleware`는 요청을 Info, 자주 오는 session update 같은 알림을 Debug 레벨로 `method`,
+`duration` 속성과 함께 기록하고, 실패하면 Warn 레벨로 `error`와 JSON-RPC `code`를 덧붙입니다.
 
 핸들러의 패닉은 연결이 직접 복구해 `-32603`으로 응답하므로 별도의 recovery 미들웨어가 필요하지 않습니다.
 

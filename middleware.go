@@ -3,38 +3,47 @@ package acp
 import (
 	"context"
 	"encoding/json/jsontext"
-	"log"
+	"errors"
+	"log/slog"
 	"time"
 )
 
-// LoggingMiddleware logs each incoming method, how long it took and any error.
+// LoggingMiddleware logs each incoming method to logger with its duration and
+// any error, as structured attributes: "method", "duration", and on failure
+// "error" and, for a [RequestError], "code". A request logs at Info and a
+// notification, which session updates make frequent, at Debug; a failure of
+// either logs at Warn. The handler's context is passed to logger.
 //
-// Passing nil uses log.Printf.
-func LoggingMiddleware(logger func(format string, args ...any)) Middleware {
+// Passing nil uses [slog.Default].
+func LoggingMiddleware(logger *slog.Logger) Middleware {
 	if logger == nil {
-		logger = log.Printf
+		logger = slog.Default()
+	}
+	log := func(ctx context.Context, level slog.Level, msg, method string, start time.Time, err error) {
+		attrs := []slog.Attr{slog.String("method", method), slog.Duration("duration", time.Since(start))}
+		if err != nil {
+			level = slog.LevelWarn
+			attrs = append(attrs, slog.Any("error", err))
+			if rpcErr, ok := errors.AsType[*RequestError](err); ok {
+				attrs = append(attrs, slog.Int("code", int(rpcErr.Code)))
+			}
+		}
+		logger.LogAttrs(ctx, level, msg, attrs...)
 	}
 	return Middleware{
 		Request: func(next RequestHandler) RequestHandler {
 			return func(ctx context.Context, method string, params jsontext.Value) (any, error) {
 				start := time.Now()
 				result, err := next(ctx, method, params)
-				if err != nil {
-					logger("[ACP] %s failed (%s): %v", method, time.Since(start), err)
-				} else {
-					logger("[ACP] %s completed (%s)", method, time.Since(start))
-				}
+				log(ctx, slog.LevelInfo, "acp request", method, start, err)
 				return result, err
 			}
 		},
 		Notification: func(next NotificationHandler) NotificationHandler {
 			return func(ctx context.Context, method string, params jsontext.Value) error {
+				start := time.Now()
 				err := next(ctx, method, params)
-				if err != nil {
-					logger("[ACP] %s (notification) failed: %v", method, err)
-				} else {
-					logger("[ACP] %s (notification)", method)
-				}
+				log(ctx, slog.LevelDebug, "acp notification", method, start, err)
 				return err
 			}
 		},

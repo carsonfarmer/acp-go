@@ -250,11 +250,15 @@ seconds and close it when the peer stops answering (`acp.WithWebSocketPing` on t
 ```go
 conn := acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
     acp.WithMiddleware(
-        acp.LoggingMiddleware(logger.Printf),    // log methods and durations
+        acp.LoggingMiddleware(slog.Default()),   // log methods, durations and errors
         acp.TimeoutMiddleware(30*time.Second),   // per-handler timeout
     ),
 )
 ```
+
+`LoggingMiddleware` logs requests at Info and notifications, such as the frequent session
+updates, at Debug, with `method` and `duration` attributes; a failure logs at Warn with `error`
+and the JSON-RPC `code`.
 
 Panics in handlers are already recovered by the connection and reported as `-32603`,
 so no recovery middleware is needed. Custom middleware wraps either direction:
