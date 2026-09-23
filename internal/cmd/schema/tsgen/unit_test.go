@@ -108,7 +108,7 @@ func f() { s := strings.ToUpper("x"); _ = s }
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "encoding/json/jsontext encoding/json/v2 github.com/ironpark/acp-go/schema/union"
+	want := "encoding/json/jsontext encoding/json/v2 github.com/ironpark/acp-go/schema/internal/union"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("got %v, want %s", got, want)
 	}

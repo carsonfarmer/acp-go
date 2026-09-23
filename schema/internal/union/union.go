@@ -1,7 +1,6 @@
 // Package union recognizes the alternatives of the generated raw ACP unions
 // (unions that are not discriminated objects). It is a runtime dependency of
-// the generated schema packages rather than a public API; its shape may
-// change with them.
+// the generated schema packages, internal so that it can change with them.
 package union
 
 import (
@@ -11,7 +10,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ironpark/acp-go/schema/zod"
+	"github.com/ironpark/acp-go/schema/internal/zod"
 )
 
 // Rule describes when a JSON payload is one alternative of a raw union.

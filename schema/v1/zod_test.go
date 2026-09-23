@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ironpark/acp-go/schema/zod"
+	"github.com/ironpark/acp-go/schema/internal/zod"
 )
 
 // Captured from the pinned TypeScript SDK using Zod 4.5.4. Normal Go tests

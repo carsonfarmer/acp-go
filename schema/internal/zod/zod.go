@@ -1,6 +1,7 @@
 // Package zod evaluates the statically extracted Zod rules used by the
 // generated ACP schema packages. It is a runtime dependency of those packages
-// rather than a general Zod implementation; its API may change with them.
+// rather than a general Zod implementation, internal so that it can change
+// with them.
 package zod
 
 import (

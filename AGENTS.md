@@ -23,7 +23,7 @@ ACP(Agent Client Protocol) for golang
 - Outputs: `schema/{v1,v2}/{methods,enums,types,unions,envelope,getters}.gen.go` (wire types by kind, plus nil-safe getters), `schema/{v1,v2}/zod.gen.go` (Zod rule tables),
   plus `types.gen.go`/`methods.gen.go` in the `acp1` and `acp2` façade packages (from `internal/cmd/schema/facade/{v1,v2}.go`)
 - Adding or regrouping a protocol method: edit the façade table, run `go generate ./...`; never edit `*.gen.go`
-- Shared Zod evaluator: `schema/zod`
+- Shared Zod evaluator: `schema/internal/zod`
 
 ### Packages
 
@@ -32,7 +32,7 @@ ACP(Agent Client Protocol) for golang
 - `router`: `ProtocolRouter` serving both versions on one endpoint, and `ClientConnector` for the client side with v2→v1 fallback (imports root and both façades).
 - `internal/jsonrpc`: JSON-RPC 2.0 core. `internal/acpconn`: option plumbing, generic dispatch, process spawn/pipe, client turn buffering and agent-side prompt cancel tracking used by the façades.
 - `acpmcp` (separate module, `replace`s the root): MCP-over-ACP bridged to the MCP Go SDK; unstable, like the RFD it implements. Test it from its own directory.
-- `schema/meta`: the `_meta` map type every schema version aliases as `Meta`. `schema/union`, `schema/zod`: generated-code runtimes.
+- `schema/meta`: the `_meta` map type every schema version aliases as `Meta`. `schema/internal/union`, `schema/internal/zod`: generated-code runtimes, importable only by the schema packages.
 
 ### SDK
 

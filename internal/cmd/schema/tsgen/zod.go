@@ -13,10 +13,10 @@ import (
 )
 
 // ZodRuntime is the import path of the shared rule evaluator.
-const ZodRuntime = "github.com/ironpark/acp-go/schema/zod"
+const ZodRuntime = "github.com/ironpark/acp-go/schema/internal/zod"
 
 // UnionRuntime is the import path of the shared raw-union alternative matcher.
-const UnionRuntime = "github.com/ironpark/acp-go/schema/union"
+const UnionRuntime = "github.com/ironpark/acp-go/schema/internal/union"
 
 // MetaRuntime is the import path of the shared _meta map type.
 const MetaRuntime = "github.com/ironpark/acp-go/schema/meta"

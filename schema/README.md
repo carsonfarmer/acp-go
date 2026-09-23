@@ -13,10 +13,10 @@ structs and aliases), `unions.gen.go` (tagged and raw payload unions) and
 `envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …),
 `getters.gen.go` (nil-safe `GetX` methods for the pointer fields of payload structs) —
 and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
-The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and the
+The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/internal/zod` and the
 union runtime (alternative matching for raw unions, tag splicing for tagged unions) once in
-`schema/union`; both are shared by the versions as runtime dependencies of the generated packages,
-not public APIs. Every `_meta` member is generated as `Meta`, an alias of the public
+`schema/internal/union`; both are shared by the versions as runtime dependencies of the generated
+packages, internal so that only the schema packages import them. Every `_meta` member is generated as `Meta`, an alias of the public
 `schema/meta.Meta` map, which keeps values as raw JSON and adds `Of`, `Set` and `Get[T]`.
 
 ```sh

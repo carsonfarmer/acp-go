@@ -145,14 +145,15 @@ func TestName(t *testing.T) {
 }
 
 // writeFixture writes generated files plus a go.mod that resolves the shared
-// Zod runtime through this repository.
+// runtimes through this repository. The module path sits under schema/, like
+// the real schema packages, so the fixture may import schema/internal.
 func writeFixture(t *testing.T, dir string, files Files, tests []byte) {
 	t.Helper()
 	repo, err := filepath.Abs("../../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/acp-go v0.0.0\n\nreplace github.com/ironpark/acp-go => " + repo + "\n"
+	gomod := "module github.com/ironpark/acp-go/schema/fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/acp-go v0.0.0\n\nreplace github.com/ironpark/acp-go => " + repo + "\n"
 	all := map[string][]byte{"go.mod": []byte(gomod), "schema_test.go": tests}
 	maps.Copy(all, files)
 	for name, data := range all {
