@@ -1,4 +1,5 @@
 // Emission of top-level definitions: aliases, enums and intersection expansion.
+
 package tsgen
 
 import (

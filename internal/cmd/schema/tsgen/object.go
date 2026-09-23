@@ -1,4 +1,5 @@
 // Emission of object types as Go structs.
+
 package tsgen
 
 import (

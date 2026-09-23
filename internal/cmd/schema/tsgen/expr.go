@@ -1,4 +1,5 @@
 // Type queries over the parsed schema and rendering of Go type expressions.
+
 package tsgen
 
 import (

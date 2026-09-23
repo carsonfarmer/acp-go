@@ -1,4 +1,5 @@
 // Emission of tagged and raw unions.
+
 package tsgen
 
 import (

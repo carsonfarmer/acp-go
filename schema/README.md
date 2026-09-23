@@ -13,8 +13,9 @@ structs and aliases), `unions.gen.go` (tagged and raw payload unions) and
 `envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …) —
 and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
 The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and the
-raw-union alternative matcher once in `schema/union`; both are shared by the versions as runtime
-dependencies of the generated packages, not public APIs.
+union runtime (alternative matching for raw unions, tag splicing for tagged unions) once in
+`schema/union`; both are shared by the versions as runtime dependencies of the generated packages,
+not public APIs.
 
 ```sh
 # From the repository root:
@@ -135,7 +136,8 @@ to the caller, so decoding a copied union value does not mutate the original.
 
 The generator first processes both versions before writing output, and `-check` detects stale
 checked-in output without modifying it. Generator tests cover parsing failures, numeric hints,
-compilation and JSON round trips of generated Go code, plus both pinned SDK versions.
+compilation and JSON round trips of generated Go code, table tests for the pure helpers (alias
+resolution, alternative rules, import detection), plus both pinned SDK versions.
 
 ## Generated API naming
 
