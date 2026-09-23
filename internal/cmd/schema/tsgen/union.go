@@ -79,8 +79,8 @@ func (g *generator) tagged(t *tsdef.Type) (tag string, members []taggedMember, o
 			return "", nil, false, nil
 		}
 		shapes = append(shapes, shape{object: expanded})
-		for _, f := range expanded.Fields {
-			if k, _ := literals(f.Type); !f.Optional && f.Type.Kind == "literal" && k == "string" {
+		for _, f := range requiredLiterals(expanded) {
+			if k, _ := literals(f.Type); k == "string" {
 				candidates[f.Name] = true
 			}
 		}
@@ -283,19 +283,14 @@ func (g *generator) memberLabel(m, expanded *tsdef.Type, siblings []*tsdef.Type)
 	case "unknown", "any":
 		return "Unknown", nil
 	case "intersection":
-		label := ""
+		var label strings.Builder
 		for _, part := range m.Members {
-			if part.Kind != "object" {
-				continue
-			}
-			for _, f := range part.Fields {
-				if f.Type.Kind == "literal" && !f.Optional {
-					label += Name(strings.Trim(f.Type.Literal, "\""))
-				}
+			if part.Kind == "object" {
+				label.WriteString(literalLabel(part))
 			}
 		}
-		if label != "" {
-			return label, nil
+		if label.String() != "" {
+			return label.String(), nil
 		}
 	case "array":
 		element, err := g.memberLabel(m.Element, m.Element, nil)
@@ -305,12 +300,7 @@ func (g *generator) memberLabel(m, expanded *tsdef.Type, siblings []*tsdef.Type)
 		return element + "List", nil
 	}
 	if expanded.Kind == "object" {
-		label := ""
-		for _, f := range expanded.Fields {
-			if f.Type.Kind == "literal" && !f.Optional {
-				label += Name(strings.Trim(f.Type.Literal, "\""))
-			}
-		}
+		label := literalLabel(expanded)
 		if label != "" {
 			return label, nil
 		}
@@ -437,9 +427,9 @@ func (g *generator) altRule(expanded *tsdef.Type) string {
 			if !g.acceptsNull(f.Type, map[string]bool{}) {
 				notNull = append(notNull, strconv.Quote(f.Name))
 			}
-			if f.Type.Kind == "literal" && !f.Optional {
-				tags = append(tags, fmt.Sprintf("{Name: %q, Value: jsontext.Value(%q)}", f.Name, f.Type.Literal))
-			}
+		}
+		for _, f := range requiredLiterals(expanded) {
+			tags = append(tags, fmt.Sprintf("{Name: %q, Value: jsontext.Value(%q)}", f.Name, f.Type.Literal))
 		}
 		if len(required) > 0 {
 			parts = append(parts, "Required: []string{"+strings.Join(required, ", ")+"}")

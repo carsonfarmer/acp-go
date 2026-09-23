@@ -2,6 +2,7 @@ package tsgen
 
 import (
 	"bytes"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,9 +105,7 @@ func writeFixture(t *testing.T, dir string, files Files, tests []byte) {
 	}
 	gomod := "module fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/go-acp v0.0.0\n\nreplace github.com/ironpark/go-acp => " + repo + "\n"
 	all := map[string][]byte{"go.mod": []byte(gomod), "schema_test.go": tests}
-	for name, data := range files {
-		all[name] = data
-	}
+	maps.Copy(all, files)
 	for name, data := range all {
 		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
 			t.Fatal(err)

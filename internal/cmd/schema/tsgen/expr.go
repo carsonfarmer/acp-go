@@ -104,56 +104,8 @@ var literalNames = map[string]map[string]string{
 }
 
 func (g *generator) expr(t *tsdef.Type, hint string) (string, error) {
-	t, isNull := nullable(t)
-	var out string
-	switch t.Kind {
-	case "ref":
-		if _, ok := g.defs[t.Name]; !ok {
-			return "", fmt.Errorf("unresolved type %s", t.Name)
-		}
-		out = Name(t.Name)
-	case "string":
-		out = "string"
-	case "number":
-		out = "float64"
-		if t.Number != "" {
-			out = t.Number
-		}
-	case "boolean":
-		out = "bool"
-	case "unknown", "any", "null", "never":
-		out = "jsontext.Value"
-	case "literal":
-		out, _ = literals(t)
-	case "array":
-		e, err := g.expr(t.Element, hint+"Item")
-		if err != nil {
-			return "", err
-		}
-		out = "[]" + e
-	case "object":
-		if len(t.Fields) == 0 {
-			if t.Element == nil {
-				out = "map[string]jsontext.Value"
-			} else {
-				e, err := g.expr(t.Element, hint+"Value")
-				if err != nil {
-					return "", err
-				}
-				out = "map[string]" + e
-			}
-		} else {
-			out = g.add(hint, t)
-		}
-	case "union", "intersection":
-		out = g.add(hint, t)
-	default:
-		return "", fmt.Errorf("unsupported IR type %s", t.Kind)
-	}
-	if isNull && out != "jsontext.Value" {
-		out = "*" + out
-	}
-	return out, nil
+	out, _, err := g.render(t, hint, nil)
+	return out, err
 }
 
 // canonical resolves the Go type behind a union member so that two aliases of
@@ -162,32 +114,39 @@ func (g *generator) expr(t *tsdef.Type, hint string) (string, error) {
 // schema rather than emitted aliases, so declaration order does not matter,
 // and falls back to expr when the member involves an inline declaration.
 func (g *generator) canonical(m *tsdef.Type, expr string) string {
-	if out, ok := g.staticExpr(m, map[string]bool{}); ok {
+	if out, ok, err := g.render(m, "", map[string]bool{}); ok && err == nil {
 		return out
 	}
 	return expr
 }
 
-// staticExpr renders t the way expr would, without declaring inline types.
-// References to definitions that become distinct named types stop at the
-// name; references that definition() emits as aliases are followed. It
-// reports false when t needs an inline declaration.
-func (g *generator) staticExpr(t *tsdef.Type, seen map[string]bool) (string, bool) {
+// render renders t as a Go type expression. With a nil seen set it declares
+// inline objects and unions under hint, and references stop at the definition
+// name. With a seen set it declares nothing: references that definition()
+// emits as aliases are followed, and it reports false where t needs an inline
+// declaration.
+func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (string, bool, error) {
+	static := seen != nil
 	t, isNull := nullable(t)
 	var out string
 	switch t.Kind {
 	case "ref":
 		d, ok := g.defs[t.Name]
-		if !ok || seen[t.Name] {
-			return "", false
+		if !ok {
+			return "", false, fmt.Errorf("unresolved type %s", t.Name)
 		}
-		seen[t.Name] = true
-		if g.aliasDefinition(d) {
-			if out, ok = g.staticExpr(d, seen); !ok {
-				return "", false
+		out = Name(t.Name)
+		if !static {
+			break
+		}
+		if f, target, err := g.form(d); err == nil && f == formAlias {
+			if seen[t.Name] {
+				return "", false, nil
 			}
-		} else {
-			out = Name(t.Name)
+			seen[t.Name] = true
+			if out, ok, err = g.render(target, "", seen); !ok || err != nil {
+				return "", false, err
+			}
 		}
 	case "string":
 		out = "string"
@@ -203,51 +162,39 @@ func (g *generator) staticExpr(t *tsdef.Type, seen map[string]bool) (string, boo
 	case "literal":
 		out, _ = literals(t)
 	case "array":
-		e, ok := g.staticExpr(t.Element, seen)
-		if !ok {
-			return "", false
+		e, ok, err := g.render(t.Element, hint+"Item", seen)
+		if !ok || err != nil {
+			return "", false, err
 		}
 		out = "[]" + e
 	case "object":
 		if len(t.Fields) > 0 {
-			return "", false
+			if static {
+				return "", false, nil
+			}
+			out = g.add(hint, t)
+			break
 		}
 		out = "map[string]jsontext.Value"
 		if t.Element != nil {
-			e, ok := g.staticExpr(t.Element, seen)
-			if !ok {
-				return "", false
+			e, ok, err := g.render(t.Element, hint+"Value", seen)
+			if !ok || err != nil {
+				return "", false, err
 			}
 			out = "map[string]" + e
 		}
+	case "union", "intersection":
+		if static {
+			return "", false, nil
+		}
+		out = g.add(hint, t)
 	default:
-		return "", false
+		return "", false, fmt.Errorf("unsupported IR type %s", t.Kind)
 	}
 	if isNull && out != "jsontext.Value" {
 		out = "*" + out
 	}
-	return out, true
-}
-
-// aliasDefinition reports whether definition() emits d as "type X = ..."
-// rather than as a distinct named type.
-func (g *generator) aliasDefinition(d *tsdef.Type) bool {
-	if _, ok := literals(d); ok {
-		return false
-	}
-	if _, _, ok := openEnum(d); ok {
-		return false
-	}
-	switch d.Kind {
-	case "object":
-		return len(d.Fields) == 0 // records alias map[string]T
-	case "intersection", "string", "number", "boolean":
-		return false
-	case "union":
-		nonnull, isNull := nullable(d)
-		return isNull && nonnull.Kind != "union"
-	}
-	return true
+	return out, true, nil
 }
 
 // isUnion reports whether t (through references and an optional null) is
@@ -264,18 +211,35 @@ func (g *generator) isUnion(t *tsdef.Type) bool {
 			return false
 		}
 	}
-	return unionWrapper(t)
-}
-
-// unionWrapper reports whether a union is emitted as a payload wrapper rather
-// than as a named enum.
-func unionWrapper(t *tsdef.Type) bool {
+	// Unions become payload wrappers unless they are emitted as named enums.
 	if t.Kind != "union" {
 		return false
 	}
 	_, lit := literals(t)
 	_, _, open := openEnum(t)
 	return !lit && !open
+}
+
+// requiredLiterals returns the required literal members of an object: the
+// members implied by its Go type, which union rules match on as tags.
+func requiredLiterals(t *tsdef.Type) []tsdef.Field {
+	var out []tsdef.Field
+	for _, f := range t.Fields {
+		if !f.Optional && f.Type.Kind == "literal" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// literalLabel concatenates the required literal values of an object, used to
+// name union members.
+func literalLabel(t *tsdef.Type) string {
+	var label strings.Builder
+	for _, f := range requiredLiterals(t) {
+		label.WriteString(Name(strings.Trim(f.Type.Literal, "\"")))
+	}
+	return label.String()
 }
 
 func collection(expr string) bool {

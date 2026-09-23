@@ -8,6 +8,7 @@ package facade
 import (
 	"fmt"
 	"go/format"
+	"slices"
 	"strings"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
@@ -215,10 +216,8 @@ func (g *emitter) typesFile(schema *tsdef.Schema) {
 // payloadType reports whether a schema type is a method payload rather than
 // one of the JSON-RPC envelope unions.
 func payloadType(name string) bool {
-	for _, envelope := range []string{"AgentRequest", "AgentResponse", "AgentNotification", "ClientRequest", "ClientResponse", "ClientNotification", "ProtocolLevelNotification"} {
-		if name == envelope {
-			return false
-		}
+	if slices.Contains([]string{"AgentRequest", "AgentResponse", "AgentNotification", "ClientRequest", "ClientResponse", "ClientNotification", "ProtocolLevelNotification"}, name) {
+		return false
 	}
 	for _, suffix := range []string{"Request", "Response", "Notification"} {
 		if strings.HasSuffix(name, suffix) {

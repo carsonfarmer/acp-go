@@ -30,7 +30,7 @@ var zodKinds = map[string]string{
 }
 
 // zod writes the rule registry and per-type Decode/Validate functions.
-func (g *generator) zod(schema *tsdef.Schema, pkg string) error {
+func (g *generator) zod(schema *tsdef.Schema) error {
 	if len(schema.Validators) == 0 {
 		return nil
 	}

@@ -21,79 +21,106 @@ func (g *generator) add(name string, t *tsdef.Type) string {
 	return name
 }
 
-func (g *generator) definition(d tsdef.Definition) error {
-	t := d.Type
-	file := fileTypes
-	if envelope(d.Name) {
-		file = fileEnvelope
+// form is how definition() emits a top-level definition.
+type form int
+
+const (
+	formEnum     form = iota // literal union: named scalar with constants
+	formOpenEnum             // literal union that also admits its base type
+	formNamed                // distinct scalar type, e.g. SessionID string
+	formStruct               // object with fields
+	formUnion                // union wrapper
+	formAlias                // type X = expr
+)
+
+// form classifies t, expanding intersections first. It is the single source
+// for both emission and canonical's alias following.
+func (g *generator) form(t *tsdef.Type) (form, *tsdef.Type, error) {
+	if _, ok := literals(t); ok {
+		return formEnum, t, nil
 	}
-	if kind, ok := literals(t); ok {
-		members := t.Members
-		if t.Kind == "literal" {
-			members = []*tsdef.Type{t}
-		}
-		g.use(fileEnums)
-		g.write("\n%s", comment(d.Comment))
-		return g.enum(d.Name, kind, members, false)
-	}
-	if base, members, ok := openEnum(t); ok {
-		kind, _ := literals(members[0])
-		if base.Kind == "number" && base.Number != "" {
-			kind = base.Number
-		}
-		g.use(fileEnums)
-		g.write("\n%s", comment(d.Comment))
-		return g.enum(d.Name, kind, members, true)
+	if _, _, ok := openEnum(t); ok {
+		return formOpenEnum, t, nil
 	}
 	if t.Kind == "intersection" {
 		expanded, err := g.expand(t, map[string]bool{})
 		if err != nil {
-			return err
+			return 0, nil, err
 		}
 		t = expanded
 	}
 	switch t.Kind {
 	case "object":
-		g.use(file)
-		g.write("\n%s", comment(d.Comment))
-		return g.object(d.Name, t)
+		if len(t.Fields) == 0 {
+			return formAlias, t, nil // records alias map[string]T
+		}
+		return formStruct, t, nil
 	case "union":
-		nonnull, isNull := nullable(t)
-		if isNull && nonnull.Kind != "union" {
-			expr, err := g.expr(t, d.Name+"Value")
-			if err != nil {
-				return err
-			}
-			g.use(file)
-			g.write("\n%s", comment(d.Comment))
-			g.alias(d.Name, expr)
-			return nil
+		if nonnull, isNull := nullable(t); isNull && nonnull.Kind != "union" {
+			return formAlias, t, nil
 		}
-		if file == fileTypes {
-			file = fileUnions
+		return formUnion, t, nil
+	case "string", "number", "boolean":
+		return formNamed, t, nil
+	}
+	return formAlias, t, nil
+}
+
+// aliasDefinition reports whether definition() emits d as "type X = ..."
+// rather than as a distinct named type.
+func (g *generator) aliasDefinition(d *tsdef.Type) bool {
+	f, _, err := g.form(d)
+	return err == nil && f == formAlias
+}
+
+func (g *generator) definition(d tsdef.Definition) error {
+	f, t, err := g.form(d.Type)
+	if err != nil {
+		return err
+	}
+	file := fileTypes
+	switch {
+	case f == formEnum || f == formOpenEnum || f == formNamed:
+		file = fileEnums
+	case envelope(d.Name):
+		file = fileEnvelope
+	case f == formUnion:
+		file = fileUnions
+	}
+	g.use(file)
+	g.write("\n%s", comment(d.Comment))
+	switch f {
+	case formEnum:
+		kind, _ := literals(t)
+		members := t.Members
+		if t.Kind == "literal" {
+			members = []*tsdef.Type{t}
 		}
-		g.use(file)
-		g.write("\n%s", comment(d.Comment))
+		return g.enum(d.Name, kind, members, false)
+	case formOpenEnum:
+		base, members, _ := openEnum(t)
+		kind, _ := literals(members[0])
+		if base.Kind == "number" && base.Number != "" {
+			kind = base.Number
+		}
+		return g.enum(d.Name, kind, members, true)
+	case formStruct:
+		return g.structType(d.Name, t, "")
+	case formUnion:
 		return g.union(d.Name, t)
-	default:
-		expr, err := g.expr(t, d.Name+"Value")
-		if err != nil {
-			return err
-		}
-		switch t.Kind {
-		case "string", "number", "boolean":
-			// Distinct identifier types (SessionID vs ToolCallID) cannot be mixed
-			// up, and they can carry their own Zod unmarshaler.
-			g.use(fileEnums)
-			g.write("\n%s", comment(d.Comment))
-			g.write("type %s %s\n", d.Name, expr)
-			return nil
-		}
-		g.use(file)
-		g.write("\n%s", comment(d.Comment))
-		g.alias(d.Name, expr)
+	}
+	expr, err := g.expr(t, d.Name+"Value")
+	if err != nil {
+		return err
+	}
+	if f == formNamed {
+		// Distinct identifier types (SessionID vs ToolCallID) cannot be mixed
+		// up, and they can carry their own Zod unmarshaler.
+		g.write("type %s %s\n", d.Name, expr)
 		return nil
 	}
+	g.alias(d.Name, expr)
+	return nil
 }
 
 // alias emits "type name = expr" and records it so Zod rules skip the alias:
@@ -115,7 +142,6 @@ func (g *generator) enum(typeName, kind string, members []*tsdef.Type, open bool
 			return err
 		}
 	}
-	used := map[string]bool{}
 	var names []string
 	g.write("const (\n")
 	for _, m := range members {
@@ -132,10 +158,9 @@ func (g *generator) enum(typeName, kind string, members []*tsdef.Type, open bool
 			label = override
 		}
 		name := typeName + Name(label)
-		if used[name] || g.names[name] {
+		if g.names[name] {
 			return fmt.Errorf("enum constant collision %s", name)
 		}
-		used[name] = true
 		g.names[name] = true
 		names = append(names, name)
 		g.write("%s %s = %s\n", name, typeName, value)

@@ -5,6 +5,7 @@
 package union
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
@@ -154,18 +155,20 @@ func SpliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
 	if jsontext.Value(raw).Kind() != '{' {
 		return fmt.Errorf("%s payload must be an object", tag)
 	}
-	head, err := json.Marshal(map[string]string{tag: value})
-	if err != nil {
+	out := append(make([]byte, 0, len(raw)+len(tag)+len(value)+6), '{')
+	if out, err = jsontext.AppendQuote(out, tag); err != nil {
 		return err
 	}
-	out := head[:len(head)-1]
+	if out, err = jsontext.AppendQuote(append(out, ':'), value); err != nil {
+		return err
+	}
 	if len(raw) > 2 {
 		out = append(out, ',')
 		out = append(out, raw[1:]...)
 	} else {
 		out = append(out, '}')
 	}
-	return enc.WriteValue(jsontext.Value(out))
+	return enc.WriteValue(out)
 }
 
 // UnspliceTag checks the discriminator, removes it and decodes the rest into payload.
@@ -174,18 +177,41 @@ func UnspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
 	if err != nil {
 		return err
 	}
-	var members map[string]jsontext.Value
-	if err := json.Unmarshal(raw, &members, dec.Options()); err != nil {
+	if raw.Kind() != '{' {
+		return fmt.Errorf("expected %s %q, got %s", tag, value, raw)
+	}
+	in := jsontext.NewDecoder(bytes.NewReader(raw), dec.Options())
+	if _, err := in.ReadToken(); err != nil {
 		return err
 	}
-	var got string
-	if err := json.Unmarshal(members[tag], &got); err != nil || got != value {
-		return fmt.Errorf("expected %s %q, got %s", tag, value, members[tag])
+	rest := make([]byte, 0, len(raw))
+	rest = append(rest, '{')
+	var got []byte // copied: the decoder reuses its buffer
+	for in.PeekKind() != '}' {
+		tok, err := in.ReadToken()
+		if err != nil {
+			return err
+		}
+		name := tok.String()
+		member, err := in.ReadValue()
+		if err != nil {
+			return err
+		}
+		if name == tag {
+			got = append(got[:0], member...) // last one wins, as with duplicate names allowed
+			continue
+		}
+		if len(rest) > 1 {
+			rest = append(rest, ',')
+		}
+		if rest, err = jsontext.AppendQuote(rest, name); err != nil {
+			return err
+		}
+		rest = append(append(rest, ':'), member...)
 	}
-	delete(members, tag)
-	rest, err := json.Marshal(members, json.Deterministic(true))
-	if err != nil {
-		return err
+	var s string
+	if err := json.Unmarshal(got, &s); err != nil || s != value {
+		return fmt.Errorf("expected %s %q, got %s", tag, value, got)
 	}
-	return json.Unmarshal(rest, payload, dec.Options())
+	return json.Unmarshal(append(rest, '}'), payload, dec.Options())
 }

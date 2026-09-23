@@ -9,10 +9,6 @@ import (
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
 )
 
-func (g *generator) object(name string, t *tsdef.Type) error {
-	return g.structType(name, t, "")
-}
-
 // structType emits a struct declaration, omitting the JSON member named skip
 // (used for union discriminators that are implied by the Go type).
 func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
@@ -45,6 +41,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		if err != nil {
 			return err
 		}
+		tag := f.Name
 		if f.Optional {
 			// omitzero already distinguishes nil collections from empty ones, so
 			// optional slices and maps do not need a pointer. Optional null and
@@ -54,9 +51,6 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			} else if !strings.HasPrefix(expr, "*") && expr != "jsontext.Value" {
 				expr = "*" + expr
 			}
-		}
-		tag := f.Name
-		if f.Optional {
 			tag += ",omitzero"
 		}
 		g.write("%s%s %s `json:%q`\n", comment(f.Comment), field, expr, tag)
@@ -70,8 +64,8 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 	}
 	g.write("}\n")
 	var fixed []string
-	for _, f := range t.Fields {
-		if f.Name != skip && !f.Optional && f.Type.Kind == "literal" {
+	for _, f := range requiredLiterals(t) {
+		if f.Name != skip {
 			fixed = append(fixed, fmt.Sprintf("v.%s = %s; ", Name(f.Name), f.Type.Literal))
 		}
 	}

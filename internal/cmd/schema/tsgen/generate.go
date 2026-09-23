@@ -102,10 +102,9 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 		if len(c.Members) > 0 {
 			for _, m := range c.Members {
 				name := Name(c.Name) + Name(m.Name)
-				if g.names[name] {
-					return nil, fmt.Errorf("duplicate Go declaration %s", name)
+				if err := g.reserve(name); err != nil {
+					return nil, err
 				}
-				g.names[name] = true
 				g.write("const %s = %s\n", name, m.Value)
 			}
 		} else {
@@ -113,10 +112,9 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 			if c.Name == "PROTOCOL_VERSION" {
 				name = "CurrentProtocolVersion"
 			}
-			if g.names[name] {
-				return nil, fmt.Errorf("duplicate Go declaration %s", name)
+			if err := g.reserve(name); err != nil {
+				return nil, err
 			}
-			g.names[name] = true
 			g.write("const %s = %s\n", name, c.Value)
 		}
 	}
@@ -130,7 +128,7 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
 	}
 	g.use(fileZod)
-	if err := g.zod(schema, pkg); err != nil {
+	if err := g.zod(schema); err != nil {
 		return nil, err
 	}
 	files := Files{}

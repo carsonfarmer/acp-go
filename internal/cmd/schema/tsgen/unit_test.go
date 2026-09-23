@@ -62,9 +62,10 @@ func TestAliasDefinition(t *testing.T) {
  export type Obj = { x: number };
  export type Both = Obj & { y: number };
  export type Record = { [key: string]: number };
+ export type Records = Record & { [key: string]: number };
  `)
 	want := map[string]bool{
-		"Raw": true, "Names": true, "Maybe": true, "Record": true,
+		"Raw": true, "Names": true, "Maybe": true, "Record": true, "Records": true,
 		"Either": false, "MaybeEither": false, "ID": false, "Mode": false, "Open": false, "Obj": false, "Both": false,
 	}
 	for name, alias := range want {
