@@ -25,7 +25,8 @@ type SessionStore[ID comparable, T any] interface {
 	List(ctx context.Context) ([]ID, error)
 }
 
-// MemoryStore keeps sessions in memory for the life of the process.
+// MemoryStore keeps sessions in memory for the life of the process. The zero
+// value is an empty store ready to use.
 type MemoryStore[ID comparable, T any] struct {
 	mu       sync.RWMutex
 	sessions map[ID]T
@@ -36,6 +37,7 @@ func NewMemoryStore[ID comparable, T any]() *MemoryStore[ID, T] {
 	return &MemoryStore[ID, T]{sessions: make(map[ID]T)}
 }
 
+// Get returns the session stored under id and whether there is one.
 func (s *MemoryStore[ID, T]) Get(_ context.Context, id ID) (T, bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -43,13 +45,18 @@ func (s *MemoryStore[ID, T]) Get(_ context.Context, id ID) (T, bool, error) {
 	return session, ok, nil
 }
 
+// Set stores session under id, replacing any session stored there.
 func (s *MemoryStore[ID, T]) Set(_ context.Context, id ID, session T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.sessions == nil {
+		s.sessions = make(map[ID]T)
+	}
 	s.sessions[id] = session
 	return nil
 }
 
+// Delete removes the session stored under id, if any.
 func (s *MemoryStore[ID, T]) Delete(_ context.Context, id ID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -57,6 +64,7 @@ func (s *MemoryStore[ID, T]) Delete(_ context.Context, id ID) error {
 	return nil
 }
 
+// List returns the ids of the stored sessions, in no particular order.
 func (s *MemoryStore[ID, T]) List(context.Context) ([]ID, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

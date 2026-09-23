@@ -17,3 +17,19 @@ func TestSessionListPositionCompare(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryStoreZeroValue(t *testing.T) {
+	var s MemoryStore[string, int]
+	if _, ok, err := s.Get(t.Context(), "a"); ok || err != nil {
+		t.Fatalf("empty store Get = %v, %v", ok, err)
+	}
+	if err := s.Set(t.Context(), "a", 1); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok, _ := s.Get(t.Context(), "a"); !ok || got != 1 {
+		t.Fatalf("Get after Set = %d, %v", got, ok)
+	}
+	if ids, _ := s.List(t.Context()); len(ids) != 1 {
+		t.Fatalf("List = %v", ids)
+	}
+}
