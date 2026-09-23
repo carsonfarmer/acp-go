@@ -6,58 +6,9 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+
 	"github.com/ironpark/go-acp/schema/union"
 )
-
-var _ = json.Marshal
-var _ = fmt.Errorf
-var _ jsontext.Value
-var _ = union.Table
-
-// spliceTag writes payload as an object with the discriminator as its first member.
-func spliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
-	raw, err := json.Marshal(payload, enc.Options())
-	if err != nil {
-		return err
-	}
-	if jsontext.Value(raw).Kind() != '{' {
-		return fmt.Errorf("%s payload must be an object", tag)
-	}
-	head, err := json.Marshal(map[string]string{tag: value})
-	if err != nil {
-		return err
-	}
-	out := head[:len(head)-1]
-	if len(raw) > 2 {
-		out = append(out, ',')
-		out = append(out, raw[1:]...)
-	} else {
-		out = append(out, '}')
-	}
-	return enc.WriteValue(jsontext.Value(out))
-}
-
-// unspliceTag checks the discriminator, removes it and decodes the rest into payload.
-func unspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
-	raw, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	var members map[string]jsontext.Value
-	if err := json.Unmarshal(raw, &members, dec.Options()); err != nil {
-		return err
-	}
-	var got string
-	if err := json.Unmarshal(members[tag], &got); err != nil || got != value {
-		return fmt.Errorf("expected %s %q, got %s", tag, value, members[tag])
-	}
-	delete(members, tag)
-	rest, err := json.Marshal(members, json.Deterministic(true))
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(rest, payload, dec.Options())
-}
 
 // Content produced by a tool call.
 //

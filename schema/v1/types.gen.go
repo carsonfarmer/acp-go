@@ -5,12 +5,7 @@ package schema
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"fmt"
 )
-
-var _ = json.Marshal
-var _ = fmt.Errorf
-var _ jsontext.Value
 
 // Request to write content to a text file.
 //
@@ -3628,6 +3623,18 @@ type CreateElicitationRequestForm struct {
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestForm) MarshalJSON() ([]byte, error) {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestForm) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type CreateElicitationRequestForm2 struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
@@ -3644,6 +3651,18 @@ type CreateElicitationRequestForm2 struct {
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestForm2) MarshalJSON() ([]byte, error) {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm2
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestForm2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm2
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type CreateElicitationRequestURL struct {
@@ -3671,6 +3690,18 @@ type CreateElicitationRequestURL struct {
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestURL) MarshalJSON() ([]byte, error) {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestURL) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type CreateElicitationRequestURL4 struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
@@ -3689,6 +3720,18 @@ type CreateElicitationRequestURL4 struct {
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestURL4) MarshalJSON() ([]byte, error) {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL4
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestURL4) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL4
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type CreateElicitationRequestObject struct {
@@ -3752,6 +3795,18 @@ type MultiSelectItemsString struct {
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 	Type string                    `json:"type"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v MultiSelectItemsString) MarshalJSON() ([]byte, error) {
+	v.Type = "string"
+	type plain MultiSelectItemsString
+	return json.Marshal(plain(v))
+}
+func (v MultiSelectItemsString) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "string"
+	type plain MultiSelectItemsString
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type MultiSelectItemsObject struct {
@@ -3827,6 +3882,18 @@ type AuthMethodTerminal2 struct {
 	Type string                    `json:"type"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v AuthMethodTerminal2) MarshalJSON() ([]byte, error) {
+	v.Type = "terminal"
+	type plain AuthMethodTerminal2
+	return json.Marshal(plain(v))
+}
+func (v AuthMethodTerminal2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "terminal"
+	type plain AuthMethodTerminal2
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type MCPServerHTTP2 struct {
 	// Human-readable name identifying this MCP server.
 	Name string `json:"name"`
@@ -3843,6 +3910,18 @@ type MCPServerHTTP2 struct {
 	Type string                    `json:"type"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v MCPServerHTTP2) MarshalJSON() ([]byte, error) {
+	v.Type = "http"
+	type plain MCPServerHTTP2
+	return json.Marshal(plain(v))
+}
+func (v MCPServerHTTP2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "http"
+	type plain MCPServerHTTP2
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type MCPServerSse2 struct {
 	// Human-readable name identifying this MCP server.
 	Name string `json:"name"`
@@ -3857,6 +3936,18 @@ type MCPServerSse2 struct {
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 	Type string                    `json:"type"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v MCPServerSse2) MarshalJSON() ([]byte, error) {
+	v.Type = "sse"
+	type plain MCPServerSse2
+	return json.Marshal(plain(v))
+}
+func (v MCPServerSse2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "sse"
+	type plain MCPServerSse2
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type MCPServerACP2 struct {
@@ -3876,6 +3967,18 @@ type MCPServerACP2 struct {
 	Type string                    `json:"type"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v MCPServerACP2) MarshalJSON() ([]byte, error) {
+	v.Type = "acp"
+	type plain MCPServerACP2
+	return json.Marshal(plain(v))
+}
+func (v MCPServerACP2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "acp"
+	type plain MCPServerACP2
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type SetSessionConfigOptionRequestBoolean struct {
 	// The boolean value.
 	Value bool   `json:"value"`
@@ -3890,6 +3993,18 @@ type SetSessionConfigOptionRequestBoolean struct {
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v SetSessionConfigOptionRequestBoolean) MarshalJSON() ([]byte, error) {
+	v.Type = "boolean"
+	type plain SetSessionConfigOptionRequestBoolean
+	return json.Marshal(plain(v))
+}
+func (v SetSessionConfigOptionRequestBoolean) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "boolean"
+	type plain SetSessionConfigOptionRequestBoolean
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type SetSessionConfigOptionRequestObject struct {

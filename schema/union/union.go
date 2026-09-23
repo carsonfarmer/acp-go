@@ -131,32 +131,61 @@ func As[T any](union string, rules Rules, raw jsontext.Value) (T, error) {
 	return out, nil
 }
 
-// New encodes value as an alternative of the union. When the value's only
-// rule requires literal members, they are spliced into the encoding so a
-// zero-valued struct still produces its alternative.
+// New encodes value and checks the result is an alternative of the union.
+// Object alternatives marshal their own literal members, so a zero-valued
+// struct still produces its alternative.
 func New[T any](union string, rules Rules, value T) (jsontext.Value, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return nil, err
 	}
-	group := rules[reflect.TypeFor[T]()]
-	if anyMatch(group, &payload{raw: raw}) {
+	if anyMatch(rules[reflect.TypeFor[T]()], &payload{raw: raw}) {
 		return raw, nil
 	}
-	if len(group) == 1 && len(group[0].Tags) > 0 {
-		var fields map[string]jsontext.Value
-		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
-			return nil, fmt.Errorf("%s: %T must encode as an object", union, value)
-		}
-		for _, tag := range group[0].Tags {
-			fields[tag.Name] = tag.Value
-		}
-		if raw, err = json.Marshal(fields, json.Deterministic(true)); err != nil {
-			return nil, err
-		}
-		if anyMatch(group, &payload{raw: raw}) {
-			return raw, nil
-		}
-	}
 	return nil, fmt.Errorf("%s: %v is not a valid %T alternative", union, value, value)
+}
+
+// SpliceTag writes payload as an object with the discriminator as its first member.
+func SpliceTag(enc *jsontext.Encoder, tag, value string, payload any) error {
+	raw, err := json.Marshal(payload, enc.Options())
+	if err != nil {
+		return err
+	}
+	if jsontext.Value(raw).Kind() != '{' {
+		return fmt.Errorf("%s payload must be an object", tag)
+	}
+	head, err := json.Marshal(map[string]string{tag: value})
+	if err != nil {
+		return err
+	}
+	out := head[:len(head)-1]
+	if len(raw) > 2 {
+		out = append(out, ',')
+		out = append(out, raw[1:]...)
+	} else {
+		out = append(out, '}')
+	}
+	return enc.WriteValue(jsontext.Value(out))
+}
+
+// UnspliceTag checks the discriminator, removes it and decodes the rest into payload.
+func UnspliceTag(dec *jsontext.Decoder, tag, value string, payload any) error {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	var members map[string]jsontext.Value
+	if err := json.Unmarshal(raw, &members, dec.Options()); err != nil {
+		return err
+	}
+	var got string
+	if err := json.Unmarshal(members[tag], &got); err != nil || got != value {
+		return fmt.Errorf("expected %s %q, got %s", tag, value, members[tag])
+	}
+	delete(members, tag)
+	rest, err := json.Marshal(members, json.Deterministic(true))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(rest, payload, dec.Options())
 }

@@ -1,7 +1,9 @@
 package union
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
+	"strings"
 	"testing"
 )
 
@@ -32,14 +34,35 @@ func TestAsAndNew(t *testing.T) {
 	if _, err := As[form]("u", rules, jsontext.Value(`{"mode":"other"}`)); err == nil {
 		t.Fatal("wrong tag accepted")
 	}
-	raw, err := New("u", rules, form{Name: "x"})
-	if err != nil || string(raw) != `{"mode":"form","name":"x"}` {
-		t.Fatalf("tag not spliced: %v %s", err, raw)
+	if _, err := New("u", rules, form{Name: "x"}); err == nil {
+		t.Fatal("constructor accepted an object missing its tag")
 	}
-	if raw, err := New("u", rules, form{Mode: "form"}); err != nil || string(raw) != `{"mode":"form"}` {
-		t.Fatalf("matching value re-encoded: %v %s", err, raw)
+	if raw, err := New("u", rules, form{Mode: "form", Name: "x"}); err != nil || string(raw) != `{"mode":"form","name":"x"}` {
+		t.Fatalf("tagged value: %v %s", err, raw)
 	}
 	if _, err := New("u", rules, "maybe"); err == nil {
 		t.Fatal("constructor accepted a value matching no literal")
+	}
+}
+
+type payloadT struct {
+	Text string `json:"text"`
+}
+
+func TestSpliceTag(t *testing.T) {
+	var buf bytes.Buffer
+	enc := jsontext.NewEncoder(&buf)
+	if err := SpliceTag(enc, "type", "text", payloadT{Text: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != `{"type":"text","text":"hi"}` {
+		t.Fatalf("spliced: %s", got)
+	}
+	var out payloadT
+	if err := UnspliceTag(jsontext.NewDecoder(strings.NewReader(buf.String())), "type", "text", &out); err != nil || out.Text != "hi" {
+		t.Fatalf("unspliced: %v %+v", err, out)
+	}
+	if err := UnspliceTag(jsontext.NewDecoder(strings.NewReader(`{"type":"image"}`)), "type", "text", &out); err == nil {
+		t.Fatal("wrong discriminator accepted")
 	}
 }

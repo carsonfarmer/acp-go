@@ -6,13 +6,9 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
+
 	"github.com/ironpark/go-acp/schema/union"
 )
-
-var _ = json.Marshal
-var _ = fmt.Errorf
-var _ jsontext.Value
-var _ = union.Table
 
 // A JSON-RPC request object.
 type AgentRequest struct {

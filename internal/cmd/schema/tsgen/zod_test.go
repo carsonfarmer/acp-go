@@ -1,8 +1,10 @@
 package tsgen
 
 import (
+	"maps"
 	"os"
 	"os/exec"
+	"slices"
 	"testing"
 
 	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
@@ -49,8 +51,8 @@ func TestGeneratedZod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := data["zod.gen.go"]; !ok || len(data) != 5 {
-		t.Fatalf("expected the four wire files plus zod.gen.go, got %d files", len(data))
+	if _, ok := data["zod.gen.go"]; !ok {
+		t.Fatalf("expected zod.gen.go, got %v", slices.Sorted(maps.Keys(data)))
 	}
 	dir := t.TempDir()
 	writeFixture(t, dir, data, tests)

@@ -2,9 +2,9 @@
 
 package schema
 
-import "slices"
-
-var _ = slices.Contains[[]string]
+import (
+	"slices"
+)
 
 // A unique identifier for a conversation session between a client and agent.
 //

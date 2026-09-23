@@ -5,12 +5,7 @@ package schema
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"fmt"
 )
-
-var _ = json.Marshal
-var _ = fmt.Errorf
-var _ jsontext.Value
 
 // Request for user permission to proceed with an operation.
 //
@@ -3462,6 +3457,18 @@ type CreateElicitationRequestForm struct {
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestForm) MarshalJSON() ([]byte, error) {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestForm) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type CreateElicitationRequestForm2 struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
@@ -3478,6 +3485,18 @@ type CreateElicitationRequestForm2 struct {
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestForm2) MarshalJSON() ([]byte, error) {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm2
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestForm2) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "form"
+	type plain CreateElicitationRequestForm2
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type CreateElicitationRequestURL struct {
@@ -3505,6 +3524,18 @@ type CreateElicitationRequestURL struct {
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 }
 
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestURL) MarshalJSON() ([]byte, error) {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestURL) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL
+	return json.MarshalEncode(enc, plain(v))
+}
+
 type CreateElicitationRequestURL4 struct {
 	// The request this elicitation is tied to.
 	RequestID RequestID `json:"requestId"`
@@ -3523,6 +3554,18 @@ type CreateElicitationRequestURL4 struct {
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v CreateElicitationRequestURL4) MarshalJSON() ([]byte, error) {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL4
+	return json.Marshal(plain(v))
+}
+func (v CreateElicitationRequestURL4) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Mode = "url"
+	type plain CreateElicitationRequestURL4
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type CreateElicitationRequestObject struct {
@@ -3586,6 +3629,18 @@ type MultiSelectItemsString struct {
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
 	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
 	Type string                    `json:"type"`
+}
+
+// MarshalJSON encodes v with its literal members fixed.
+func (v MultiSelectItemsString) MarshalJSON() ([]byte, error) {
+	v.Type = "string"
+	type plain MultiSelectItemsString
+	return json.Marshal(plain(v))
+}
+func (v MultiSelectItemsString) MarshalJSONTo(enc *jsontext.Encoder) error {
+	v.Type = "string"
+	type plain MultiSelectItemsString
+	return json.MarshalEncode(enc, plain(v))
 }
 
 type MultiSelectItemsObject struct {

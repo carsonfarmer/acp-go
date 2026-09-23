@@ -9,7 +9,7 @@ generator, but not for generated packages. Generated code uses `encoding/json/v2
 `encoding/json/jsontext`; no `GOEXPERIMENT` setting is needed.
 Each version produces the wire types split by kind — `methods.gen.go` (method constants and the
 protocol version), `enums.gen.go` (identifier types and literal enums), `types.gen.go` (object
-structs and aliases), `unions.gen.go` (tagged and raw payload unions plus their shared helpers) and
+structs and aliases), `unions.gen.go` (tagged and raw payload unions) and
 `envelope.gen.go` (the JSON-RPC envelope: `AgentRequest`, `ClientResponse`, `RequestID`, `Error` …) —
 and `zod.gen.go` (Zod rule tables, the `Validated` option and generic `Decode`/`Validate`).
 The split is by declaration kind, not by domain, so it needs no mapping table that could drift. The rule evaluator lives once in `schema/zod` and the
@@ -126,8 +126,9 @@ Alternatives that name the same Go type (`ExtResponse` and `MessageMCPResponse` 
 the schema, so declaration order does not matter. Each alternative contributes a `union.Rule` —
 required and non-nullable members, literal tags, scalar literal, null — kept in a per-union
 `union.Table`; `As` decodes once any rule for `T` accepts the payload and otherwise reports why
-not, and `New<Union>` splices in the literal members an object alternative requires when the
-value does not already match, and rejects values that match no rule. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
+not, and `New<Union>` rejects values that match no rule. Object types with required literal
+members (`CreateElicitationRequestForm.Mode`) fix those members in their own `MarshalJSON` /
+`MarshalJSONTo`, so a zero value encodes as its alternative with or without the constructor. Tagged unions offer the same `As[T]` over their `<Type>Variant` types
 alongside the `Variant()` type switch. Streaming `MarshalJSONTo` / `UnmarshalJSONFrom` methods
 integrate with JSON v2 encoders and decoders. Stored JSON is copied on decode and when returned
 to the caller, so decoding a copied union value does not mutate the original.

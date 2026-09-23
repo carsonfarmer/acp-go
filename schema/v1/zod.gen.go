@@ -6,13 +6,11 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
-	"github.com/ironpark/go-acp/schema/zod"
-	"reflect"
-	"regexp"
-)
 
-var _ = regexp.MustCompile
-var _ jsontext.Value
+	"github.com/ironpark/go-acp/schema/zod"
+
+	"reflect"
+)
 
 // zodSchemas holds the SDK Zod rules; one rule tree per schema name.
 var zodSchemas = zod.Registry{
