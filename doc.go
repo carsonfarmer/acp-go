@@ -1,8 +1,8 @@
 // Package acp holds what every Agent Client Protocol version shares: the
 // connection options, the [Transport] interface and the stdio transport,
-// middleware, error type, session store and turn tracker, and typed extension
-// methods ([CallExt], [ExtRouter]). The Streamable HTTP and WebSocket
-// transports are in [github.com/ironpark/acp-go/acphttp].
+// middleware, error type, session store and turn tracker, and extension
+// methods ([CallExt], [ExtRouter], [ExtMethodHandler]). The Streamable HTTP
+// and WebSocket transports are in [github.com/ironpark/acp-go/acphttp].
 //
 // The protocol façades live in versioned sibling packages, each generated from
 // the upstream schema of that version:

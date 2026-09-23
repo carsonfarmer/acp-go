@@ -24,7 +24,7 @@ The snippets below illustrate individual APIs; complete runnable programs are in
 ## Architecture
 
 - **`acp`** (root) — `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore`,
-  `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`)
+  `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`)
 - **`acphttp`** — Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio
   programs do not link them
 - **`acp1.AgentSideConnection`** — serves an `Agent` and calls the peer client
@@ -139,7 +139,7 @@ if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
 
 ```go
 type MyAgent struct {
-    acp.ExtRouter // implements ExtMethodHandler and ExtNotificationHandler
+    acp.ExtRouter // implements acp.ExtMethodHandler and acp.ExtNotificationHandler
     // ...
 }
 
@@ -353,7 +353,7 @@ other tool output. Tool call ids must be unique within a session; `acp1.Generate
 
 ### Unions
 
-Generated unions wrap a sealed variant interface, so a type switch replaces the old matchers:
+Generated unions wrap a sealed variant interface; read one with a type switch:
 
 ```go
 switch update := notification.Update.Variant().(type) {

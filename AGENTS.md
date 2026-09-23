@@ -27,11 +27,11 @@ ACP(Agent Client Protocol) for golang
 
 ### Packages
 
-- Root `acp`: version-neutral runtime API — options, the `Transport` interface and stdio transport, middleware, errors, session store, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`). Imports no façade.
+- Root `acp`: version-neutral runtime API — options, the `Transport` interface and stdio transport, middleware, errors, session store, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, and the `ExtMethodHandler`/`ExtNotificationHandler` interfaces the façades alias). Imports no façade.
 - `acphttp`: Streamable HTTP and WebSocket transports (draft RFD), apart from the root so stdio programs do not link them.
 - `acp1` / `acp2`: protocol façades on `schema/v1` / `schema/v2`; symmetric, both import root.
 - `router`: `ProtocolRouter` serving both versions on one endpoint, and `ClientConnector` for the client side with v2→v1 fallback (imports root and both façades).
-- `internal/jsonrpc`: JSON-RPC 2.0 core. `internal/acpconn`: option plumbing, generic dispatch, process spawn/pipe, client turn buffering and agent-side prompt cancel tracking used by the façades.
+- `internal/jsonrpc`: JSON-RPC 2.0 core. `internal/acpconn`: generic dispatch, process spawn/pipe, client turn buffering and agent-side prompt cancel tracking used by the façades.
 - `acpmcp` (separate module, `replace`s the root): MCP-over-ACP bridged to the MCP Go SDK; unstable, like the RFD it implements. Test it from its own directory.
 - `schema/meta`: the `_meta` map type every schema version aliases as `Meta`. `schema/internal/union`, `schema/internal/zod`: generated-code runtimes, importable only by the schema packages.
 

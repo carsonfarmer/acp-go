@@ -24,7 +24,7 @@
 ## 아키텍처
 
 - **`acp`** (루트): `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore`,
-  `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`)
+  `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`, `ExtMethodHandler`)
 - **`acphttp`**: 초안 RFD를 따르는 Streamable HTTP·WebSocket transport. stdio 프로그램이 링크하지 않도록 루트와 분리
 - **`acp1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
 - **`acp1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
@@ -136,7 +136,7 @@ if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
 
 ```go
 type MyAgent struct {
-    acp.ExtRouter // ExtMethodHandler와 ExtNotificationHandler를 구현
+    acp.ExtRouter // acp.ExtMethodHandler와 acp.ExtNotificationHandler를 구현
     // ...
 }
 
@@ -303,7 +303,7 @@ conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os
 
 ### Union 처리
 
-생성된 union은 sealed variant 인터페이스를 감싸므로, 기존 matcher 대신 타입 스위치를 사용합니다:
+생성된 union은 sealed variant 인터페이스를 감싸며, 타입 스위치로 읽습니다:
 
 ```go
 switch update := notification.Update.Variant().(type) {
