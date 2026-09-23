@@ -75,7 +75,6 @@ type cancellableAgent struct {
 	*acpv2.SessionManager[struct{}]
 	client  acpv2.Client
 	started chan struct{}
-	joined  chan acpv2.MessageID
 }
 
 func (cancellableAgent) Initialize(context.Context, *acpv2.InitializeRequest) (*acpv2.InitializeResponse, error) {
@@ -85,7 +84,6 @@ func (cancellableAgent) Initialize(context.Context, *acpv2.InitializeRequest) (*
 func (a *cancellableAgent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
 	turn, done, joined := a.JoinTurn(ctx, params.SessionID)
 	if joined {
-		a.joined <- "user_2"
 		return &acpv2.PromptResponse{MessageID: "user_2"}, nil
 	}
 	stream := acpv2.NewSessionStream(a.client, params.SessionID)
@@ -110,7 +108,6 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 				return acpv2.GenerateSessionID(), struct{}{}, nil
 			}),
 		started: make(chan struct{}),
-		joined:  make(chan acpv2.MessageID, 1),
 	}
 	_, conn := acpv2.Pipe(t.Context(), func(c *acpv2.AgentSideConnection) acpv2.Agent {
 		agent.client = c
@@ -130,7 +127,7 @@ func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	// A prompt sent while the work runs contributes to it: the agent joins it
 	// and the client gets the same turn.
 	joinedTurn, messageID, err := session.Prompt(t.Context(), acpv2.TextBlock("also this"))
-	if err != nil || messageID != "user_2" || <-agent.joined != "user_2" {
+	if err != nil || messageID != "user_2" {
 		t.Fatalf("joining prompt: %q %v", messageID, err)
 	}
 

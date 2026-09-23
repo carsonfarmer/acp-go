@@ -2,7 +2,6 @@ package router
 
 import (
 	"context"
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -10,6 +9,7 @@ import (
 	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
 	"github.com/ironpark/go-acp/acpv2"
+	"github.com/ironpark/go-acp/internal/acpconn"
 )
 
 // ClientConnector spawns an agent and connects with the highest protocol
@@ -122,23 +122,17 @@ func (c *ClientConnector) spawnV2(ctx context.Context, newCmd func() *exec.Cmd, 
 		}
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}
-	var probe struct {
-		ProtocolVersion int `json:"protocolVersion"`
+	version, _ := protocolVersionOf(raw) // 0 if missing or malformed: no common version
+	if version != acpv2.ProtocolVersion {
+		shutdown(proc)
+		return nil, int(version), nil
 	}
-	if err := json.Unmarshal(raw, &probe); err != nil {
+	init, err := acpconn.DecodeResult[acpv2.InitializeResponse](raw)
+	if err != nil {
 		shutdown(proc)
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}
-	if probe.ProtocolVersion != acpv2.ProtocolVersion {
-		shutdown(proc)
-		return nil, probe.ProtocolVersion, nil
-	}
-	var init acpv2.InitializeResponse
-	if err := json.Unmarshal(raw, &init); err != nil {
-		shutdown(proc)
-		return nil, 0, fmt.Errorf("initialize: %w", err)
-	}
-	return &Agent{V2: proc, V2Init: &init}, 0, nil
+	return &Agent{V2: proc, V2Init: init}, 0, nil
 }
 
 func (c *ClientConnector) spawnV1(ctx context.Context, newCmd func() *exec.Cmd, opts []acp.Option) (*Agent, error) {

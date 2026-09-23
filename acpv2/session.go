@@ -55,9 +55,7 @@ var errConnectionClosed = errors.New("acpv2: connection closed before the turn e
 func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, MessageID, error) {
 	t, created := s.conn.turns.Join(s.ID)
 	if created {
-		idle := make(chan *StopReason, 1)
-		s.conn.idle.Store(s.ID, idle)
-		go s.watch(t, idle)
+		go s.watch(t)
 	}
 	response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content})
 	// A rejected prompt ends the turn only if no prompt that joined it was
@@ -69,17 +67,14 @@ func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*T
 	return &Turn{t: t}, response.MessageID, nil
 }
 
-// watch ends t when the agent reports idle or the connection closes. The idle
-// update may arrive before or after the prompt response.
-func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, *StopReason], idle chan *StopReason) {
-	defer s.conn.idle.CompareAndDelete(s.ID, idle)
+// watch ends t if the connection closes first. The agent's idle update ends
+// it in [ClientSideConnection.sessionUpdate], and Settle when every prompt
+// that joined it was rejected.
+func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, *StopReason]) {
 	select {
-	case reason := <-idle:
-		s.conn.turns.End(s.ID, t, reason, nil)
 	case <-s.conn.Done():
 		s.conn.turns.End(s.ID, t, nil, errConnectionClosed)
 	case <-t.Done():
-		// Every prompt that joined it was rejected.
 	}
 }
 

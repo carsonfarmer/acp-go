@@ -90,7 +90,7 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 			acp.ErrInvalidRequest(nil, "first ACP request must be initialize"))
 	}
 
-	requested, ok := requestedVersion(msg.Params)
+	requested, ok := protocolVersionOf(msg.Params)
 	if !ok {
 		return rejectAndClose(ctx, transport, msg.ID,
 			acp.ErrInvalidParams(nil, "initialize.protocolVersion must be a valid ACP protocol version"))
@@ -169,9 +169,10 @@ func readFirst(ctx context.Context, transport acp.Transport) (jsontext.Value, er
 	}
 }
 
-// requestedVersion extracts initialize.protocolVersion, which must be an
-// integer in [0, 0xffff]. JSON spells integers loosely, so 1.0 is accepted.
-func requestedVersion(params jsontext.Value) (uint64, bool) {
+// protocolVersionOf extracts the protocolVersion of an initialize request or
+// response, which must be an integer in [0, 0xffff]. JSON spells integers
+// loosely, so 1.0 is accepted.
+func protocolVersionOf(params jsontext.Value) (uint64, bool) {
 	var payload struct {
 		ProtocolVersion *float64 `json:"protocolVersion"`
 	}

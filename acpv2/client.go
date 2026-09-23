@@ -5,7 +5,6 @@ import (
 	"encoding/json/jsontext"
 	acp "github.com/ironpark/go-acp"
 	"io"
-	"sync"
 
 	"github.com/ironpark/go-acp/internal/acpconn"
 	"github.com/ironpark/go-acp/internal/jsonrpc"
@@ -19,7 +18,6 @@ type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
 	turns  acpconn.Turns[SessionID, SessionUpdate, *StopReason]
-	idle   sync.Map // SessionID -> chan *StopReason, while a turn runs
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
@@ -36,18 +34,13 @@ func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reade
 }
 
 // sessionUpdate copies each session update to the session's [Turn] in
-// progress and signals the turn when the agent reports idle, then hands the
+// progress and ends the turn when the agent reports idle, then hands the
 // update to the client. The generated dispatch routes session/update here.
 func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessionNotification) error {
-	if c.turns.Deliver(n.SessionID, n.Update) != nil {
+	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
 		if state, ok := n.Update.Variant().(schema.SessionUpdateStateUpdate); ok {
 			if idle, ok := state.Value.Variant().(schema.StateUpdateIdle); ok {
-				if ch, ok := c.idle.Load(n.SessionID); ok {
-					select {
-					case ch.(chan *StopReason) <- idle.StopReason:
-					default:
-					}
-				}
+				c.turns.End(n.SessionID, t, idle.StopReason, nil)
 			}
 		}
 	}

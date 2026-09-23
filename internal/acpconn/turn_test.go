@@ -8,48 +8,46 @@ import (
 var errRejected = errors.New("rejected")
 
 func TestSettleKeepsATurnAnyRequestAccepted(t *testing.T) {
-	var turns Turns[string, int, string]
-	first, created := turns.Join("s")
-	second, joined := turns.Join("s")
-	if !created || joined || first != second {
-		t.Fatal("the second request should join the first one's turn")
-	}
-	turns.Settle("s", first, errRejected) // the starter fails first
-	turns.Settle("s", second, nil)        // but the joiner was accepted
-	select {
-	case <-first.Done():
-		t.Fatal("a turn with an accepted request ended on a rejection")
-	default:
-	}
-	turns.End("s", first, "end_turn", nil)
-	if result, err := first.Wait(); result != "end_turn" || err != nil {
-		t.Fatalf("got %q %v", result, err)
+	for _, starterFirst := range []bool{true, false} {
+		var turns Turns[string, int, string]
+		first, created := turns.Join("s")
+		second, joined := turns.Join("s")
+		if !created || joined || first != second {
+			t.Fatal("the second request should join the first one's turn")
+		}
+		// The starter is rejected, before or after the joiner is accepted.
+		if starterFirst {
+			turns.Settle("s", first, errRejected)
+			turns.Settle("s", second, nil)
+		} else {
+			turns.Settle("s", second, nil)
+			turns.Settle("s", first, errRejected)
+		}
+		select {
+		case <-first.Done():
+			t.Fatalf("starterFirst=%v: a turn with an accepted request ended on a rejection", starterFirst)
+		default:
+		}
+		turns.End("s", first, "end_turn", nil)
+		if result, err := first.Wait(); result != "end_turn" || err != nil {
+			t.Fatalf("starterFirst=%v: got %q %v", starterFirst, result, err)
+		}
 	}
 }
 
 func TestSettleEndsATurnEveryRequestRejected(t *testing.T) {
 	var turns Turns[string, int, string]
-	first, _ := turns.Join("s")
-	second, _ := turns.Join("s")
-	turns.Settle("s", second, nil)
-	turns.Settle("s", first, errRejected)
-	// Accepted requests keep it; only a turn nobody got into ends.
-	third, created := turns.Join("t")
-	fourth, _ := turns.Join("t")
-	turns.Settle("t", third, errRejected)
-	turns.Settle("t", fourth, errRejected)
-	if _, err := third.Wait(); !errors.Is(err, errRejected) {
-		t.Fatalf("got %v", err)
-	}
+	first, created := turns.Join("s")
 	if !created {
 		t.Fatal("first Join should create the turn")
 	}
-	if next, created := turns.Join("t"); !created || next == third {
-		t.Fatal("a failed turn must leave the session")
+	second, _ := turns.Join("s")
+	turns.Settle("s", first, errRejected)
+	turns.Settle("s", second, errRejected)
+	if _, err := first.Wait(); !errors.Is(err, errRejected) {
+		t.Fatalf("got %v", err)
 	}
-	select {
-	case <-first.Done():
-		t.Fatal("turn s ended despite an accepted request")
-	default:
+	if next, created := turns.Join("s"); !created || next == first {
+		t.Fatal("a failed turn must leave the session")
 	}
 }
