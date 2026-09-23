@@ -2,9 +2,8 @@ package acp
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"sync"
+	"uuid"
 
 	"github.com/ironpark/acp-go/internal/acpconn"
 )
@@ -112,15 +111,13 @@ type SessionInfoLister[Info any] interface {
 	ListSessionInfo(ctx context.Context, query SessionListQuery) ([]Info, error)
 }
 
-// GenerateSessionID returns a random id of the form "session_<32 hex chars>".
+// GenerateSessionID returns a new id of the form "session_<UUIDv7>".
 func GenerateSessionID() string { return GenerateID("session") }
 
-// GenerateID returns a random id of the form "<prefix>_<32 hex chars>", for
-// the ids an agent mints: sessions, messages, tool calls.
+// GenerateID returns a new id of the form "<prefix>_<UUIDv7>", for the ids an
+// agent mints: sessions, messages, tool calls. A version 7 UUID starts with
+// its creation time, so ids sort in the order they were minted, which keeps
+// the index of a database-backed store compact.
 func GenerateID(prefix string) string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("acp: generate id: " + err.Error())
-	}
-	return prefix + "_" + hex.EncodeToString(b)
+	return prefix + "_" + uuid.NewV7().String()
 }

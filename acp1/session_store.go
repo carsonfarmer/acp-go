@@ -17,13 +17,21 @@ type MemoryStore[T any] = acp.MemoryStore[SessionID, T]
 // NewMemoryStore creates an empty in-memory store.
 func NewMemoryStore[T any]() *MemoryStore[T] { return acp.NewMemoryStore[SessionID, T]() }
 
-// GenerateSessionID returns a random id of the form "session_<32 hex chars>".
+// FileStore is [acp.FileStore] keyed by v1 session ids.
+type FileStore[T any] = acp.FileStore[SessionID, T]
+
+// NewFileStore opens a store in dir and loads the sessions saved there.
+func NewFileStore[T any](dir string) (*FileStore[T], error) {
+	return acp.NewFileStore[SessionID, T](dir)
+}
+
+// GenerateSessionID returns a new id of the form "session_<UUIDv7>".
 func GenerateSessionID() SessionID { return SessionID(acp.GenerateSessionID()) }
 
-// GenerateMessageID returns a random id of the form "message_<32 hex chars>".
+// GenerateMessageID returns a new id of the form "message_<UUIDv7>".
 func GenerateMessageID() MessageID { return MessageID(acp.GenerateID("message")) }
 
-// GenerateToolCallID returns a random id of the form "call_<32 hex chars>".
+// GenerateToolCallID returns a new id of the form "call_<UUIDv7>".
 // Tool call ids must be unique within a session, across its turns.
 func GenerateToolCallID() ToolCallID { return ToolCallID(acp.GenerateID("call")) }
 

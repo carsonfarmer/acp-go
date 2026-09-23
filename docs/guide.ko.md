@@ -18,7 +18,7 @@
 
 | 구성 요소 | 역할 |
 | --- | --- |
-| `acp` (루트) | `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore`, `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
+| `acp` (루트) | `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
 | `acphttp` | 초안 RFD를 따르는 Streamable HTTP·WebSocket transport. stdio 프로그램이 링크하지 않도록 루트와 분리 |
 | `acp1.AgentSideConnection` | `Agent`를 제공하고 상대편 클라이언트를 호출 |
 | `acp1.ClientSideConnection` | `Client`를 제공하고 상대편 에이전트를 호출 |
@@ -175,6 +175,13 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 같은 방식으로 제공합니다. 요청의 컨텍스트를 받고 실패할 수 있는 `acp.SessionStore[ID, T]`, `acp.MemoryStore`,
 `acp.TurnTracker`는 버전과 무관한 구성 요소입니다.
 
+`acp.FileStore`(`acp1.NewFileStore[T](dir)`)는 재시작 후에도 세션을 유지합니다. `Get`과 `List`는
+`MemoryStore`처럼 메모리에서 응답하므로 상태를 제자리에서 바꿀 수 있고, `Set`할 때마다 세션을
+`dir` 안의 개별 JSON 파일에 기록합니다. 매니저는 세션을 만들 때만 `Set`하므로, 이후 변경은 보통 턴이
+끝날 때 `manager.Store().Set(ctx, id, session)`으로 직접 저장합니다. 세션은 unexported 필드를
+건너뛰는 `encoding/json/v2`로 인코딩되므로, unexported 필드가 있는 세션 상태는
+`MarshalJSON`/`UnmarshalJSON`을 구현합니다. 한 디렉터리는 한 번에 한 프로세스만 사용할 수 있습니다.
+
 ### SessionStream
 
 ```go
@@ -194,7 +201,7 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 `acp1.ToolText`로, 그 밖의 도구 출력은 `acp1.ToolDiff`와 `acp1.ToolTerminal`로 다룹니다.
 
 tool call id는 세션
-안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 무작위 id를
+안에서 유일해야 하며, `acp1.GenerateToolCallID`와 `acp1.GenerateMessageID`가 `GenerateSessionID`처럼 시간순으로 정렬되는 고유 id(접두사와 UUIDv7)를
 만듭니다. v2 `SessionStream`은
 메시지마다 id를 받고, 명시적인 턴 상태를 위한 `Running`, `RequiresAction`, `Idle`을 제공합니다.
 

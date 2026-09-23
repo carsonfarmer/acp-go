@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"uuid"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
@@ -33,6 +34,12 @@ func TestGeneratedIDs(t *testing.T) {
 	}
 	if id := acp1.GenerateMessageID(); !strings.HasPrefix(string(id), "message_") {
 		t.Fatalf("message id %q", id)
+	}
+	// The UUIDv7 suffix sorts ids in the order they were minted.
+	first, second := acp1.GenerateSessionID(), acp1.GenerateSessionID()
+	suffix, ok := strings.CutPrefix(string(first), "session_")
+	if _, err := uuid.Parse(suffix); !ok || err != nil || first >= second {
+		t.Fatalf("session ids %q, %q", first, second)
 	}
 }
 

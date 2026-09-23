@@ -18,7 +18,7 @@ Examples use `acp1` unless stated otherwise. Application types and values such a
 
 | Component | Role |
 | --- | --- |
-| `acp` (root) | `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore`, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
+| `acp` (root) | `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore` (`MemoryStore`, `FileStore`), `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
 | `acphttp` | Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio programs do not link them |
 | `acp1.AgentSideConnection` | serves an `Agent` and calls the peer client |
 | `acp1.ClientSideConnection` | serves a `Client` and calls the peer agent |
@@ -181,6 +181,14 @@ sessions last, ties by session id — with each `SessionID` set.
 baseline, list included, the same way. `acp.SessionStore[ID, T]`, whose methods take the request's
 context and can fail, `acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building
 blocks; each façade aliases the stores with its own session id.
+
+`acp.FileStore` (`acp1.NewFileStore[T](dir)`) keeps sessions across restarts: it serves `Get` and
+`List` from memory like `MemoryStore`, so state can still change in place, and writes each session
+to its own JSON file in `dir` on `Set`. The manager sets a session only when it creates it, so save
+later changes yourself, typically when a turn ends, with `manager.Store().Set(ctx, id, session)`.
+Sessions encode with `encoding/json/v2`, which skips unexported fields; session state with
+unexported fields implements `MarshalJSON`/`UnmarshalJSON`. One process at a time may use a
+directory.
 
 ### SessionStream
 
