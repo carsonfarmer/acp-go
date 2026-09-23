@@ -487,28 +487,92 @@ func (g *generator) alias(name, expr string) {
 // one type (ExtResponse and MessageMCPResponse are both jsontext.Value) share
 // a single type-set term and rule group. It follows references through the
 // schema rather than emitted aliases, so declaration order does not matter,
-// and stops at anything definition() turns into a distinct named type.
+// and falls back to expr when the member involves an inline declaration.
 func (g *generator) canonical(m *tsdef.Type, expr string) string {
-	seen := map[string]bool{}
-	for m.Kind == "ref" && !seen[m.Name] {
-		seen[m.Name] = true
-		d := g.defs[m.Name]
-		if _, ok := literals(d); ok {
-			return expr
-		}
-		if _, _, ok := openEnum(d); ok {
-			return expr
-		}
-		switch d.Kind {
-		case "ref":
-			m = d
-		case "unknown", "any", "null", "never":
-			return "jsontext.Value"
-		default:
-			return expr
-		}
+	if out, ok := g.staticExpr(m, map[string]bool{}); ok {
+		return out
 	}
 	return expr
+}
+
+// staticExpr renders t the way expr would, without declaring inline types.
+// References to definitions that become distinct named types stop at the
+// name; references that definition() emits as aliases are followed. It
+// reports false when t needs an inline declaration.
+func (g *generator) staticExpr(t *tsdef.Type, seen map[string]bool) (string, bool) {
+	t, isNull := nullable(t)
+	var out string
+	switch t.Kind {
+	case "ref":
+		d, ok := g.defs[t.Name]
+		if !ok || seen[t.Name] {
+			return "", false
+		}
+		seen[t.Name] = true
+		if g.aliasDefinition(d) {
+			if out, ok = g.staticExpr(d, seen); !ok {
+				return "", false
+			}
+		} else {
+			out = Name(t.Name)
+		}
+	case "string":
+		out = "string"
+	case "number":
+		out = "float64"
+		if t.Number != "" {
+			out = t.Number
+		}
+	case "boolean":
+		out = "bool"
+	case "unknown", "any", "null", "never":
+		out = "jsontext.Value"
+	case "literal":
+		out, _ = literals(t)
+	case "array":
+		e, ok := g.staticExpr(t.Element, seen)
+		if !ok {
+			return "", false
+		}
+		out = "[]" + e
+	case "object":
+		if len(t.Fields) > 0 {
+			return "", false
+		}
+		out = "map[string]jsontext.Value"
+		if t.Element != nil {
+			e, ok := g.staticExpr(t.Element, seen)
+			if !ok {
+				return "", false
+			}
+			out = "map[string]" + e
+		}
+	default:
+		return "", false
+	}
+	if isNull && out != "jsontext.Value" {
+		out = "*" + out
+	}
+	return out, true
+}
+
+// aliasDefinition reports whether definition() emits d as "type X = ..."
+// rather than as a distinct named type.
+func (g *generator) aliasDefinition(d *tsdef.Type) bool {
+	if _, ok := literals(d); ok {
+		return false
+	}
+	if _, _, ok := openEnum(d); ok {
+		return false
+	}
+	switch d.Kind {
+	case "object", "intersection", "string", "number", "boolean":
+		return false
+	case "union":
+		nonnull, isNull := nullable(d)
+		return isNull && nonnull.Kind != "union"
+	}
+	return true
 }
 
 // enum emits a named scalar type with one constant per literal. Open enums

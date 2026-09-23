@@ -240,6 +240,14 @@ func TestRawUnions(t *testing.T) {
 	if _, err := either.As[jsontext.Value](); err != nil {
 		t.Fatalf("aliased alternative not accepted: %v", err)
 	}
+	// Two aliases of one slice type collapse as well.
+	listy, err := NewListy(Names{"a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := listy.As[MoreNames](); err != nil || len(got) != 1 {
+		t.Fatalf("aliased slice alternative: %v %v", err, got)
+	}
 	// Two literal alternatives sharing a Go type are an OR group.
 	for source, want := range map[string]bool{`"yes"`: true, `"no"`: true, `"maybe"`: false} {
 		answer, err := ParseAnswer([]byte(source))

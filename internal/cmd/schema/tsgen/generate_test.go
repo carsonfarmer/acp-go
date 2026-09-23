@@ -28,6 +28,9 @@ func TestGeneratedWireTypes(t *testing.T) {
  export type A = unknown;
  export type B = unknown;
  export type Answer = "yes" | number | "no";
+ export type Names = string[];
+ export type MoreNames = string[];
+ export type Listy = Names | MoreNames | number;
  export const PROTOCOL_VERSION = 2;
  `))
 	if err != nil {
