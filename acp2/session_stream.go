@@ -148,6 +148,14 @@ func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, opts ..
 	return s.UpdateToolCallStatus(ctx, id, schema.ToolCallStatusFailed, opts...)
 }
 
+// SendPlan reports the entries of the plan identified by id, creating or
+// replacing it; remove a plan with [SessionUpdatePlanRemoved].
+func (s *SessionStream) SendPlan(ctx context.Context, id PlanID, entries []PlanEntry) error {
+	return s.Send(ctx, schema.SessionUpdatePlanUpdate{
+		Plan: NewPlanUpdateContent(PlanUpdateContentItems{PlanID: id, Entries: entries}),
+	})
+}
+
 // SendCommands reports the slash commands available in this session.
 func (s *SessionStream) SendCommands(ctx context.Context, commands []AvailableCommand) error {
 	return s.Send(ctx, schema.SessionUpdateAvailableCommandsUpdate{AvailableCommands: commands})

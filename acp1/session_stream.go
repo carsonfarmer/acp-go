@@ -135,6 +135,16 @@ func (s *SessionStream) SendUserMessage(ctx context.Context, text string, opts .
 	})
 }
 
+// SendUserContent replays an arbitrary content block of the user's message,
+// such as an image, while loading a session.
+func (s *SessionStream) SendUserContent(ctx context.Context, content ContentBlock, opts ...SendOption) error {
+	o := applySendOptions(opts)
+	return s.Send(ctx, schema.SessionUpdateUserMessageChunk{
+		Content:   content,
+		MessageID: o.messageID,
+	})
+}
+
 // SendContent streams an arbitrary content block as an agent message chunk,
 // for images, audio and embedded resources.
 func (s *SessionStream) SendContent(ctx context.Context, content ContentBlock, opts ...SendOption) error {

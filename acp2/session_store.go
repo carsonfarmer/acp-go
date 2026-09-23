@@ -79,8 +79,9 @@ type SessionInfoReporter interface {
 // session baseline v2 requires; override any of them by declaring the method
 // on the agent itself. [CapabilitiesOf] advertises what the agent ends up
 // implementing. CancelSession stops the context of the turn started with
-// [SessionManager.JoinTurn]. session/list needs session state that implements
-// [SessionInfoReporter]. When the session state implements
+// [SessionManager.JoinTurn]. Every v2 agent answers session/list, so the
+// session state must implement [SessionInfoReporter], which describes it
+// there. When the session state implements
 // [SessionConfigOptionsReporter], the session/new and session/resume
 // responses carry its config options.
 //
@@ -88,7 +89,7 @@ type SessionInfoReporter interface {
 // retains when the request's ReplayFrom asks for it. The manager retains no
 // history, so its ResumeSession replays nothing; an agent that keeps history
 // overrides it.
-type SessionManager[T any] struct {
+type SessionManager[T SessionInfoReporter] struct {
 	store    SessionStore[T]
 	factory  SessionFactory[T]
 	turns    acp.TurnTracker[SessionID]
@@ -113,7 +114,7 @@ func WithSessionListPageSize(size int) SessionManagerOption {
 }
 
 // NewSessionManager pairs a store with the factory that fills it.
-func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T], opts ...SessionManagerOption) *SessionManager[T] {
+func NewSessionManager[T SessionInfoReporter](store SessionStore[T], factory SessionFactory[T], opts ...SessionManagerOption) *SessionManager[T] {
 	o := sessionManagerOptions{pageSize: defaultSessionListPageSize}
 	for _, opt := range opts {
 		opt(&o)
@@ -286,11 +287,7 @@ func (m *SessionManager[T]) describeSessions(ctx context.Context, add func(Sessi
 		if !ok { // deleted since List
 			continue
 		}
-		reporter, ok := any(session).(SessionInfoReporter)
-		if !ok {
-			return acp.InternalError("session state does not implement SessionInfoReporter")
-		}
-		info := reporter.SessionInfo()
+		info := session.SessionInfo()
 		info.SessionID = id
 		add(info)
 	}

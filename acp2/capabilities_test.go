@@ -8,7 +8,7 @@ import (
 )
 
 type bareAgent struct {
-	*acp2.SessionManager[struct{}]
+	*acp2.SessionManager[bareSession]
 }
 
 func (bareAgent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.InitializeResponse, error) {
@@ -29,7 +29,7 @@ func (authAgent) Logout(context.Context, *acp2.LogoutAuthRequest) (*acp2.LogoutA
 }
 
 func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
-	manager := acp2.NewSessionManager(acp2.NewMemoryStore[struct{}](), nil)
+	manager := acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](), nil)
 
 	caps := acp2.CapabilitiesOf(bareAgent{manager})
 	if caps.Session == nil || caps.Session.Delete == nil {

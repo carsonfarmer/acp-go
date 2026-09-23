@@ -33,3 +33,26 @@ func TestSessionStreamWithMeta(t *testing.T) {
 		t.Fatalf("plain stream sent _meta %v", got.Meta)
 	}
 }
+
+func TestSessionStreamPlanAndToolContent(t *testing.T) {
+	client := newTestClient()
+	stream := acp2.NewSessionStream(client, "s1")
+	entries := []acp2.PlanEntry{{Content: "Read the file", Priority: acp2.PlanEntryPriorityHigh, Status: acp2.PlanEntryStatusPending}}
+	if err := stream.SendPlan(t.Context(), "plan_1", entries); err != nil {
+		t.Fatal(err)
+	}
+	update, ok := (<-client.updates).Update.As[acp2.SessionUpdatePlanUpdate]()
+	if !ok {
+		t.Fatal("SendPlan sent another update")
+	}
+	items, ok := update.Plan.As[acp2.PlanUpdateContentItems]()
+	if !ok || items.PlanID != "plan_1" || len(items.Entries) != 1 {
+		t.Fatalf("plan = %+v", update.Plan)
+	}
+	if tag := acp2.ToolDiff(acp2.NewDiffChange(acp2.DiffChangeDelete{Path: "/a"})).Tag(); tag != "diff" {
+		t.Errorf("ToolDiff tag %q", tag)
+	}
+	if tag := acp2.ToolTerminal("term_1").Tag(); tag != "terminal" {
+		t.Errorf("ToolTerminal tag %q", tag)
+	}
+}

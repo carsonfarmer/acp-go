@@ -72,7 +72,7 @@ func TestTurnEndsOnIdle(t *testing.T) {
 // prompts that arrive mid-turn into it, and relies on the embedded manager's
 // CancelSession to stop it.
 type cancellableAgent struct {
-	*acp2.SessionManager[struct{}]
+	*acp2.SessionManager[bareSession]
 	client  acp2.Client
 	started chan struct{}
 }
@@ -85,7 +85,7 @@ func (cancellableAgent) Initialize(context.Context, *acp2.InitializeRequest) (*a
 // turn: StartTurn reports the cancelled stop reason instead.
 func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
-	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ struct{}) acp2.StopReason {
+	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ bareSession) acp2.StopReason {
 		close(a.started)
 		<-turn.Done()
 		return acp2.StopReasonEndTurn
@@ -101,9 +101,9 @@ func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptReques
 
 func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	agent := &cancellableAgent{
-		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[struct{}](),
-			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, struct{}, error) {
-				return acp2.GenerateSessionID(), struct{}{}, nil
+		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
+			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
+				return acp2.GenerateSessionID(), bareSession{}, nil
 			}),
 		started: make(chan struct{}),
 	}
@@ -202,7 +202,7 @@ func TestTurnSurvivesARejectedStarter(t *testing.T) {
 // lateJoinAgent starts its turn only after the client's session/cancel has
 // been handled, as an agent busy loading the session might.
 type lateJoinAgent struct {
-	*acp2.SessionManager[struct{}]
+	*acp2.SessionManager[bareSession]
 	client     acp2.Client
 	received   chan struct{}
 	cancelSeen chan struct{}
@@ -243,9 +243,9 @@ func (a *lateJoinAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) 
 // cancelled.
 func TestCancelBeforeJoinTurnCancelsTheTurn(t *testing.T) {
 	agent := &lateJoinAgent{
-		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[struct{}](),
-			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, struct{}, error) {
-				return acp2.GenerateSessionID(), struct{}{}, nil
+		SessionManager: acp2.NewSessionManager(acp2.NewMemoryStore[bareSession](),
+			func(context.Context, *acp2.NewSessionRequest) (acp2.SessionID, bareSession, error) {
+				return acp2.GenerateSessionID(), bareSession{}, nil
 			}),
 		received:   make(chan struct{}),
 		cancelSeen: make(chan struct{}),

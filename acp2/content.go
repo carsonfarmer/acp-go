@@ -46,3 +46,16 @@ func JoinTexts(blocks []ContentBlock) string {
 func ToolText(text string) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentContent{Content: TextBlock(text)})
 }
+
+// ToolDiff is tool call content showing file changes, built with
+// [NewDiffChange] from [DiffChangeModify], [DiffChangeAdd] and the other
+// change kinds.
+func ToolDiff(changes ...DiffChange) ToolCallContent {
+	return schema.NewToolCallContent(schema.ToolCallContentDiff{Changes: changes})
+}
+
+// ToolTerminal embeds a terminal in a tool call, so the client shows its
+// output as it runs.
+func ToolTerminal(id TerminalID) ToolCallContent {
+	return schema.NewToolCallContent(schema.ToolCallContentTerminal{TerminalID: id})
+}
