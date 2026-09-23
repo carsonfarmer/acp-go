@@ -65,7 +65,7 @@ fmt.Println(text) // HELLO
 ```
 
 To build your own **agent**, start with [Echo Agent](examples/echo/): implement `Initialize`,
-`NewSession`, `Prompt`, and `Cancel`. Optional interfaces add capabilities such as loading sessions.
+`NewSession`, `Prompt`, and `CancelSession`. Optional interfaces add capabilities such as loading sessions.
 
 To build a **client**, start with [Client](examples/client/): use `acp1.SpawnAgent` to launch a stdio
 agent and implement `SessionUpdate` and `RequestPermission` to handle its updates and permission requests.

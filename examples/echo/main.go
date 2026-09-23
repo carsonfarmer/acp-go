@@ -36,8 +36,8 @@ func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
 }
 
-// Cancel has nothing to stop: Prompt never waits.
-func (a *echoAgent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+// CancelSession has nothing to stop: Prompt never waits.
+func (a *echoAgent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 func main() {
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {

@@ -27,7 +27,7 @@ type session struct {
 	mode acp1.SessionModeID // changed by session/set_mode while a turn may run
 }
 
-// exampleAgent embeds a SessionManager, which supplies NewSession and Cancel
+// exampleAgent embeds a SessionManager, which supplies NewSession and CancelSession
 // plus the optional session/delete, session/resume and session/close handlers,
 // and an ExtRouter, which serves the extension methods registered on it.
 // It needs no credentials, so it leaves out Authenticate.
@@ -67,7 +67,7 @@ func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequ
 	}, nil
 }
 
-// Prompt runs the turn through the embedded manager, whose Cancel cancels the
+// Prompt runs the turn through the embedded manager, whose CancelSession cancels the
 // turn's context; a cancelled turn is answered as cancelled.
 func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, sess *session) (acp1.StopReason, error) {

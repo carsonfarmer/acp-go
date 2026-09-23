@@ -47,7 +47,7 @@ if err := conn.Start(context.Background()); err != nil {
 }
 ```
 
-`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `NewSession`, `Prompt`, `Cancel`
+`Agent` 인터페이스에 반드시 필요한 메서드는 `Initialize`, `NewSession`, `Prompt`, `CancelSession`
 네 개뿐입니다. 나머지는 선택적 인터페이스(`acp1.Authenticator`, `acp1.SessionLoader`,
 `acp1.SessionLister`, `acp1.SessionModeSetter`, `acp1.NesHandler` 등)로 구현합니다.
 `acp1.CapabilitiesOf(agent)`가 구현된 인터페이스에서 capability를 유도해 주므로, `Initialize`
@@ -121,7 +121,7 @@ manager := acp1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession 제공
+    *acp1.SessionManager[*MySession] // NewSession, CancelSession, DeleteSession, ResumeSession, CloseSession 제공
 }
 
 // 선택: session/new와 session/resume 응답에 모드를 싣고, List가 세션을 설명합니다.
@@ -134,7 +134,7 @@ func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsReq
     return a.List(ctx, params) // cwd 필터, 최근에 갱신된 순
 }
 
-// RunTurn은 세션을 찾아 턴 하나를 실행합니다. 매니저의 Cancel이 ctx를 취소하면 턴은 cancelled로
+// RunTurn은 세션을 찾아 턴 하나를 실행합니다. 매니저의 CancelSession이 ctx를 취소하면 턴은 cancelled로
 // 응답되고, 그 사이 들어온 두 번째 프롬프트는 acp.ErrTurnInProgress를 받습니다(v1 세션은 한 번에 한 턴).
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
     return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, s *MySession) (acp1.StopReason, error) {

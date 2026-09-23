@@ -50,7 +50,7 @@ if err := conn.Start(context.Background()); err != nil {
 }
 ```
 
-`Agent` requires only `Initialize`, `NewSession`, `Prompt` and `Cancel`.
+`Agent` requires only `Initialize`, `NewSession`, `Prompt` and `CancelSession`.
 Everything else is an optional interface — implement `acp1.Authenticator`, `acp1.SessionLoader`, `acp1.SessionLister`,
 `acp1.SessionModeSetter`, `acp1.NesHandler` and so on. Methods you do not implement are answered
 with `-32601`. `acp1.CapabilitiesOf(agent)` returns the capabilities those interfaces imply, so the
@@ -125,7 +125,7 @@ manager := acp1.NewSessionManager(
 )
 
 type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession
+    *acp1.SessionManager[*MySession] // NewSession, CancelSession, DeleteSession, ResumeSession, CloseSession
 }
 
 // Optional: session/new and session/resume report the modes; List describes the session.
@@ -138,7 +138,7 @@ func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsReq
     return a.List(ctx, params) // cwd filter, most recently updated first
 }
 
-// RunTurn looks the session up and runs one turn: the manager's Cancel cancels
+// RunTurn looks the session up and runs one turn: the manager's CancelSession cancels
 // ctx and the turn is answered as cancelled; a second prompt meanwhile gets
 // acp.ErrTurnInProgress, since v1 runs one turn per session.
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {

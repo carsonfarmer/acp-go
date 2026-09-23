@@ -32,4 +32,4 @@ func (a *v1Agent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
 }
 
-func (a *v1Agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+func (a *v1Agent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }

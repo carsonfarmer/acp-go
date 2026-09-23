@@ -88,7 +88,7 @@ func (a *openAgent) Initialize(_ context.Context, params *acp1.InitializeRequest
 	}, nil
 }
 
-// Prompt runs the turn through the embedded manager, whose Cancel cancels the
+// Prompt runs the turn through the embedded manager, whose CancelSession cancels the
 // turn's context, which also aborts the request to the model.
 func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, sess *session) (acp1.StopReason, error) {

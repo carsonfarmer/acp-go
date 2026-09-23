@@ -145,7 +145,7 @@ func (v1Agent) NewSession(context.Context, *acp1.NewSessionRequest) (*acp1.NewSe
 func (v1Agent) Prompt(context.Context, *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
 }
-func (v1Agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+func (v1Agent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 type v1Client struct {
 	acp1.UnimplementedClient

@@ -18,7 +18,7 @@ func (bareAgent) Initialize(context.Context, *acp1.InitializeRequest) (*acp1.Ini
 func (bareAgent) Prompt(context.Context, *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return nil, nil
 }
-func (bareAgent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+func (bareAgent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 // forkingAgent adds one optional interface on top of the manager's three.
 type forkingAgent struct{ bareAgent }

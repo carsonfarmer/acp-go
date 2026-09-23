@@ -42,11 +42,11 @@ type Agent interface {
 	// See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)
 	Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error)
 
-	// Cancel is a notification asking the agent to abort the current turn.
+	// CancelSession is a notification asking the agent to abort the current turn.
 	// The pending Prompt call should return with StopReasonCancelled.
 	//
 	// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
-	Cancel(ctx context.Context, params *CancelNotification) error
+	CancelSession(ctx context.Context, params *CancelNotification) error
 }
 
 // Authenticator handles authenticate. Implement it when the agent lists
@@ -316,18 +316,18 @@ func (c *ClientSideConnection) NewSession(ctx context.Context, params *NewSessio
 // Prompt runs one prompt turn and returns once the agent stops.
 //
 // Cancelling ctx cancels the JSON-RPC request; to cancel the turn itself with
-// the protocol's own semantics, send [ClientSideConnection.Cancel].
+// the protocol's own semantics, send [ClientSideConnection.CancelSession].
 //
 // See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)
 func (c *ClientSideConnection) Prompt(ctx context.Context, params *PromptRequest) (*PromptResponse, error) {
 	return acpconn.Call[PromptResponse](ctx, c.conn, schema.AgentMethodsSessionPrompt, params)
 }
 
-// Cancel asks the agent to end the current turn. The pending Prompt call
+// CancelSession asks the agent to end the current turn. The pending Prompt call
 // returns with the cancelled stop reason.
 //
 // See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
-func (c *ClientSideConnection) Cancel(ctx context.Context, params *CancelNotification) error {
+func (c *ClientSideConnection) CancelSession(ctx context.Context, params *CancelNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsSessionCancel, params)
 }
 
@@ -668,7 +668,7 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 func (c *AgentSideConnection) handleNotification(ctx context.Context, method string, params jsontext.Value) error {
 	switch method {
 	case schema.AgentMethodsSessionCancel:
-		return acpconn.Notify(ctx, schema.Validated(), params, c.agent.Cancel)
+		return acpconn.Notify(ctx, schema.Validated(), params, c.agent.CancelSession)
 	case schema.AgentMethodsNesAccept:
 		if h, ok := c.agent.(NesHandler); ok {
 			return acpconn.Notify(ctx, schema.Validated(), params, h.AcceptNes)

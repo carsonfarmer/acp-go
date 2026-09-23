@@ -63,7 +63,7 @@ func (a *testAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 	return &acp1.PromptResponse{StopReason: schema.StopReasonEndTurn}, nil
 }
 
-func (a *testAgent) Cancel(_ context.Context, params *acp1.CancelNotification) error {
+func (a *testAgent) CancelSession(_ context.Context, params *acp1.CancelNotification) error {
 	a.cancelled <- params.SessionID
 	return nil
 }
@@ -268,8 +268,8 @@ func TestCancelNotificationReachesTheAgent(t *testing.T) {
 	agent := newTestAgent()
 	conn, _ := connect(t, agent, newTestClient())
 
-	if err := conn.Cancel(t.Context(), &acp1.CancelNotification{SessionID: "session_1"}); err != nil {
-		t.Fatalf("Cancel: %v", err)
+	if err := conn.CancelSession(t.Context(), &acp1.CancelNotification{SessionID: "session_1"}); err != nil {
+		t.Fatalf("CancelSession: %v", err)
 	}
 	select {
 	case id := <-agent.cancelled:

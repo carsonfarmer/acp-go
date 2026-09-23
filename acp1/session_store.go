@@ -80,10 +80,10 @@ type SessionInfoReporter interface {
 //		},
 //	)}
 //
-// Embedding it satisfies [Agent]'s NewSession and Cancel plus
+// Embedding it satisfies [Agent]'s NewSession and CancelSession plus
 // [SessionDeleter], [SessionResumer] and [SessionCloser]; override any of
 // them by declaring the method on the agent itself. [CapabilitiesOf]
-// advertises what the agent ends up implementing. Cancel stops the context of
+// advertises what the agent ends up implementing. CancelSession stops the context of
 // the turn started with [SessionManager.BeginTurn]. When the session state
 // implements [SessionModesReporter] or [SessionConfigOptionsReporter], the
 // session/new and session/resume responses carry its modes and config
@@ -147,7 +147,7 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 // RunTurn answers a prompt with one turn on the session: it looks the session
 // up, begins its turn, runs run with the turn's context and ends the turn.
 // The response carries the stop reason run returns, or [StopReasonCancelled]
-// once [SessionManager.Cancel] has cancelled the turn, whatever run returned,
+// once [SessionManager.CancelSession] has cancelled the turn, whatever run returned,
 // as the protocol asks. An unknown session, an overlapping prompt
 // ([acp.ErrTurnInProgress]) and any other error from run are returned as is:
 //
@@ -180,7 +180,7 @@ func (m *SessionManager[T]) RunTurn(ctx context.Context, id SessionID, run func(
 }
 
 // BeginTurn starts a prompt turn on a session. Run the turn's work with the
-// returned context, which [SessionManager.Cancel] cancels with
+// returned context, which [SessionManager.CancelSession] cancels with
 // [acp.ErrTurnCancelled], and call done when Prompt returns. A v1 session runs
 // one turn at a time, so a prompt that overlaps a running turn gets
 // [acp.ErrTurnInProgress], an invalid-request error to return as is:
@@ -200,8 +200,8 @@ func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (contex
 	return m.turns.Begin(ctx, id)
 }
 
-// Cancel cancels the session's turn in progress, if any.
-func (m *SessionManager[T]) Cancel(_ context.Context, params *CancelNotification) error {
+// CancelSession cancels the session's turn in progress, if any.
+func (m *SessionManager[T]) CancelSession(_ context.Context, params *CancelNotification) error {
 	m.turns.Cancel(params.SessionID)
 	return nil
 }

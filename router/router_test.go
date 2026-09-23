@@ -35,7 +35,7 @@ func (a *v1Agent) NewSession(context.Context, *acp1.NewSessionRequest) (*acp1.Ne
 func (a *v1Agent) Prompt(context.Context, *acp1.PromptRequest) (*acp1.PromptResponse, error) {
 	return nil, nil
 }
-func (a *v1Agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+func (a *v1Agent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 type v2Agent struct {
 	initialized chan *acp2.InitializeRequest

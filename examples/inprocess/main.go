@@ -40,7 +40,7 @@ func (a *shoutAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*a
 	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
 }
 
-func (a *shoutAgent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
+func (a *shoutAgent) CancelSession(context.Context, *acp1.CancelNotification) error { return nil }
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())

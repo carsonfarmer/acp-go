@@ -65,7 +65,7 @@ fmt.Println(text) // HELLO
 ```
 
 **에이전트**를 만들려면 [Echo Agent](../examples/echo/)부터 시작하세요.
-`Initialize`, `NewSession`, `Prompt`, `Cancel`을 구현하고,
+`Initialize`, `NewSession`, `Prompt`, `CancelSession`을 구현하고,
 세션 불러오기 같은 기능은 선택적 인터페이스로 추가합니다.
 
 **클라이언트**를 만들려면 [Client](../examples/client/)를 참고하세요.

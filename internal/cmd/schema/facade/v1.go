@@ -42,17 +42,17 @@ See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt
 					CallDoc: `Prompt runs one prompt turn and returns once the agent stops.
 
 Cancelling ctx cancels the JSON-RPC request; to cancel the turn itself with
-the protocol's own semantics, send [ClientSideConnection.Cancel].
+the protocol's own semantics, send [ClientSideConnection.CancelSession].
 
 See protocol docs: [Prompt Turn](https://agentclientprotocol.com/protocol/prompt-turn)`,
 				},
 				{
-					Wire: "session/cancel", Name: "Cancel", Params: "CancelNotification",
-					Doc: `Cancel is a notification asking the agent to abort the current turn.
+					Wire: "session/cancel", Name: "CancelSession", Params: "CancelNotification",
+					Doc: `CancelSession is a notification asking the agent to abort the current turn.
 The pending Prompt call should return with StopReasonCancelled.
 
 See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)`,
-					CallDoc: `Cancel asks the agent to end the current turn. The pending Prompt call
+					CallDoc: `CancelSession asks the agent to end the current turn. The pending Prompt call
 returns with the cancelled stop reason.
 
 See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)`,
