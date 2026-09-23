@@ -274,7 +274,7 @@ stream.StartToolCall(ctx, toolID, "Reading file", schema.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
 
 stream.SendPlan(ctx, entries)
-stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries}) // the same, as a bare variant: any update works
+stream.Send(ctx, schema.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
 ```
 
 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts` (an iterator over a prompt's text blocks) and

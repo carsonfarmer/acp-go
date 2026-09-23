@@ -21,6 +21,7 @@ type ClientSideConnection struct {
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
+var _ acp.Conn = (*ClientSideConnection)(nil)
 
 // NewClientSideConnection connects a client to an agent. newClient receives
 // the connection being built so the client can call the agent from its own

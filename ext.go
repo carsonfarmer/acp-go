@@ -14,6 +14,18 @@ type ExtCaller interface {
 	ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error)
 }
 
+// Conn is what the agent- and client-side connections of every protocol
+// version share, for code that does not depend on the version.
+type Conn interface {
+	ExtCaller
+	// ExtNotification sends a notification outside the spec.
+	ExtNotification(ctx context.Context, method string, params any) error
+	// Close shuts the connection down, waiting for in-flight handlers.
+	Close() error
+	// Done is closed once the connection stops.
+	Done() <-chan struct{}
+}
+
 // CallExt sends an extension request and decodes its result into an R. A null
 // or empty result decodes to the zero value.
 //

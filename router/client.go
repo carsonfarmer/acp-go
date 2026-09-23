@@ -2,7 +2,6 @@ package router
 
 import (
 	"context"
-	"encoding/json/jsontext"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -73,51 +72,22 @@ func (c *ClientConnector) WithV2(newClient func(*acpv2.ClientSideConnection) acp
 }
 
 // Agent is an initialized agent process speaking the negotiated version.
-// Exactly one of V1 and V2 is set, with its initialize response.
+// Exactly one of V1 and V2 is set, with its initialize response; the embedded
+// Process is the same process for code that does not depend on the version.
 type Agent struct {
+	Process
 	V1     *acpv1.AgentProcess
 	V1Init *acpv1.InitializeResponse
 	V2     *acpv2.AgentProcess
 	V2Init *acpv2.InitializeResponse
 }
 
-// agentProcess is what [acpv1.AgentProcess] and [acpv2.AgentProcess] share.
-type agentProcess interface {
-	acp.ExtCaller
-	ExtNotification(ctx context.Context, method string, params any) error
-	Close() error
+// Process is what [acpv1.AgentProcess] and [acpv2.AgentProcess] share.
+type Process interface {
+	acp.Conn
+	// Wait blocks until the agent process has exited and the connection has
+	// stopped.
 	Wait() error
-	Done() <-chan struct{}
-}
-
-var _ acp.ExtCaller = (*Agent)(nil)
-
-func (a *Agent) process() agentProcess {
-	if a.V2 != nil {
-		return a.V2
-	}
-	return a.V1
-}
-
-// Close shuts the connection down, whichever version it speaks.
-func (a *Agent) Close() error { return a.process().Close() }
-
-// Wait blocks until the agent process has exited and the connection has
-// stopped, as the version's AgentProcess.Wait describes.
-func (a *Agent) Wait() error { return a.process().Wait() }
-
-// Done is closed once the connection stops.
-func (a *Agent) Done() <-chan struct{} { return a.process().Done() }
-
-// ExtMethod sends a request outside the spec, so [acp.CallExt] works without
-// knowing the negotiated version.
-func (a *Agent) ExtMethod(ctx context.Context, method string, params any) (jsontext.Value, error) {
-	return a.process().ExtMethod(ctx, method, params)
-}
-
-// ExtNotification sends a notification outside the spec.
-func (a *Agent) ExtNotification(ctx context.Context, method string, params any) error {
-	return a.process().ExtNotification(ctx, method, params)
 }
 
 // ErrNoCommonVersion reports an agent whose protocol version is not one the
@@ -173,7 +143,7 @@ func (c *ClientConnector) spawnV2(ctx context.Context, newCmd func() *exec.Cmd, 
 		shutdown(proc)
 		return nil, 0, fmt.Errorf("initialize: %w", err)
 	}
-	return &Agent{V2: proc, V2Init: init}, 0, nil
+	return &Agent{Process: proc, V2: proc, V2Init: init}, 0, nil
 }
 
 func (c *ClientConnector) spawnV1(ctx context.Context, newCmd func() *exec.Cmd, opts []acp.Option) (*Agent, error) {
@@ -190,11 +160,11 @@ func (c *ClientConnector) spawnV1(ctx context.Context, newCmd func() *exec.Cmd, 
 		shutdown(proc)
 		return nil, fmt.Errorf("%w: agent answered protocolVersion %d", ErrNoCommonVersion, init.ProtocolVersion)
 	}
-	return &Agent{V1: proc, V1Init: init}, nil
+	return &Agent{Process: proc, V1: proc, V1Init: init}, nil
 }
 
 // shutdown closes an agent process's connection and waits for it to exit.
-func shutdown(proc agentProcess) {
+func shutdown(proc Process) {
 	_ = proc.Close()
 	_ = proc.Wait()
 }

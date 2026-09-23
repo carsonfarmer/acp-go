@@ -23,6 +23,7 @@ type ClientSideConnection struct {
 }
 
 var _ Agent = (*ClientSideConnection)(nil)
+var _ acp.Conn = (*ClientSideConnection)(nil)
 
 // NewClientSideConnection connects a client to an agent.
 //

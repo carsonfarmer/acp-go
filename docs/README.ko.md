@@ -233,7 +233,7 @@ stream := acpv1.NewSessionStream(client, sessionID)
 stream.SendText(ctx, "안녕하세요!")
 stream.StartToolCall(ctx, toolID, "파일 읽기", schema.ToolKindRead)
 stream.CompleteToolCall(ctx, toolID, acpv1.ToolText(contents))
-stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries}) // 위와 같은 update를 variant로 직접: 헬퍼가 없는 것도 가능
+stream.Send(ctx, schema.SessionUpdateSessionInfoUpdate{Title: new("리팩터링")}) // 헬퍼가 없는 variant용
 ```
 
 흔한 텍스트 콘텐츠는 `acpv1.TextBlock`, `acpv1.TextOf`, `acpv1.Texts`(프롬프트의 텍스트 블록 iterator),
