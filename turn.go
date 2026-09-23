@@ -18,6 +18,8 @@ var ErrTurnCancelled = acpconn.ErrTurnCancelled
 
 // ErrTurnInProgress reports a prompt on a session whose turn has not ended.
 // v1 allows one prompt turn per session at a time, so both sides refuse it.
+// It is an invalid-request error, and errors.Is matches it by code and
+// message, so a caller recognizes it after it crossed the wire too.
 var ErrTurnInProgress = acpconn.ErrTurnInProgress
 
 // TurnTracker holds a cancellable context for the turn in progress on each

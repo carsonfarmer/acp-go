@@ -42,6 +42,18 @@ func (e *RequestError) Error() string {
 	return fmt.Sprintf("jsonrpc error %d: %s", e.Code, e.Message)
 }
 
+// Is reports whether e matches target, a *RequestError, by code and, when
+// target has one, by message; data is not compared. So an error the peer sent
+// matches the sentinel it was built from, and a target with only a code
+// matches every error with that code:
+//
+//	errors.Is(err, acp.ErrTurnInProgress)
+//	errors.Is(err, &acp.RequestError{Code: acp.ErrorCodeAuthRequired})
+func (e *RequestError) Is(target error) bool {
+	t, ok := target.(*RequestError)
+	return ok && t != nil && e.Code == t.Code && (t.Message == "" || t.Message == e.Message)
+}
+
 // WithData returns a copy of e whose "data" member is data:
 //
 //	return nil, acp.ResourceNotFound(path).WithData(map[string]string{"uri": path})

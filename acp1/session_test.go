@@ -127,8 +127,8 @@ func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
 	// from RunTurn, and the running turn is left alone. Bypass ClientSession,
 	// which would refuse locally.
 	_, err = conn.Prompt(t.Context(), &acp1.PromptRequest{SessionID: session.ID, Prompt: []acp1.ContentBlock{acp1.TextBlock("again")}})
-	if !acp.IsCode(err, acp.ErrorCodeInvalidRequest) {
-		t.Fatalf("overlapping prompt: %v", err)
+	if !errors.Is(err, acp.ErrTurnInProgress) {
+		t.Fatalf("overlapping prompt: %v, want acp.ErrTurnInProgress from across the wire", err)
 	}
 	if err := session.Cancel(t.Context()); err != nil {
 		t.Fatal(err)
