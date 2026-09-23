@@ -28,8 +28,8 @@ func applySendOptions(opts []SendOption) sendOptions {
 }
 
 // ToolCallOption sets optional fields on the tool call updates
-// [SessionStream.StartToolCall], [SessionStream.CompleteToolCall] and
-// [SessionStream.FailToolCall] send.
+// [SessionStream.StartToolCall], [SessionStream.UpdateToolCallStatus],
+// [SessionStream.CompleteToolCall] and [SessionStream.FailToolCall] send.
 type ToolCallOption func(*toolCallOptions)
 
 type toolCallOptions struct {
@@ -160,26 +160,7 @@ func (s *SessionStream) StartToolCall(ctx context.Context, id ToolCallID, title 
 }
 
 // UpdateToolCallStatus moves a tool call to another status.
-func (s *SessionStream) UpdateToolCallStatus(ctx context.Context, id ToolCallID, status ToolCallStatus) error {
-	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
-		ToolCallID: id,
-		Status:     &status,
-	})
-}
-
-// CompleteToolCall marks a tool call completed; [WithToolContent] replaces
-// its content with the output.
-func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
-	return s.finishToolCall(ctx, id, schema.ToolCallStatusCompleted, opts)
-}
-
-// FailToolCall marks a tool call failed; [WithToolContent] replaces its
-// content with the error output.
-func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
-	return s.finishToolCall(ctx, id, schema.ToolCallStatusFailed, opts)
-}
-
-func (s *SessionStream) finishToolCall(ctx context.Context, id ToolCallID, status ToolCallStatus, opts []ToolCallOption) error {
+func (s *SessionStream) UpdateToolCallStatus(ctx context.Context, id ToolCallID, status ToolCallStatus, opts ...ToolCallOption) error {
 	o := applyToolCallOptions(opts)
 	return s.Send(ctx, schema.SessionUpdateToolCallUpdate{
 		ToolCallID: id,
@@ -189,6 +170,18 @@ func (s *SessionStream) finishToolCall(ctx context.Context, id ToolCallID, statu
 		RawInput:   o.rawInput,
 		RawOutput:  o.rawOutput,
 	})
+}
+
+// CompleteToolCall marks a tool call completed; [WithToolContent] replaces
+// its content with the output.
+func (s *SessionStream) CompleteToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
+	return s.UpdateToolCallStatus(ctx, id, schema.ToolCallStatusCompleted, opts...)
+}
+
+// FailToolCall marks a tool call failed; [WithToolContent] replaces its
+// content with the error output.
+func (s *SessionStream) FailToolCall(ctx context.Context, id ToolCallID, opts ...ToolCallOption) error {
+	return s.UpdateToolCallStatus(ctx, id, schema.ToolCallStatusFailed, opts...)
 }
 
 // SendPlan reports the agent's plan for the turn.
