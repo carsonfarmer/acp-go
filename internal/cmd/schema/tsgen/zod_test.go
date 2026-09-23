@@ -47,7 +47,7 @@ func TestGeneratedZod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := Generate(s, "fixture")
+	data, _, err := Generate(s, "fixture")
 	if err != nil {
 		t.Fatal(err)
 	}

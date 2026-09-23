@@ -50,11 +50,11 @@ func TestGeneratedWireTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a, err := Generate(s, "fixture")
+	a, _, err := Generate(s, "fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := Generate(s, "fixture")
+	b, _, err := Generate(s, "fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestNoNumberedTypes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		files, err := Generate(s, "schema")
+		files, _, err := Generate(s, "schema")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,11 +123,11 @@ func TestGenerationErrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err = Generate(s, "fixture"); err == nil {
+		if _, _, err = Generate(s, "fixture"); err == nil {
 			t.Fatalf("expected generation error for %s", source)
 		}
 	}
-	if _, err := Generate(&tsdef.Schema{}, "package"); err == nil {
+	if _, _, err := Generate(&tsdef.Schema{}, "package"); err == nil {
 		t.Fatal("accepted invalid package")
 	}
 }

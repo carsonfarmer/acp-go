@@ -98,8 +98,9 @@ type side struct {
 	caller    string // connection type calling these methods on the peer
 }
 
-// Generate validates spec against schema and returns the façade files.
-func Generate(spec *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
+// Generate validates spec against schema and returns the façade files. decls
+// are the declarations [tsgen.Generate] reported for the same schema.
+func Generate(spec *Spec, schema *tsdef.Schema, decls tsgen.Decls) (map[string][]byte, error) {
 	g := &emitter{spec: spec, types: map[string]bool{}, constants: map[string]string{}}
 	for _, d := range schema.Types {
 		g.types[tsgen.Name(d.Name)] = true
@@ -131,10 +132,6 @@ func Generate(spec *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
 		}
 	}
 
-	decls, err := tsgen.Declarations(schema)
-	if err != nil {
-		return nil, err
-	}
 	files := map[string][]byte{}
 	g.typesFile(schema, decls)
 	if err := g.flush(files, "types.gen.go"); err != nil {
@@ -231,7 +228,7 @@ func (g *emitter) header() {
 
 // typesFile re-exports the payload types so a caller implementing the
 // interfaces needs one import.
-func (g *emitter) typesFile(schema *tsdef.Schema, decls map[string]tsgen.Decl) {
+func (g *emitter) typesFile(schema *tsdef.Schema, decls tsgen.Decls) {
 	g.header()
 	g.write("import schema %q\n\n", g.spec.SchemaPath)
 	g.write("// ProtocolVersion is the ACP protocol version implemented by this package.\nconst ProtocolVersion = schema.CurrentProtocolVersion\n\n")

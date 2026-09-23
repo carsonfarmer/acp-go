@@ -28,6 +28,16 @@ func parse(t *testing.T) *tsdef.Schema {
 	return s
 }
 
+// generate runs Generate with the declarations tsgen reports for schema.
+func generate(t *testing.T, s *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
+	t.Helper()
+	_, decls, err := tsgen.Generate(schema, "schema")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Generate(s, schema, decls)
+}
+
 func spec() *Spec {
 	return &Spec{
 		Package: "fixture", SchemaPath: "example.com/schema", Unhandled: []string{"extra/one"},
@@ -49,7 +59,7 @@ func spec() *Spec {
 }
 
 func TestGenerateEmitsInterfacesCallsAndDispatch(t *testing.T) {
-	files, err := Generate(spec(), parse(t))
+	files, err := generate(t, spec(), parse(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +100,7 @@ func TestGenerateEmitsInterfacesCallsAndDispatch(t *testing.T) {
 func TestCallViaRoutesTheOutgoingCall(t *testing.T) {
 	s := spec()
 	s.Agent[0].Methods[0].CallVia = "ping"
-	files, err := Generate(s, parse(t))
+	files, err := generate(t, s, parse(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +133,7 @@ func TestValidationRejectsDrift(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := spec()
 			mutate(s)
-			if _, err := Generate(s, parse(t)); err == nil {
+			if _, err := generate(t, s, parse(t)); err == nil {
 				t.Fatal("generation accepted the drift")
 			}
 		})
@@ -136,7 +146,7 @@ func TestValidationRejectsUnhandledProtocolMethod(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Generate(spec(), schema); err == nil || !strings.Contains(err.Error(), "$/ping") {
+	if _, err := generate(t, spec(), schema); err == nil || !strings.Contains(err.Error(), "$/ping") {
 		t.Fatalf("generation accepted a protocol method nothing handles: %v", err)
 	}
 }
@@ -144,7 +154,7 @@ func TestValidationRejectsUnhandledProtocolMethod(t *testing.T) {
 func TestSameWireMethodMayBeRequestAndNotification(t *testing.T) {
 	s := spec()
 	s.Agent[1].Methods = append(s.Agent[1].Methods, Method{Wire: "session/bye", Name: "ByeRequest", Params: "PingRequest", Response: "PingResponse"})
-	if _, err := Generate(s, parse(t)); err != nil {
+	if _, err := generate(t, s, parse(t)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -155,7 +165,7 @@ func TestPinnedTablesMatchPinnedSchemas(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Generate(s, schema); err != nil {
+		if _, err := generate(t, s, schema); err != nil {
 			t.Fatalf("%s: %v", version, err)
 		}
 	}

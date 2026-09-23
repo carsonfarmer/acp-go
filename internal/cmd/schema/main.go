@@ -43,7 +43,7 @@ func run(args []string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
 		}
-		files, err := tsgen.Generate(schema, "schema")
+		files, decls, err := tsgen.Generate(schema, "schema")
 		if err != nil {
 			return fmt.Errorf("%s: %w", version, err)
 		}
@@ -54,7 +54,7 @@ func run(args []string) error {
 			continue
 		}
 		spec := specs[version]
-		facadeFiles, err := facade.Generate(spec, schema)
+		facadeFiles, err := facade.Generate(spec, schema, decls)
 		if err != nil {
 			return fmt.Errorf("%s façade: %w", version, err)
 		}
