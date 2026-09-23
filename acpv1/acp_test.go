@@ -5,7 +5,6 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
-	"io"
 	"testing"
 	"time"
 
@@ -92,28 +91,14 @@ func (c *testClient) ReadTextFile(_ context.Context, params *acpv1.ReadTextFileR
 // connect wires an agent and a client together over in-memory pipes.
 func connect(t *testing.T, agent *testAgent, client acpv1.Client) (*acpv1.ClientSideConnection, *acpv1.AgentSideConnection) {
 	t.Helper()
-
-	agentIn, clientOut := io.Pipe()
-	clientIn, agentOut := io.Pipe()
-
-	agentConn := acpv1.NewAgentSideConnection(func(c *acpv1.AgentSideConnection) acpv1.Agent {
+	ctx, cancel := context.WithCancel(t.Context())
+	agentConn, clientConn := acpv1.Pipe(ctx, func(c *acpv1.AgentSideConnection) acpv1.Agent {
 		agent.client = c
 		return agent
-	}, agentIn, agentOut)
-	clientConn := acpv1.NewClientSideConnection(func(*acpv1.ClientSideConnection) acpv1.Client {
-		return client
-	}, clientIn, clientOut)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan struct{}, 2)
-	go func() { _ = agentConn.Start(ctx); done <- struct{}{} }()
-	go func() { _ = clientConn.Start(ctx); done <- struct{}{} }()
-
+	}, func(*acpv1.ClientSideConnection) acpv1.Client { return client })
 	t.Cleanup(func() {
 		cancel()
-		_ = clientOut.Close()
-		_ = agentOut.Close()
-		for range 2 {
+		for _, done := range []<-chan struct{}{agentConn.Done(), clientConn.Done()} {
 			select {
 			case <-done:
 			case <-time.After(2 * time.Second):

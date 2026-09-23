@@ -114,19 +114,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := acpv1.SpawnAgent(ctx, func(*acpv1.ClientSideConnection) acpv1.Client {
+	conn, err := acpv1.SpawnAgent(ctx, exec.Command(agentBinary), func(*acpv1.ClientSideConnection) acpv1.Client {
 		return &exampleClient{}
-	}, agentBinary)
+	})
 	if err != nil {
 		return fmt.Errorf("spawn agent: %w", err)
 	}
 	defer conn.Close()
-
-	go func() {
-		if err := conn.Start(ctx); err != nil {
-			fmt.Fprintf(os.Stderr, "connection error: %v\n", err)
-		}
-	}()
 
 	enabled := true
 	initialized, err := conn.Initialize(ctx, &acpv1.InitializeRequest{

@@ -3,7 +3,6 @@ package acpv2_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 	"time"
 
@@ -99,26 +98,14 @@ func (c *testClient) RequestPermission(_ context.Context, params *acpv2.RequestP
 
 func connect(t *testing.T, agent *testAgent, client acpv2.Client) (*acpv2.ClientSideConnection, *acpv2.AgentSideConnection) {
 	t.Helper()
-	agentIn, clientOut := io.Pipe()
-	clientIn, agentOut := io.Pipe()
-
-	agentConn := acpv2.NewAgentSideConnection(func(c *acpv2.AgentSideConnection) acpv2.Agent {
+	ctx, cancel := context.WithCancel(t.Context())
+	agentConn, clientConn := acpv2.Pipe(ctx, func(c *acpv2.AgentSideConnection) acpv2.Agent {
 		agent.client = c
 		return agent
-	}, agentIn, agentOut)
-	clientConn := acpv2.NewClientSideConnection(func(*acpv2.ClientSideConnection) acpv2.Client {
-		return client
-	}, clientIn, clientOut)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan struct{}, 2)
-	go func() { _ = agentConn.Start(ctx); done <- struct{}{} }()
-	go func() { _ = clientConn.Start(ctx); done <- struct{}{} }()
+	}, func(*acpv2.ClientSideConnection) acpv2.Client { return client })
 	t.Cleanup(func() {
 		cancel()
-		_ = clientOut.Close()
-		_ = agentOut.Close()
-		for range 2 {
+		for _, done := range []<-chan struct{}{agentConn.Done(), clientConn.Done()} {
 			select {
 			case <-done:
 			case <-time.After(2 * time.Second):

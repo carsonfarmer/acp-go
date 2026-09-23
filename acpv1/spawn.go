@@ -2,51 +2,60 @@ package acpv1
 
 import (
 	"context"
-	"fmt"
-	acp "github.com/ironpark/go-acp"
+	"io"
 	"os/exec"
+
+	acp "github.com/ironpark/go-acp"
+	"github.com/ironpark/go-acp/internal/acpconn"
 )
 
-// SpawnAgent starts an agent process and connects to it over its stdio.
-//
-// The process is killed when ctx is cancelled, and the connection is closed
-// once the process exits. Call [ClientSideConnection.Start] to begin
-// processing messages.
-//
-// Nothing is done with the agent's stderr; use [SpawnAgentCmd] to capture it
-// or to set the working directory or environment.
-func SpawnAgent(ctx context.Context, newClient func(*ClientSideConnection) Client, command string, args ...string) (*ClientSideConnection, error) {
-	return SpawnAgentCmd(ctx, newClient, exec.CommandContext(ctx, command, args...))
+// AgentProcess is a connection to an agent running as a child process. It
+// embeds the connection, so every agent method is called on it directly.
+type AgentProcess struct {
+	*ClientSideConnection
+	wait func() error
 }
 
-// SpawnAgentCmd connects to an agent process the caller has configured but not
-// yet started. Its Stdin and Stdout are replaced by the connection's pipes, and
-// the process is killed when ctx is done.
-func SpawnAgentCmd(ctx context.Context, newClient func(*ClientSideConnection) Client, cmd *exec.Cmd, opts ...acp.Option) (*ClientSideConnection, error) {
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("agent stdin pipe: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("agent stdout pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start agent process: %w", err)
-	}
+// Wait blocks until the agent process has exited and the connection has
+// stopped. It reports ctx's error if SpawnAgent's ctx ended the process, the
+// process's exit error if it failed, or the connection's read error.
+func (p *AgentProcess) Wait() error { return p.wait() }
 
-	conn := NewClientSideConnection(newClient, stdout, stdin, opts...)
-
-	stopKill := context.AfterFunc(ctx, func() {
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
+// SpawnAgent starts cmd and connects to the agent over its stdio. The
+// connection is already processing messages when SpawnAgent returns:
+//
+//	agent, err := acpv1.SpawnAgent(ctx, exec.Command("my-agent"), func(*acpv1.ClientSideConnection) acpv1.Client {
+//		return &myClient{}
+//	})
+//	init, err := agent.Initialize(ctx, &acpv1.InitializeRequest{ProtocolVersion: acpv1.ProtocolVersion})
+//
+// Set Dir, Env or Stderr on cmd before the call; a nil Stderr is sent to the
+// parent's stderr. The process is killed when ctx is done, and the connection
+// closes once the process exits.
+func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*AgentProcess, error) {
+	var conn *ClientSideConnection
+	wait, err := acpconn.Spawn(ctx, cmd, func(r io.Reader, w io.Writer) acpconn.Conn {
+		conn = NewClientSideConnection(newClient, r, w, opts...)
+		return conn
 	})
-	// cmd.Wait returns once the process exits, so this goroutine always ends.
-	go func() {
-		_ = cmd.Wait()
-		stopKill()
-		_ = conn.Close()
-	}()
-	return conn, nil
+	if err != nil {
+		return nil, err
+	}
+	return &AgentProcess{ClientSideConnection: conn, wait: wait}, nil
+}
+
+// Pipe connects an agent and a client in memory and starts both, for tests
+// and for embedding an agent in the same process. Cancel ctx or close either
+// side to stop both.
+func Pipe(ctx context.Context, newAgent func(*AgentSideConnection) Agent, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*AgentSideConnection, *ClientSideConnection) {
+	var agent *AgentSideConnection
+	var client *ClientSideConnection
+	acpconn.Pipe(ctx, func(r io.Reader, w io.Writer) acpconn.Conn {
+		agent = NewAgentSideConnection(newAgent, r, w, opts...)
+		return agent
+	}, func(r io.Reader, w io.Writer) acpconn.Conn {
+		client = NewClientSideConnection(newClient, r, w, opts...)
+		return client
+	})
+	return agent, client
 }
