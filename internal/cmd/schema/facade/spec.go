@@ -248,6 +248,7 @@ func (g *emitter) typesFile(schema *tsdef.Schema, decls tsgen.Decls) {
 		}
 		constructors = append(constructors, t)
 		g.write("\t%s = schema.%s\n", d.Interface, d.Interface)
+		g.write("\t%s = schema.%s\n", d.Constraint, d.Constraint)
 		for _, v := range d.Variants {
 			if !payloadType(v) && !slices.Contains(g.spec.ExtraTypes, v) {
 				g.write("\t%s = schema.%s\n", v, v)
@@ -267,8 +268,8 @@ func (g *emitter) typesFile(schema *tsdef.Schema, decls tsgen.Decls) {
 	}
 	for _, t := range constructors {
 		d := decls[t]
-		g.write("\n// %s wraps a variant; a nil variant yields the zero value.\n", d.Constructor)
-		g.write("func %s(v %s) %s { return schema.%s(v) }\n", d.Constructor, d.Interface, t, d.Constructor)
+		g.write("\n// %s wraps a variant.\n", d.Constructor)
+		g.write("func %s[T %s](v T) %s { return schema.%s(v) }\n", d.Constructor, d.Constraint, t, d.Constructor)
 	}
 }
 

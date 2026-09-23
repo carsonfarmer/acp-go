@@ -236,7 +236,8 @@ type openTags struct {
 // generated Unknown variant that keeps the JSON as received.
 func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember) error {
 	iface := name + "Variant"
-	for _, n := range []string{iface, "New" + name} {
+	constraint := name + "Variants"
+	for _, n := range []string{iface, constraint, "New" + name} {
 		if err := g.reserve(n); err != nil {
 			return err
 		}
@@ -317,17 +318,19 @@ func (g *generator) taggedUnion(name, sdkDoc, tag string, members []taggedMember
 	for _, v := range variants {
 		implementers = append(implementers, "["+v+"]")
 	}
-	g.decls[name] = Decl{Interface: iface, Constructor: "New" + name, Variants: variants}
+	g.decls[name] = Decl{Interface: iface, Constraint: constraint, Constructor: "New" + name, Variants: variants}
 	g.write("%s", doc(name, sdkDoc, fmt.Sprintf("%s is a tagged union discriminated by the %q member. The zero value\nencodes as null; use [New%s] or a type switch on [%s.Variant] to work with it.", name, tag, name, name)))
 	g.write("type %s struct{ value %s }\n", name, iface)
 	g.write("// %s is implemented by %s.\n", iface, strings.Join(implementers, ", "))
 	g.write("type %s interface { %s(); Tag() string }\n", iface, marker)
-	g.write("// New%s wraps a variant; a nil variant yields the zero value.\n", name)
-	g.write("func New%s(v %s) %s { return %s{value: v} }\n", name, iface, name, name)
+	g.write("// %s is the set of %s variant types. It lists the types\n// themselves: a pointer to a variant also has the %s\n// methods, but is not one.\n", constraint, name, iface)
+	g.write("type %s interface {\n%s\n%s\n}\n", constraint, strings.Join(variants, " |\n"), iface)
+	g.write("// New%s wraps a variant.\n", name)
+	g.write("func New%s[T %s](v T) %s { return %s{value: v} }\n", name, constraint, name, name)
 	g.write("// Variant returns the wrapped variant, or nil for the zero value.\n")
 	g.write("func (u %s) Variant() %s { return u.value }\n", name, iface)
 	g.write("// As returns the variant if it is a T, like a type assertion on Variant\n// with T checked against the union's variants at compile time.\n")
-	g.write("func (u %s) As[T %s]() (T, bool) { v, ok := u.value.(T); return v, ok }\n", name, iface)
+	g.write("func (u %s) As[T %s]() (T, bool) { v, ok := u.value.(T); return v, ok }\n", name, constraint)
 	g.write("// Tag returns the %q discriminator, or \"\" for the zero value.\n", tag)
 	g.write("func (u %s) Tag() string { if u.value == nil { return \"\" }; return u.value.Tag() }\n", name)
 	g.write("// IsZero reports whether no variant is set, so omitzero omits the field.\n")

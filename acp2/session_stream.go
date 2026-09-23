@@ -184,7 +184,7 @@ func (s *SessionStream) Idle(ctx context.Context, reason StopReason) error {
 // Send sends any session update variant, including those without a helper:
 //
 //	stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries})
-func (s *SessionStream) Send(ctx context.Context, update schema.SessionUpdateVariant) error {
+func (s *SessionStream) Send[T schema.SessionUpdateVariants](ctx context.Context, update T) error {
 	return s.client.SessionUpdate(ctx, &UpdateSessionNotification{
 		SessionID: s.sessionID,
 		Update:    schema.NewSessionUpdate(update),
@@ -192,6 +192,6 @@ func (s *SessionStream) Send(ctx context.Context, update schema.SessionUpdateVar
 	})
 }
 
-func (s *SessionStream) state(ctx context.Context, v schema.StateUpdateVariant) error {
+func (s *SessionStream) state[T schema.StateUpdateVariants](ctx context.Context, v T) error {
 	return s.Send(ctx, schema.SessionUpdateStateUpdate{Value: schema.NewStateUpdate(v)})
 }

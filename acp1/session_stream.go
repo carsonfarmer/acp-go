@@ -217,7 +217,7 @@ func (s *SessionStream) SendUsage(ctx context.Context, used, size float64, cost 
 // Send sends any session update variant, including those without a helper:
 //
 //	stream.Send(ctx, schema.SessionUpdatePlan{Entries: entries})
-func (s *SessionStream) Send(ctx context.Context, update schema.SessionUpdateVariant) error {
+func (s *SessionStream) Send[T schema.SessionUpdateVariants](ctx context.Context, update T) error {
 	return s.client.SessionUpdate(ctx, &SessionNotification{
 		SessionID: s.sessionID,
 		Update:    schema.NewSessionUpdate(update),

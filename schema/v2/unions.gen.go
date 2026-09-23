@@ -24,8 +24,18 @@ type RequestPermissionSubjectVariant interface {
 	Tag() string
 }
 
-// NewRequestPermissionSubject wraps a variant; a nil variant yields the zero value.
-func NewRequestPermissionSubject(v RequestPermissionSubjectVariant) RequestPermissionSubject {
+// RequestPermissionSubjectVariants is the set of RequestPermissionSubject variant types. It lists the types
+// themselves: a pointer to a variant also has the RequestPermissionSubjectVariant
+// methods, but is not one.
+type RequestPermissionSubjectVariants interface {
+	RequestPermissionSubjectToolCall |
+		RequestPermissionSubjectCommand |
+		RequestPermissionSubjectCustom
+	RequestPermissionSubjectVariant
+}
+
+// NewRequestPermissionSubject wraps a variant.
+func NewRequestPermissionSubject[T RequestPermissionSubjectVariants](v T) RequestPermissionSubject {
 	return RequestPermissionSubject{value: v}
 }
 
@@ -34,7 +44,7 @@ func (u RequestPermissionSubject) Variant() RequestPermissionSubjectVariant { re
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u RequestPermissionSubject) As[T RequestPermissionSubjectVariant]() (T, bool) {
+func (u RequestPermissionSubject) As[T RequestPermissionSubjectVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -220,15 +230,31 @@ type ToolCallContentVariant interface {
 	Tag() string
 }
 
-// NewToolCallContent wraps a variant; a nil variant yields the zero value.
-func NewToolCallContent(v ToolCallContentVariant) ToolCallContent { return ToolCallContent{value: v} }
+// ToolCallContentVariants is the set of ToolCallContent variant types. It lists the types
+// themselves: a pointer to a variant also has the ToolCallContentVariant
+// methods, but is not one.
+type ToolCallContentVariants interface {
+	ToolCallContentContent |
+		ToolCallContentDiff |
+		ToolCallContentTerminal |
+		ToolCallContentCustom
+	ToolCallContentVariant
+}
+
+// NewToolCallContent wraps a variant.
+func NewToolCallContent[T ToolCallContentVariants](v T) ToolCallContent {
+	return ToolCallContent{value: v}
+}
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ToolCallContent) Variant() ToolCallContentVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u ToolCallContent) As[T ToolCallContentVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u ToolCallContent) As[T ToolCallContentVariants]() (T, bool) {
+	v, ok := u.value.(T)
+	return v, ok
+}
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ToolCallContent) Tag() string {
@@ -478,15 +504,28 @@ type ContentBlockVariant interface {
 	Tag() string
 }
 
-// NewContentBlock wraps a variant; a nil variant yields the zero value.
-func NewContentBlock(v ContentBlockVariant) ContentBlock { return ContentBlock{value: v} }
+// ContentBlockVariants is the set of ContentBlock variant types. It lists the types
+// themselves: a pointer to a variant also has the ContentBlockVariant
+// methods, but is not one.
+type ContentBlockVariants interface {
+	ContentBlockText |
+		ContentBlockImage |
+		ContentBlockAudio |
+		ContentBlockResourceLink |
+		ContentBlockResource |
+		ContentBlockCustom
+	ContentBlockVariant
+}
+
+// NewContentBlock wraps a variant.
+func NewContentBlock[T ContentBlockVariants](v T) ContentBlock { return ContentBlock{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ContentBlock) Variant() ContentBlockVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u ContentBlock) As[T ContentBlockVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u ContentBlock) As[T ContentBlockVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ContentBlock) Tag() string {
@@ -871,15 +910,28 @@ type DiffChangeVariant interface {
 	Tag() string
 }
 
-// NewDiffChange wraps a variant; a nil variant yields the zero value.
-func NewDiffChange(v DiffChangeVariant) DiffChange { return DiffChange{value: v} }
+// DiffChangeVariants is the set of DiffChange variant types. It lists the types
+// themselves: a pointer to a variant also has the DiffChangeVariant
+// methods, but is not one.
+type DiffChangeVariants interface {
+	DiffChangeAdd |
+		DiffChangeDelete |
+		DiffChangeModify |
+		DiffChangeMove |
+		DiffChangeCopy |
+		DiffChangeCustom
+	DiffChangeVariant
+}
+
+// NewDiffChange wraps a variant.
+func NewDiffChange[T DiffChangeVariants](v T) DiffChange { return DiffChange{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u DiffChange) Variant() DiffChangeVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u DiffChange) As[T DiffChangeVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u DiffChange) As[T DiffChangeVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "operation" discriminator, or "" for the zero value.
 func (u DiffChange) Tag() string {
@@ -1290,8 +1342,21 @@ type ElicitationPropertySchemaVariant interface {
 	Tag() string
 }
 
-// NewElicitationPropertySchema wraps a variant; a nil variant yields the zero value.
-func NewElicitationPropertySchema(v ElicitationPropertySchemaVariant) ElicitationPropertySchema {
+// ElicitationPropertySchemaVariants is the set of ElicitationPropertySchema variant types. It lists the types
+// themselves: a pointer to a variant also has the ElicitationPropertySchemaVariant
+// methods, but is not one.
+type ElicitationPropertySchemaVariants interface {
+	ElicitationPropertySchemaString |
+		ElicitationPropertySchemaNumber |
+		ElicitationPropertySchemaInteger |
+		ElicitationPropertySchemaBoolean |
+		ElicitationPropertySchemaArray |
+		ElicitationPropertySchemaCustom
+	ElicitationPropertySchemaVariant
+}
+
+// NewElicitationPropertySchema wraps a variant.
+func NewElicitationPropertySchema[T ElicitationPropertySchemaVariants](v T) ElicitationPropertySchema {
 	return ElicitationPropertySchema{value: v}
 }
 
@@ -1300,7 +1365,7 @@ func (u ElicitationPropertySchema) Variant() ElicitationPropertySchemaVariant { 
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u ElicitationPropertySchema) As[T ElicitationPropertySchemaVariant]() (T, bool) {
+func (u ElicitationPropertySchema) As[T ElicitationPropertySchemaVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -1715,8 +1780,18 @@ type MultiSelectItemsVariant interface {
 	Tag() string
 }
 
-// NewMultiSelectItems wraps a variant; a nil variant yields the zero value.
-func NewMultiSelectItems(v MultiSelectItemsVariant) MultiSelectItems {
+// MultiSelectItemsVariants is the set of MultiSelectItems variant types. It lists the types
+// themselves: a pointer to a variant also has the MultiSelectItemsVariant
+// methods, but is not one.
+type MultiSelectItemsVariants interface {
+	MultiSelectItemsString |
+		MultiSelectItemsCustom |
+		TitledMultiSelectItems
+	MultiSelectItemsVariant
+}
+
+// NewMultiSelectItems wraps a variant.
+func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
 	return MultiSelectItems{value: v}
 }
 
@@ -1725,7 +1800,7 @@ func (u MultiSelectItems) Variant() MultiSelectItemsVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u MultiSelectItems) As[T MultiSelectItemsVariant]() (T, bool) {
+func (u MultiSelectItems) As[T MultiSelectItemsVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -1974,15 +2049,25 @@ type AuthMethodVariant interface {
 	Tag() string
 }
 
-// NewAuthMethod wraps a variant; a nil variant yields the zero value.
-func NewAuthMethod(v AuthMethodVariant) AuthMethod { return AuthMethod{value: v} }
+// AuthMethodVariants is the set of AuthMethod variant types. It lists the types
+// themselves: a pointer to a variant also has the AuthMethodVariant
+// methods, but is not one.
+type AuthMethodVariants interface {
+	AuthMethodTerminal |
+		AuthMethodAgent |
+		AuthMethodCustom
+	AuthMethodVariant
+}
+
+// NewAuthMethod wraps a variant.
+func NewAuthMethod[T AuthMethodVariants](v T) AuthMethod { return AuthMethod{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u AuthMethod) Variant() AuthMethodVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u AuthMethod) As[T AuthMethodVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u AuthMethod) As[T AuthMethodVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u AuthMethod) Tag() string {
@@ -2181,8 +2266,18 @@ type SessionConfigOptionVariant interface {
 	Tag() string
 }
 
-// NewSessionConfigOption wraps a variant; a nil variant yields the zero value.
-func NewSessionConfigOption(v SessionConfigOptionVariant) SessionConfigOption {
+// SessionConfigOptionVariants is the set of SessionConfigOption variant types. It lists the types
+// themselves: a pointer to a variant also has the SessionConfigOptionVariant
+// methods, but is not one.
+type SessionConfigOptionVariants interface {
+	SessionConfigOptionSelect |
+		SessionConfigOptionBoolean |
+		SessionConfigOptionCustom
+	SessionConfigOptionVariant
+}
+
+// NewSessionConfigOption wraps a variant.
+func NewSessionConfigOption[T SessionConfigOptionVariants](v T) SessionConfigOption {
 	return SessionConfigOption{value: v}
 }
 
@@ -2191,7 +2286,7 @@ func (u SessionConfigOption) Variant() SessionConfigOptionVariant { return u.val
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u SessionConfigOption) As[T SessionConfigOptionVariant]() (T, bool) {
+func (u SessionConfigOption) As[T SessionConfigOptionVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -2439,15 +2534,27 @@ type NesSuggestionVariant interface {
 	Tag() string
 }
 
-// NewNesSuggestion wraps a variant; a nil variant yields the zero value.
-func NewNesSuggestion(v NesSuggestionVariant) NesSuggestion { return NesSuggestion{value: v} }
+// NesSuggestionVariants is the set of NesSuggestion variant types. It lists the types
+// themselves: a pointer to a variant also has the NesSuggestionVariant
+// methods, but is not one.
+type NesSuggestionVariants interface {
+	NesSuggestionEdit |
+		NesSuggestionJump |
+		NesSuggestionRename |
+		NesSuggestionSearchAndReplace |
+		NesSuggestionCustom
+	NesSuggestionVariant
+}
+
+// NewNesSuggestion wraps a variant.
+func NewNesSuggestion[T NesSuggestionVariants](v T) NesSuggestion { return NesSuggestion{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u NesSuggestion) Variant() NesSuggestionVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u NesSuggestion) As[T NesSuggestionVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u NesSuggestion) As[T NesSuggestionVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "kind" discriminator, or "" for the zero value.
 func (u NesSuggestion) Tag() string {
@@ -2737,15 +2844,43 @@ type SessionUpdateVariant interface {
 	Tag() string
 }
 
-// NewSessionUpdate wraps a variant; a nil variant yields the zero value.
-func NewSessionUpdate(v SessionUpdateVariant) SessionUpdate { return SessionUpdate{value: v} }
+// SessionUpdateVariants is the set of SessionUpdate variant types. It lists the types
+// themselves: a pointer to a variant also has the SessionUpdateVariant
+// methods, but is not one.
+type SessionUpdateVariants interface {
+	SessionUpdateUserMessageChunk |
+		SessionUpdateUserMessage |
+		SessionUpdateAgentMessageChunk |
+		SessionUpdateAgentMessage |
+		SessionUpdateAgentThoughtChunk |
+		SessionUpdateAgentThought |
+		SessionUpdateStateUpdate |
+		SessionUpdateToolCallContentChunk |
+		SessionUpdateToolCallUpdate |
+		SessionUpdateTerminalUpdate |
+		SessionUpdateTerminalOutputChunk |
+		SessionUpdatePlanUpdate |
+		SessionUpdatePlanRemoved |
+		SessionUpdateAvailableCommandsUpdate |
+		SessionUpdateConfigOptionUpdate |
+		SessionUpdateSessionInfoUpdate |
+		SessionUpdateUsageUpdate |
+		SessionUpdateNotice |
+		SessionUpdateCompactionUpdate |
+		SessionUpdateCompactionSummaryChunk |
+		SessionUpdateCustom
+	SessionUpdateVariant
+}
+
+// NewSessionUpdate wraps a variant.
+func NewSessionUpdate[T SessionUpdateVariants](v T) SessionUpdate { return SessionUpdate{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u SessionUpdate) Variant() SessionUpdateVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u SessionUpdate) As[T SessionUpdateVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u SessionUpdate) As[T SessionUpdateVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "sessionUpdate" discriminator, or "" for the zero value.
 func (u SessionUpdate) Tag() string {
@@ -3851,15 +3986,26 @@ type StateUpdateVariant interface {
 	Tag() string
 }
 
-// NewStateUpdate wraps a variant; a nil variant yields the zero value.
-func NewStateUpdate(v StateUpdateVariant) StateUpdate { return StateUpdate{value: v} }
+// StateUpdateVariants is the set of StateUpdate variant types. It lists the types
+// themselves: a pointer to a variant also has the StateUpdateVariant
+// methods, but is not one.
+type StateUpdateVariants interface {
+	StateUpdateRunning |
+		StateUpdateIdle |
+		StateUpdateRequiresAction |
+		StateUpdateCustom
+	StateUpdateVariant
+}
+
+// NewStateUpdate wraps a variant.
+func NewStateUpdate[T StateUpdateVariants](v T) StateUpdate { return StateUpdate{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u StateUpdate) Variant() StateUpdateVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u StateUpdate) As[T StateUpdateVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u StateUpdate) As[T StateUpdateVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "state" discriminator, or "" for the zero value.
 func (u StateUpdate) Tag() string {
@@ -4079,8 +4225,19 @@ type PlanUpdateContentVariant interface {
 	Tag() string
 }
 
-// NewPlanUpdateContent wraps a variant; a nil variant yields the zero value.
-func NewPlanUpdateContent(v PlanUpdateContentVariant) PlanUpdateContent {
+// PlanUpdateContentVariants is the set of PlanUpdateContent variant types. It lists the types
+// themselves: a pointer to a variant also has the PlanUpdateContentVariant
+// methods, but is not one.
+type PlanUpdateContentVariants interface {
+	PlanUpdateContentItems |
+		PlanUpdateContentFile |
+		PlanUpdateContentMarkdown |
+		PlanUpdateContentCustom
+	PlanUpdateContentVariant
+}
+
+// NewPlanUpdateContent wraps a variant.
+func NewPlanUpdateContent[T PlanUpdateContentVariants](v T) PlanUpdateContent {
 	return PlanUpdateContent{value: v}
 }
 
@@ -4089,7 +4246,7 @@ func (u PlanUpdateContent) Variant() PlanUpdateContentVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u PlanUpdateContent) As[T PlanUpdateContentVariant]() (T, bool) {
+func (u PlanUpdateContent) As[T PlanUpdateContentVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -4321,8 +4478,17 @@ type AvailableCommandInputVariant interface {
 	Tag() string
 }
 
-// NewAvailableCommandInput wraps a variant; a nil variant yields the zero value.
-func NewAvailableCommandInput(v AvailableCommandInputVariant) AvailableCommandInput {
+// AvailableCommandInputVariants is the set of AvailableCommandInput variant types. It lists the types
+// themselves: a pointer to a variant also has the AvailableCommandInputVariant
+// methods, but is not one.
+type AvailableCommandInputVariants interface {
+	AvailableCommandInputText |
+		AvailableCommandInputCustom
+	AvailableCommandInputVariant
+}
+
+// NewAvailableCommandInput wraps a variant.
+func NewAvailableCommandInput[T AvailableCommandInputVariants](v T) AvailableCommandInput {
 	return AvailableCommandInput{value: v}
 }
 
@@ -4331,7 +4497,7 @@ func (u AvailableCommandInput) Variant() AvailableCommandInputVariant { return u
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u AvailableCommandInput) As[T AvailableCommandInputVariant]() (T, bool) {
+func (u AvailableCommandInput) As[T AvailableCommandInputVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -4467,15 +4633,26 @@ type MCPServerVariant interface {
 	Tag() string
 }
 
-// NewMCPServer wraps a variant; a nil variant yields the zero value.
-func NewMCPServer(v MCPServerVariant) MCPServer { return MCPServer{value: v} }
+// MCPServerVariants is the set of MCPServer variant types. It lists the types
+// themselves: a pointer to a variant also has the MCPServerVariant
+// methods, but is not one.
+type MCPServerVariants interface {
+	MCPServerHTTP |
+		MCPServerACP |
+		MCPServerStdio |
+		MCPServerCustom
+	MCPServerVariant
+}
+
+// NewMCPServer wraps a variant.
+func NewMCPServer[T MCPServerVariants](v T) MCPServer { return MCPServer{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u MCPServer) Variant() MCPServerVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u MCPServer) As[T MCPServerVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u MCPServer) As[T MCPServerVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u MCPServer) Tag() string {
@@ -4711,15 +4888,24 @@ type ReplayFromVariant interface {
 	Tag() string
 }
 
-// NewReplayFrom wraps a variant; a nil variant yields the zero value.
-func NewReplayFrom(v ReplayFromVariant) ReplayFrom { return ReplayFrom{value: v} }
+// ReplayFromVariants is the set of ReplayFrom variant types. It lists the types
+// themselves: a pointer to a variant also has the ReplayFromVariant
+// methods, but is not one.
+type ReplayFromVariants interface {
+	ReplayFromStart |
+		ReplayFromCustom
+	ReplayFromVariant
+}
+
+// NewReplayFrom wraps a variant.
+func NewReplayFrom[T ReplayFromVariants](v T) ReplayFrom { return ReplayFrom{value: v} }
 
 // Variant returns the wrapped variant, or nil for the zero value.
 func (u ReplayFrom) Variant() ReplayFromVariant { return u.value }
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u ReplayFrom) As[T ReplayFromVariant]() (T, bool) { v, ok := u.value.(T); return v, ok }
+func (u ReplayFrom) As[T ReplayFromVariants]() (T, bool) { v, ok := u.value.(T); return v, ok }
 
 // Tag returns the "type" discriminator, or "" for the zero value.
 func (u ReplayFrom) Tag() string {
@@ -4846,8 +5032,18 @@ type SetSessionConfigOptionRequestVariant interface {
 	Tag() string
 }
 
-// NewSetSessionConfigOptionRequest wraps a variant; a nil variant yields the zero value.
-func NewSetSessionConfigOptionRequest(v SetSessionConfigOptionRequestVariant) SetSessionConfigOptionRequest {
+// SetSessionConfigOptionRequestVariants is the set of SetSessionConfigOptionRequest variant types. It lists the types
+// themselves: a pointer to a variant also has the SetSessionConfigOptionRequestVariant
+// methods, but is not one.
+type SetSessionConfigOptionRequestVariants interface {
+	SetSessionConfigOptionRequestID |
+		SetSessionConfigOptionRequestBoolean |
+		SetSessionConfigOptionRequestCustom
+	SetSessionConfigOptionRequestVariant
+}
+
+// NewSetSessionConfigOptionRequest wraps a variant.
+func NewSetSessionConfigOptionRequest[T SetSessionConfigOptionRequestVariants](v T) SetSessionConfigOptionRequest {
 	return SetSessionConfigOptionRequest{value: v}
 }
 
@@ -4856,7 +5052,7 @@ func (u SetSessionConfigOptionRequest) Variant() SetSessionConfigOptionRequestVa
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u SetSessionConfigOptionRequest) As[T SetSessionConfigOptionRequestVariant]() (T, bool) {
+func (u SetSessionConfigOptionRequest) As[T SetSessionConfigOptionRequestVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -5042,8 +5238,18 @@ type RequestPermissionOutcomeVariant interface {
 	Tag() string
 }
 
-// NewRequestPermissionOutcome wraps a variant; a nil variant yields the zero value.
-func NewRequestPermissionOutcome(v RequestPermissionOutcomeVariant) RequestPermissionOutcome {
+// RequestPermissionOutcomeVariants is the set of RequestPermissionOutcome variant types. It lists the types
+// themselves: a pointer to a variant also has the RequestPermissionOutcomeVariant
+// methods, but is not one.
+type RequestPermissionOutcomeVariants interface {
+	RequestPermissionOutcomeCancelled |
+		RequestPermissionOutcomeSelected |
+		RequestPermissionOutcomeCustom
+	RequestPermissionOutcomeVariant
+}
+
+// NewRequestPermissionOutcome wraps a variant.
+func NewRequestPermissionOutcome[T RequestPermissionOutcomeVariants](v T) RequestPermissionOutcome {
 	return RequestPermissionOutcome{value: v}
 }
 
@@ -5052,7 +5258,7 @@ func (u RequestPermissionOutcome) Variant() RequestPermissionOutcomeVariant { re
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u RequestPermissionOutcome) As[T RequestPermissionOutcomeVariant]() (T, bool) {
+func (u RequestPermissionOutcome) As[T RequestPermissionOutcomeVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }
@@ -5222,8 +5428,19 @@ type CreateElicitationResponseVariant interface {
 	Tag() string
 }
 
-// NewCreateElicitationResponse wraps a variant; a nil variant yields the zero value.
-func NewCreateElicitationResponse(v CreateElicitationResponseVariant) CreateElicitationResponse {
+// CreateElicitationResponseVariants is the set of CreateElicitationResponse variant types. It lists the types
+// themselves: a pointer to a variant also has the CreateElicitationResponseVariant
+// methods, but is not one.
+type CreateElicitationResponseVariants interface {
+	CreateElicitationResponseAccept |
+		CreateElicitationResponseDecline |
+		CreateElicitationResponseCancel |
+		CreateElicitationResponseCustom
+	CreateElicitationResponseVariant
+}
+
+// NewCreateElicitationResponse wraps a variant.
+func NewCreateElicitationResponse[T CreateElicitationResponseVariants](v T) CreateElicitationResponse {
 	return CreateElicitationResponse{value: v}
 }
 
@@ -5232,7 +5449,7 @@ func (u CreateElicitationResponse) Variant() CreateElicitationResponseVariant { 
 
 // As returns the variant if it is a T, like a type assertion on Variant
 // with T checked against the union's variants at compile time.
-func (u CreateElicitationResponse) As[T CreateElicitationResponseVariant]() (T, bool) {
+func (u CreateElicitationResponse) As[T CreateElicitationResponseVariants]() (T, bool) {
 	v, ok := u.value.(T)
 	return v, ok
 }

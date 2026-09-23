@@ -100,11 +100,13 @@ type (
 	SessionModeID                        = schema.SessionModeID
 	SessionConfigOption                  = schema.SessionConfigOption
 	SessionConfigOptionVariant           = schema.SessionConfigOptionVariant
+	SessionConfigOptionVariants          = schema.SessionConfigOptionVariants
 	SessionConfigOptionSelect            = schema.SessionConfigOptionSelect
 	SessionConfigOptionBoolean           = schema.SessionConfigOptionBoolean
 	SessionConfigOptionUnknown           = schema.SessionConfigOptionUnknown
 	SessionUpdate                        = schema.SessionUpdate
 	SessionUpdateVariant                 = schema.SessionUpdateVariant
+	SessionUpdateVariants                = schema.SessionUpdateVariants
 	SessionUpdateUserMessageChunk        = schema.SessionUpdateUserMessageChunk
 	SessionUpdateAgentMessageChunk       = schema.SessionUpdateAgentMessageChunk
 	SessionUpdateAgentThoughtChunk       = schema.SessionUpdateAgentThoughtChunk
@@ -127,6 +129,7 @@ type (
 	ToolCallID                           = schema.ToolCallID
 	ToolCallContent                      = schema.ToolCallContent
 	ToolCallContentVariant               = schema.ToolCallContentVariant
+	ToolCallContentVariants              = schema.ToolCallContentVariants
 	ToolCallContentContent               = schema.ToolCallContentContent
 	ToolCallContentDiff                  = schema.ToolCallContentDiff
 	ToolCallContentTerminal              = schema.ToolCallContentTerminal
@@ -136,6 +139,7 @@ type (
 	ToolKind                             = schema.ToolKind
 	ContentBlock                         = schema.ContentBlock
 	ContentBlockVariant                  = schema.ContentBlockVariant
+	ContentBlockVariants                 = schema.ContentBlockVariants
 	ContentBlockText                     = schema.ContentBlockText
 	ContentBlockImage                    = schema.ContentBlockImage
 	ContentBlockAudio                    = schema.ContentBlockAudio
@@ -152,6 +156,7 @@ type (
 	ToolCallUpdate                       = schema.ToolCallUpdate
 	RequestPermissionOutcome             = schema.RequestPermissionOutcome
 	RequestPermissionOutcomeVariant      = schema.RequestPermissionOutcomeVariant
+	RequestPermissionOutcomeVariants     = schema.RequestPermissionOutcomeVariants
 	RequestPermissionOutcomeCancelled    = schema.RequestPermissionOutcomeCancelled
 	RequestPermissionOutcomeSelected     = schema.RequestPermissionOutcomeSelected
 	RequestPermissionOutcomeUnknown      = schema.RequestPermissionOutcomeUnknown
@@ -162,6 +167,7 @@ type (
 	TerminalExitStatus                   = schema.TerminalExitStatus
 	MCPServer                            = schema.MCPServer
 	MCPServerVariant                     = schema.MCPServerVariant
+	MCPServerVariants                    = schema.MCPServerVariants
 	MCPServerHTTP                        = schema.MCPServerHTTP
 	MCPServerSSE                         = schema.MCPServerSSE
 	MCPServerACP                         = schema.MCPServerACP
@@ -204,26 +210,26 @@ const (
 	PlanEntryPriorityLow             = schema.PlanEntryPriorityLow
 )
 
-// NewSessionConfigOption wraps a variant; a nil variant yields the zero value.
-func NewSessionConfigOption(v SessionConfigOptionVariant) SessionConfigOption {
+// NewSessionConfigOption wraps a variant.
+func NewSessionConfigOption[T SessionConfigOptionVariants](v T) SessionConfigOption {
 	return schema.NewSessionConfigOption(v)
 }
 
-// NewSessionUpdate wraps a variant; a nil variant yields the zero value.
-func NewSessionUpdate(v SessionUpdateVariant) SessionUpdate { return schema.NewSessionUpdate(v) }
+// NewSessionUpdate wraps a variant.
+func NewSessionUpdate[T SessionUpdateVariants](v T) SessionUpdate { return schema.NewSessionUpdate(v) }
 
-// NewToolCallContent wraps a variant; a nil variant yields the zero value.
-func NewToolCallContent(v ToolCallContentVariant) ToolCallContent {
+// NewToolCallContent wraps a variant.
+func NewToolCallContent[T ToolCallContentVariants](v T) ToolCallContent {
 	return schema.NewToolCallContent(v)
 }
 
-// NewContentBlock wraps a variant; a nil variant yields the zero value.
-func NewContentBlock(v ContentBlockVariant) ContentBlock { return schema.NewContentBlock(v) }
+// NewContentBlock wraps a variant.
+func NewContentBlock[T ContentBlockVariants](v T) ContentBlock { return schema.NewContentBlock(v) }
 
-// NewRequestPermissionOutcome wraps a variant; a nil variant yields the zero value.
-func NewRequestPermissionOutcome(v RequestPermissionOutcomeVariant) RequestPermissionOutcome {
+// NewRequestPermissionOutcome wraps a variant.
+func NewRequestPermissionOutcome[T RequestPermissionOutcomeVariants](v T) RequestPermissionOutcome {
 	return schema.NewRequestPermissionOutcome(v)
 }
 
-// NewMCPServer wraps a variant; a nil variant yields the zero value.
-func NewMCPServer(v MCPServerVariant) MCPServer { return schema.NewMCPServer(v) }
+// NewMCPServer wraps a variant.
+func NewMCPServer[T MCPServerVariants](v T) MCPServer { return schema.NewMCPServer(v) }
