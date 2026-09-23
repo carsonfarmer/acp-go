@@ -345,6 +345,25 @@ func TestVariantInterfaceFields(t *testing.T) {
 	}
 }
 
+func TestTaggedUnionUnknownVariant(t *testing.T) {
+	raw := `{"form":"hexagon","side":2,"vendor":{"x":9007199254740993}}`
+	var v Shape
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		t.Fatal(err)
+	}
+	unknown, ok := v.Variant().(ShapeUnknown)
+	if !ok || v.Tag() != "hexagon" {
+		t.Fatalf("unknown tag was not preserved: %T %+v", v.Variant(), v.Variant())
+	}
+	encoded, err := json.Marshal(v)
+	if err != nil || string(encoded) != raw || string(unknown.Raw) != raw {
+		t.Fatalf("unknown variant did not round-trip: %s %v", encoded, err)
+	}
+	if err := json.Unmarshal([]byte(`{"form":"circle","r":"x"}`), &v); err == nil {
+		t.Fatal("known tag with a bad payload accepted")
+	}
+}
+
 func TestUnionIsZero(t *testing.T) {
 	var holder struct {
 		Tagged Message       `json:"tagged,omitzero"`

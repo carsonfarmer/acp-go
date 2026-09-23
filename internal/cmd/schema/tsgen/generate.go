@@ -20,8 +20,9 @@ type generator struct {
 	defs         map[string]*tsdef.Type
 	pending      []tsdef.Definition
 	names        map[string]bool
-	aliases      map[string]bool // Go names declared with "type X = ..."
-	unmarshalers []string        // json.UnmarshalFromFunc entries for variant interfaces
+	aliases      map[string]bool     // Go names declared with "type X = ..."
+	unmarshalers []string            // json.UnmarshalFromFunc entries for variant interfaces
+	openTags     map[string]openTags // Go union name -> tags known to its Unknown variant
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -70,7 +71,7 @@ type Files map[string][]byte
 // newGenerator registers every definition under its Go name so references
 // resolve before any declaration is emitted.
 func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
-	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
+	g := &generator{defs: map[string]*tsdef.Type{}, names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{}, pkg: pkg, buffers: map[string]*bytes.Buffer{}}
 	for _, d := range schema.Types {
 		name := Name(d.Name)
 		if g.names[name] {

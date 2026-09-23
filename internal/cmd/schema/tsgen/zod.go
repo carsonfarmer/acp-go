@@ -22,7 +22,7 @@ var zodKinds = map[string]string{
 	"default": "Default", "catch": "Catch", "requiredCatch": "RequiredCatch",
 	"unknown": "Unknown", "any": "Any", "never": "Never",
 	"union": "Union", "intersection": "Intersection",
-	"excludeTags": "ExcludeTags", "preserve": "Preserve",
+	"excludeTags": "ExcludeTags", "preserve": "Preserve", "openTags": "OpenTags",
 	"min": "Min", "max": "Max", "gte": "Gte", "lte": "Lte", "regex": "Regex", "int": "Int",
 	"null": "Null", "string": "String", "boolean": "Boolean", "number": "Number", "literal": "Literal",
 	"url": "URL", "datetime": "DateTime",
@@ -41,7 +41,11 @@ func (g *generator) zod(schema *tsdef.Schema) error {
 	sort.Strings(keys)
 	g.write("// zodSchemas holds the SDK Zod rules; one rule tree per schema name.\nvar zodSchemas = zod.Registry{\n")
 	for _, k := range keys {
-		rule, err := zodLiteral(schema.Validators[k])
+		z := schema.Validators[k]
+		if open, ok := g.openTags[Name(strings.TrimPrefix(k, "z"))]; ok {
+			z = &tsdef.Zod{Kind: "openTags", Tag: open.tag, Tags: open.values, Inner: z}
+		}
+		rule, err := zodLiteral(z)
 		if err != nil {
 			return fmt.Errorf("%s: %w", k, err)
 		}

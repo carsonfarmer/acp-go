@@ -215,7 +215,11 @@ case schema.SessionUpdateToolCall:
 update := schema.NewSessionUpdate(schema.SessionUpdatePlan{Entries: entries})
 ```
 
-Unknown tags round-trip unchanged through the union's `Custom` variant.
+A tag this SDK does not know never fails the message. It decodes into the union's
+`Custom` variant where the schema defines one, and otherwise into a generated `…Unknown`
+variant (such as `schema.SessionUpdateUnknown`) whose `Raw` field holds the object as
+received and is encoded unchanged. Handle it in a `default` case, or ignore it as the
+protocol recommends.
 
 ### Connection Options
 

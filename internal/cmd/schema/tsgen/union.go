@@ -140,6 +140,13 @@ func lowerFirst(s string) string {
 	return string(r)
 }
 
+// openTags records a tagged union whose Zod rule must let unknown tags through
+// to the Unknown variant.
+type openTags struct {
+	tag    string
+	values []string
+}
+
 // taggedUnion emits a wrapper struct holding a sealed interface value. Each
 // variant is a plain struct whose discriminator is implied by its Go type and
 // written by its own JSON methods, so type switches replace As… probing.
@@ -173,6 +180,26 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 			vname += "Variant"
 		}
 		variantNames = append(variantNames, vname)
+	}
+	// Without a schema-defined catch-all, unknown tags decode into an Unknown
+	// variant that keeps the JSON as received, so a newer peer's additions are
+	// ignorable rather than fatal.
+	unknown := ""
+	if !slices.ContainsFunc(members, func(m taggedMember) bool { return m.value == "" }) {
+		known := openTags{tag: tag}
+		for _, m := range members {
+			value, err := strconv.Unquote(m.value)
+			if err != nil {
+				return err
+			}
+			known.values = append(known.values, value)
+		}
+		g.openTags[name] = known
+		unknown = name + "Unknown"
+		if g.names[unknown] {
+			unknown += "Variant"
+		}
+		variantNames = append(variantNames, unknown)
 	}
 	g.write("// %s is a tagged union discriminated by the %q member. The zero value\n// encodes as null; use New%s or a type switch on Variant to work with it.\n", name, tag, name)
 	g.write("type %s struct{ value %s }\n", name, iface)
@@ -209,9 +236,21 @@ func (g *generator) taggedUnion(name, tag string, members []taggedMember) error 
 	if customIndex >= 0 {
 		g.write("default: var v %s; if err := json.Unmarshal(raw, &v, dec.Options()); err != nil { return err }; *out = v\n", variantNames[customIndex])
 	} else {
-		g.write("default: return fmt.Errorf(\"%s: unknown %s %%q\", probe.Tag)\n", name, tag)
+		g.write("default: *out = %s{Raw: raw.Clone()}\n", unknown)
 	}
 	g.write("}\nreturn nil\n}\n")
+
+	if unknown != "" {
+		if err := g.reserve(unknown); err != nil {
+			return err
+		}
+		g.write("// %s carries a %s whose %q this SDK does not know. Raw is the\n// object as received and is encoded unchanged.\n", unknown, name, tag)
+		g.write("type %s struct { Raw jsontext.Value }\n", unknown)
+		g.write("func (%s) %s() {}\n", unknown, marker)
+		g.write("// Tag returns the %q member of Raw.\n", tag)
+		g.write("func (v %s) Tag() string { var p struct{ Tag string `json:%q` }; _ = json.Unmarshal(v.Raw, &p); return p.Tag }\n", unknown, tag)
+		g.write("func (v %s) MarshalJSONTo(enc *jsontext.Encoder) error { return enc.WriteValue(v.Raw) }\n", unknown)
+	}
 
 	for i, m := range members {
 		vname := variantNames[i]

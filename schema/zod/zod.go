@@ -37,6 +37,7 @@ const (
 	KindIntersection
 	KindExcludeTags
 	KindPreserve
+	KindOpenTags
 	KindMin
 	KindMax
 	KindGte
@@ -204,6 +205,20 @@ func (r Registry) apply(s *Rule, raw jsontext.Value, path string, depth int) (ou
 			}
 		}
 		return result, nil
+	case KindOpenTags:
+		// A Go-side extension: objects whose Tag is a string outside Tags skip
+		// the SDK rule and decode into the union's Unknown variant.
+		if raw.Kind() == '{' {
+			var probe map[string]jsontext.Value
+			if err := json.Unmarshal(raw, &probe); err != nil {
+				return outcome{}, err
+			}
+			var tag string
+			if probe[s.Tag].Kind() == '"' && json.Unmarshal(probe[s.Tag], &tag) == nil && !slices.Contains(s.Tags, tag) {
+				return pass()
+			}
+		}
+		return inner()
 	case KindExcludeTags, KindPreserve:
 		result, err := inner()
 		if err != nil {

@@ -20,7 +20,7 @@ import (
 // encodes as null; use NewToolCallContent or a type switch on Variant to work with it.
 type ToolCallContent struct{ value ToolCallContentVariant }
 
-// ToolCallContentVariant is implemented by ToolCallContentContent, ToolCallContentDiff, ToolCallContentTerminal.
+// ToolCallContentVariant is implemented by ToolCallContentContent, ToolCallContentDiff, ToolCallContentTerminal, ToolCallContentUnknown.
 type ToolCallContentVariant interface {
 	toolCallContentVariant()
 	Tag() string
@@ -101,9 +101,27 @@ func unmarshalToolCallContentVariant(dec *jsontext.Decoder, out *ToolCallContent
 		}
 		*out = v
 	default:
-		return fmt.Errorf("ToolCallContent: unknown type %q", probe.Tag)
+		*out = ToolCallContentUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// ToolCallContentUnknown carries a ToolCallContent whose "type" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type ToolCallContentUnknown struct{ Raw jsontext.Value }
+
+func (ToolCallContentUnknown) toolCallContentVariant() {}
+
+// Tag returns the "type" member of Raw.
+func (v ToolCallContentUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"type"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v ToolCallContentUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // ToolCallContentContent is the ToolCallContent variant with type "content".
@@ -242,7 +260,7 @@ func (v *ToolCallContentTerminal) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 // encodes as null; use NewContentBlock or a type switch on Variant to work with it.
 type ContentBlock struct{ value ContentBlockVariant }
 
-// ContentBlockVariant is implemented by ContentBlockText, ContentBlockImage, ContentBlockAudio, ContentBlockResourceLink, ContentBlockResource.
+// ContentBlockVariant is implemented by ContentBlockText, ContentBlockImage, ContentBlockAudio, ContentBlockResourceLink, ContentBlockResource, ContentBlockUnknown.
 type ContentBlockVariant interface {
 	contentBlockVariant()
 	Tag() string
@@ -335,10 +353,26 @@ func unmarshalContentBlockVariant(dec *jsontext.Decoder, out *ContentBlockVarian
 		}
 		*out = v
 	default:
-		return fmt.Errorf("ContentBlock: unknown type %q", probe.Tag)
+		*out = ContentBlockUnknown{Raw: raw.Clone()}
 	}
 	return nil
 }
+
+// ContentBlockUnknown carries a ContentBlock whose "type" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type ContentBlockUnknown struct{ Raw jsontext.Value }
+
+func (ContentBlockUnknown) contentBlockVariant() {}
+
+// Tag returns the "type" member of Raw.
+func (v ContentBlockUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"type"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v ContentBlockUnknown) MarshalJSONTo(enc *jsontext.Encoder) error { return enc.WriteValue(v.Raw) }
 
 // ContentBlockText is the ContentBlock variant with type "text".
 type ContentBlockText struct {
@@ -1380,7 +1414,7 @@ func ParseAuthMethod(b []byte) (AuthMethod, error) {
 // encodes as null; use NewSessionConfigOption or a type switch on Variant to work with it.
 type SessionConfigOption struct{ value SessionConfigOptionVariant }
 
-// SessionConfigOptionVariant is implemented by SessionConfigOptionSelect, SessionConfigOptionBoolean.
+// SessionConfigOptionVariant is implemented by SessionConfigOptionSelect, SessionConfigOptionBoolean, SessionConfigOptionUnknown.
 type SessionConfigOptionVariant interface {
 	sessionConfigOptionVariant()
 	Tag() string
@@ -1457,9 +1491,27 @@ func unmarshalSessionConfigOptionVariant(dec *jsontext.Decoder, out *SessionConf
 		}
 		*out = v
 	default:
-		return fmt.Errorf("SessionConfigOption: unknown type %q", probe.Tag)
+		*out = SessionConfigOptionUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// SessionConfigOptionUnknown carries a SessionConfigOption whose "type" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type SessionConfigOptionUnknown struct{ Raw jsontext.Value }
+
+func (SessionConfigOptionUnknown) sessionConfigOptionVariant() {}
+
+// Tag returns the "type" member of Raw.
+func (v SessionConfigOptionUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"type"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v SessionConfigOptionUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // SessionConfigOptionSelect is the SessionConfigOption variant with type "select".
@@ -1624,7 +1676,7 @@ func ParseSessionConfigSelectOptions(b []byte) (SessionConfigSelectOptions, erro
 // encodes as null; use NewNesSuggestion or a type switch on Variant to work with it.
 type NesSuggestion struct{ value NesSuggestionVariant }
 
-// NesSuggestionVariant is implemented by NesSuggestionEdit, NesSuggestionJump, NesSuggestionRename, NesSuggestionSearchAndReplace.
+// NesSuggestionVariant is implemented by NesSuggestionEdit, NesSuggestionJump, NesSuggestionRename, NesSuggestionSearchAndReplace, NesSuggestionUnknown.
 type NesSuggestionVariant interface {
 	nesSuggestionVariant()
 	Tag() string
@@ -1711,9 +1763,27 @@ func unmarshalNesSuggestionVariant(dec *jsontext.Decoder, out *NesSuggestionVari
 		}
 		*out = v
 	default:
-		return fmt.Errorf("NesSuggestion: unknown kind %q", probe.Tag)
+		*out = NesSuggestionUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// NesSuggestionUnknown carries a NesSuggestion whose "kind" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type NesSuggestionUnknown struct{ Raw jsontext.Value }
+
+func (NesSuggestionUnknown) nesSuggestionVariant() {}
+
+// Tag returns the "kind" member of Raw.
+func (v NesSuggestionUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"kind"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v NesSuggestionUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // NesSuggestionEdit is the NesSuggestion variant with kind "edit".
@@ -1901,7 +1971,7 @@ func (v *NesSuggestionSearchAndReplace) UnmarshalJSONFrom(dec *jsontext.Decoder)
 // encodes as null; use NewSessionUpdate or a type switch on Variant to work with it.
 type SessionUpdate struct{ value SessionUpdateVariant }
 
-// SessionUpdateVariant is implemented by SessionUpdateUserMessageChunk, SessionUpdateAgentMessageChunk, SessionUpdateAgentThoughtChunk, SessionUpdateToolCall, SessionUpdateToolCallUpdate, SessionUpdatePlan, SessionUpdatePlanUpdate, SessionUpdatePlanRemoved, SessionUpdateAvailableCommandsUpdate, SessionUpdateCurrentModeUpdate, SessionUpdateConfigOptionUpdate, SessionUpdateSessionInfoUpdate, SessionUpdateUsageUpdate, SessionUpdateNotice, SessionUpdateCompactionUpdate, SessionUpdateCompactionSummaryChunk.
+// SessionUpdateVariant is implemented by SessionUpdateUserMessageChunk, SessionUpdateAgentMessageChunk, SessionUpdateAgentThoughtChunk, SessionUpdateToolCall, SessionUpdateToolCallUpdate, SessionUpdatePlan, SessionUpdatePlanUpdate, SessionUpdatePlanRemoved, SessionUpdateAvailableCommandsUpdate, SessionUpdateCurrentModeUpdate, SessionUpdateConfigOptionUpdate, SessionUpdateSessionInfoUpdate, SessionUpdateUsageUpdate, SessionUpdateNotice, SessionUpdateCompactionUpdate, SessionUpdateCompactionSummaryChunk, SessionUpdateUnknown.
 type SessionUpdateVariant interface {
 	sessionUpdateVariant()
 	Tag() string
@@ -2060,9 +2130,27 @@ func unmarshalSessionUpdateVariant(dec *jsontext.Decoder, out *SessionUpdateVari
 		}
 		*out = v
 	default:
-		return fmt.Errorf("SessionUpdate: unknown sessionUpdate %q", probe.Tag)
+		*out = SessionUpdateUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// SessionUpdateUnknown carries a SessionUpdate whose "sessionUpdate" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type SessionUpdateUnknown struct{ Raw jsontext.Value }
+
+func (SessionUpdateUnknown) sessionUpdateVariant() {}
+
+// Tag returns the "sessionUpdate" member of Raw.
+func (v SessionUpdateUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"sessionUpdate"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v SessionUpdateUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // SessionUpdateUserMessageChunk is the SessionUpdate variant with sessionUpdate "user_message_chunk".
@@ -2752,7 +2840,7 @@ func (v *SessionUpdateCompactionSummaryChunk) UnmarshalJSONFrom(dec *jsontext.De
 // encodes as null; use NewPlanUpdateContent or a type switch on Variant to work with it.
 type PlanUpdateContent struct{ value PlanUpdateContentVariant }
 
-// PlanUpdateContentVariant is implemented by PlanUpdateContentItems, PlanUpdateContentFile, PlanUpdateContentMarkdown.
+// PlanUpdateContentVariant is implemented by PlanUpdateContentItems, PlanUpdateContentFile, PlanUpdateContentMarkdown, PlanUpdateContentUnknown.
 type PlanUpdateContentVariant interface {
 	planUpdateContentVariant()
 	Tag() string
@@ -2835,9 +2923,27 @@ func unmarshalPlanUpdateContentVariant(dec *jsontext.Decoder, out *PlanUpdateCon
 		}
 		*out = v
 	default:
-		return fmt.Errorf("PlanUpdateContent: unknown type %q", probe.Tag)
+		*out = PlanUpdateContentUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// PlanUpdateContentUnknown carries a PlanUpdateContent whose "type" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type PlanUpdateContentUnknown struct{ Raw jsontext.Value }
+
+func (PlanUpdateContentUnknown) planUpdateContentVariant() {}
+
+// Tag returns the "type" member of Raw.
+func (v PlanUpdateContentUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"type"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v PlanUpdateContentUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // PlanUpdateContentItems is the PlanUpdateContent variant with type "items".
@@ -3103,7 +3209,7 @@ type RequestPermissionOutcome struct {
 	value RequestPermissionOutcomeVariant
 }
 
-// RequestPermissionOutcomeVariant is implemented by RequestPermissionOutcomeCancelled, RequestPermissionOutcomeSelected.
+// RequestPermissionOutcomeVariant is implemented by RequestPermissionOutcomeCancelled, RequestPermissionOutcomeSelected, RequestPermissionOutcomeUnknown.
 type RequestPermissionOutcomeVariant interface {
 	requestPermissionOutcomeVariant()
 	Tag() string
@@ -3180,9 +3286,27 @@ func unmarshalRequestPermissionOutcomeVariant(dec *jsontext.Decoder, out *Reques
 		}
 		*out = v
 	default:
-		return fmt.Errorf("RequestPermissionOutcome: unknown outcome %q", probe.Tag)
+		*out = RequestPermissionOutcomeUnknown{Raw: raw.Clone()}
 	}
 	return nil
+}
+
+// RequestPermissionOutcomeUnknown carries a RequestPermissionOutcome whose "outcome" this SDK does not know. Raw is the
+// object as received and is encoded unchanged.
+type RequestPermissionOutcomeUnknown struct{ Raw jsontext.Value }
+
+func (RequestPermissionOutcomeUnknown) requestPermissionOutcomeVariant() {}
+
+// Tag returns the "outcome" member of Raw.
+func (v RequestPermissionOutcomeUnknown) Tag() string {
+	var p struct {
+		Tag string `json:"outcome"`
+	}
+	_ = json.Unmarshal(v.Raw, &p)
+	return p.Tag
+}
+func (v RequestPermissionOutcomeUnknown) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(v.Raw)
 }
 
 // RequestPermissionOutcomeCancelled is the RequestPermissionOutcome variant with outcome "cancelled".
