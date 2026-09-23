@@ -68,7 +68,7 @@ func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequ
 }
 
 func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	sess, err := a.Lookup(params.SessionID)
+	sess, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}

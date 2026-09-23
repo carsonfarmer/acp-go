@@ -309,7 +309,7 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 ```
 
 Override any of those by declaring the method on the agent itself; the manager checks that a loaded
-or resumed session exists, and replaying its history is the agent's job. `Lookup(id)` returns a
+or resumed session exists, and replaying its history is the agent's job. `Lookup(ctx, id)` returns a
 session's state or the resource-not-found error to return as is. `CloseSession` cancels the
 running turn and keeps the session to resume; `DeleteSession` removes it. `acp2.SessionManager`
 serves the v2 session baseline the same way. `acp.SessionStore[ID, T]`,

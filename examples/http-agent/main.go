@@ -51,7 +51,7 @@ func (a *echoAgent) Initialize(_ context.Context, _ *acp1.InitializeRequest) (*a
 }
 
 func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	h, err := a.Lookup(params.SessionID)
+	h, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 // LoadSession replays the session's history before answering, as the
 // protocol asks.
 func (a *echoAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionRequest) (*acp1.LoadSessionResponse, error) {
-	h, err := a.Lookup(params.SessionID)
+	h, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}

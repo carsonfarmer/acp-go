@@ -83,7 +83,7 @@ func (a *openAgent) Initialize(_ context.Context, params *acp1.InitializeRequest
 }
 
 func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	sess, err := a.Lookup(params.SessionID)
+	sess, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*ac
 // it were happening now: the user's messages and the model's answers.
 // Tool calls are not replayed.
 func (a *openAgent) LoadSession(ctx context.Context, params *acp1.LoadSessionRequest) (*acp1.LoadSessionResponse, error) {
-	sess, err := a.Lookup(params.SessionID)
+	sess, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func (a *v2Agent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.In
 }
 
 func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
-	session, err := a.Lookup(params.SessionID)
+	session, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,10 @@ func (a *v2Agent) ResumeSession(ctx context.Context, params *acp2.ResumeSessionR
 		return nil, acp.ErrInvalidParams("unsupported replay cursor")
 	}
 
-	session, _ := a.Session(params.SessionID)
+	session, err := a.Lookup(ctx, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
 	session.mu.Lock()
 	history := slices.Clone(session.history)
 	session.mu.Unlock()

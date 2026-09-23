@@ -64,13 +64,13 @@ func NewSessionManager[T any](store SessionStore[T], factory SessionFactory[T]) 
 // Store returns the underlying store, for state the RPC methods do not cover.
 func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
 
-// Session returns the state for a session id.
-func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
-
-// Lookup returns the state for a session id, or a resource-not-found error to
-// return as is when there is no such session.
-func (m *SessionManager[T]) Lookup(id SessionID) (T, error) {
-	session, ok := m.store.Get(id)
+// Lookup returns the state for a session id, or an error to return as is: the
+// store's, or resource-not-found when there is no such session.
+func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error) {
+	session, ok, err := m.store.Get(ctx, id)
+	if err != nil {
+		return session, err
+	}
 	if !ok {
 		return session, acp.ErrResourceNotFound(fmt.Sprintf("session %s", id))
 	}
@@ -110,14 +110,16 @@ func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRe
 	if err != nil {
 		return nil, err
 	}
-	m.store.Set(id, session)
+	if err := m.store.Set(ctx, id, session); err != nil {
+		return nil, err
+	}
 	return &NewSessionResponse{SessionID: id}, nil
 }
 
 // LoadSession reports whether the session exists. Replaying its history is the
 // agent's job; override this method to do it.
-func (m *SessionManager[T]) LoadSession(_ context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
-	if _, err := m.Lookup(params.SessionID); err != nil {
+func (m *SessionManager[T]) LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error) {
+	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
 		return nil, err
 	}
 	return &LoadSessionResponse{}, nil
@@ -125,8 +127,11 @@ func (m *SessionManager[T]) LoadSession(_ context.Context, params *LoadSessionRe
 
 // ListSessions lists the stored sessions. It ignores the request's cwd filter
 // and cursor, since the store holds no metadata to filter or page on.
-func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsRequest) (*ListSessionsResponse, error) {
-	ids := m.store.List()
+func (m *SessionManager[T]) ListSessions(ctx context.Context, _ *ListSessionsRequest) (*ListSessionsResponse, error) {
+	ids, err := m.store.List(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sessions := make([]SessionInfo, len(ids))
 	for i, id := range ids {
 		sessions[i] = SessionInfo{SessionID: id}
@@ -136,20 +141,22 @@ func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsReque
 
 // DeleteSession cancels the session's turn in progress and removes the session
 // from the store.
-func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
-	if _, err := m.Lookup(params.SessionID); err != nil {
+func (m *SessionManager[T]) DeleteSession(ctx context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
+	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
 		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)
-	m.store.Delete(params.SessionID)
+	if err := m.store.Delete(ctx, params.SessionID); err != nil {
+		return nil, err
+	}
 	return &DeleteSessionResponse{}, nil
 }
 
 // ResumeSession reports whether the session exists, continuing it without a
 // replay. Override it to restore state the store does not
 // hold.
-func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
-	if _, err := m.Lookup(params.SessionID); err != nil {
+func (m *SessionManager[T]) ResumeSession(ctx context.Context, params *ResumeSessionRequest) (*ResumeSessionResponse, error) {
+	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
 		return nil, err
 	}
 	return &ResumeSessionResponse{}, nil
@@ -157,8 +164,8 @@ func (m *SessionManager[T]) ResumeSession(_ context.Context, params *ResumeSessi
 
 // CloseSession cancels the session's turn in progress. The session stays in
 // the store, so a client can resume it later; DeleteSession removes it.
-func (m *SessionManager[T]) CloseSession(_ context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
-	if _, err := m.Lookup(params.SessionID); err != nil {
+func (m *SessionManager[T]) CloseSession(ctx context.Context, params *CloseSessionRequest) (*CloseSessionResponse, error) {
+	if _, err := m.Lookup(ctx, params.SessionID); err != nil {
 		return nil, err
 	}
 	m.turns.Cancel(params.SessionID)

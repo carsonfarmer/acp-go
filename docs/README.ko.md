@@ -247,7 +247,7 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 ```
 
 에이전트에 같은 이름의 메서드를 직접 선언하면 그 메서드가 우선합니다. 매니저는 로드하거나 이어 여는 세션이
-있는지만 확인하고, 기록 재생은 에이전트가 맡습니다. `Lookup(id)`는 세션 상태를 돌려주거나, 없으면 그대로
+있는지만 확인하고, 기록 재생은 에이전트가 맡습니다. `Lookup(ctx, id)`는 세션 상태를 돌려주거나, 없으면 그대로
 반환하면 되는 resource-not-found 오류를 돌려줍니다. `CloseSession`은 진행 중인 턴을 취소하고 세션은 다시 열 수
 있게 남기며, `DeleteSession`은 세션을 지웁니다. `acp2.SessionManager`도 같은 방식으로 v2 세션 기본 메서드를
 제공합니다.

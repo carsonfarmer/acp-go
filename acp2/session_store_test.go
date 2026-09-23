@@ -17,10 +17,10 @@ func TestSessionManagerLookup(t *testing.T) {
 	if _, err := manager.NewSession(t.Context(), &acp2.NewSessionRequest{}); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := manager.Lookup("s1"); err != nil || got != "state" {
+	if got, err := manager.Lookup(t.Context(), "s1"); err != nil || got != "state" {
 		t.Fatalf("Lookup(s1) = %q, %v", got, err)
 	}
-	if _, err := manager.Lookup("nope"); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
+	if _, err := manager.Lookup(t.Context(), "nope"); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Fatalf("Lookup(nope) = %v, want resource not found", err)
 	}
 }

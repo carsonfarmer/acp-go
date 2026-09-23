@@ -37,8 +37,8 @@ func (a *openAgent) NewSession(ctx context.Context, params *acp1.NewSessionReque
 	return response, nil
 }
 
-func (a *openAgent) SetSessionMode(_ context.Context, params *acp1.SetSessionModeRequest) (*acp1.SetSessionModeResponse, error) {
-	sess, err := a.Lookup(params.SessionID)
+func (a *openAgent) SetSessionMode(ctx context.Context, params *acp1.SetSessionModeRequest) (*acp1.SetSessionModeResponse, error) {
+	sess, err := a.Lookup(ctx, params.SessionID)
 	if err != nil {
 		return nil, err
 	}
