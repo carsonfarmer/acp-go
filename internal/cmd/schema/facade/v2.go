@@ -10,14 +10,6 @@ var V2 = &Spec{
 	Package:    "acp2",
 	Dir:        "acp2",
 	SchemaPath: "github.com/ironpark/acp-go/schema/v2",
-	ExtraTypes: []string{
-		"SessionID", "SessionInfo", "SessionConfigOption", "SessionUpdate", "MessageID",
-		"ToolCallID", "ContentBlock", "AbsolutePath", "MCPConnectionID", "MCPServerACPID",
-		"StopReason", "ToolCallContent", "ToolCallLocation", "ToolCallStatus", "ToolKind",
-		"AvailableCommand", "Cost", "Implementation", "PermissionOption", "PermissionOptionKind",
-		"ToolCallUpdate", "RequestPermissionOutcome", "PlanEntryStatus", "PlanEntryPriority",
-		"ReplayFrom", "MCPServer",
-	},
 	Agent: []Group{
 		{
 			Interface: "Agent",

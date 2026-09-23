@@ -7,7 +7,7 @@ import schema "github.com/ironpark/acp-go/schema/v1"
 // method the connection would answer with "method not found":
 //
 //	caps := acp1.CapabilitiesOf(a)
-//	caps.PromptCapabilities = &schema.PromptCapabilities{Image: new(true)}
+//	caps.PromptCapabilities = &acp1.PromptCapabilities{Image: new(true)}
 //	return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion, AgentCapabilities: caps}, nil
 //
 // Group capabilities with their own sub-flags — providers and nes — are set to
@@ -16,7 +16,7 @@ import schema "github.com/ironpark/acp-go/schema/v1"
 // mcpCapabilities.acp. Prompt capabilities, the other MCP transports and
 // position encoding describe content rather than methods and are left for the
 // agent to set.
-func CapabilitiesOf(agent Agent) *schema.AgentCapabilities {
+func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	caps := &schema.AgentCapabilities{}
 	if _, ok := agent.(SessionLoader); ok {
 		caps.LoadSession = new(true)

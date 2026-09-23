@@ -8,8 +8,7 @@ import schema "github.com/ironpark/acp-go/schema/v2"
 const ProtocolVersion = schema.CurrentProtocolVersion
 
 // Every request, response and notification payload, re-exported so that a
-// caller implementing [Agent] or [Client] needs one import. Other generated
-// types live in the schema package.
+// caller implementing [Agent] or [Client] needs one import.
 
 type (
 	RequestPermissionRequest        = schema.RequestPermissionRequest
@@ -73,144 +72,425 @@ type (
 	CancelRequestNotification       = schema.CancelRequestNotification
 )
 
-// Identifiers and values shared across those payloads, with the constants
-// and variants that come with them.
+// Every type those payloads reach, with the constants and constructors
+// that come with them.
 
 type (
-	SessionID                            = schema.SessionID
-	SessionInfo                          = schema.SessionInfo
-	SessionConfigOption                  = schema.SessionConfigOption
-	SessionConfigOptionVariant           = schema.SessionConfigOptionVariant
-	SessionConfigOptionVariants          = schema.SessionConfigOptionVariants
-	SessionConfigOptionSelect            = schema.SessionConfigOptionSelect
-	SessionConfigOptionBoolean           = schema.SessionConfigOptionBoolean
-	SessionConfigOptionCustom            = schema.SessionConfigOptionCustom
-	SessionUpdate                        = schema.SessionUpdate
-	SessionUpdateVariant                 = schema.SessionUpdateVariant
-	SessionUpdateVariants                = schema.SessionUpdateVariants
-	SessionUpdateUserMessageChunk        = schema.SessionUpdateUserMessageChunk
-	SessionUpdateUserMessage             = schema.SessionUpdateUserMessage
-	SessionUpdateAgentMessageChunk       = schema.SessionUpdateAgentMessageChunk
-	SessionUpdateAgentMessage            = schema.SessionUpdateAgentMessage
-	SessionUpdateAgentThoughtChunk       = schema.SessionUpdateAgentThoughtChunk
-	SessionUpdateAgentThought            = schema.SessionUpdateAgentThought
-	SessionUpdateStateUpdate             = schema.SessionUpdateStateUpdate
-	SessionUpdateToolCallContentChunk    = schema.SessionUpdateToolCallContentChunk
-	SessionUpdateToolCallUpdate          = schema.SessionUpdateToolCallUpdate
-	SessionUpdateTerminalUpdate          = schema.SessionUpdateTerminalUpdate
-	SessionUpdateTerminalOutputChunk     = schema.SessionUpdateTerminalOutputChunk
-	SessionUpdatePlanUpdate              = schema.SessionUpdatePlanUpdate
-	SessionUpdatePlanRemoved             = schema.SessionUpdatePlanRemoved
-	SessionUpdateAvailableCommandsUpdate = schema.SessionUpdateAvailableCommandsUpdate
-	SessionUpdateConfigOptionUpdate      = schema.SessionUpdateConfigOptionUpdate
-	SessionUpdateSessionInfoUpdate       = schema.SessionUpdateSessionInfoUpdate
-	SessionUpdateUsageUpdate             = schema.SessionUpdateUsageUpdate
-	SessionUpdateNotice                  = schema.SessionUpdateNotice
-	SessionUpdateCompactionUpdate        = schema.SessionUpdateCompactionUpdate
-	SessionUpdateCompactionSummaryChunk  = schema.SessionUpdateCompactionSummaryChunk
-	SessionUpdateCustom                  = schema.SessionUpdateCustom
-	MessageID                            = schema.MessageID
-	ToolCallID                           = schema.ToolCallID
-	ContentBlock                         = schema.ContentBlock
-	ContentBlockVariant                  = schema.ContentBlockVariant
-	ContentBlockVariants                 = schema.ContentBlockVariants
-	ContentBlockText                     = schema.ContentBlockText
-	ContentBlockImage                    = schema.ContentBlockImage
-	ContentBlockAudio                    = schema.ContentBlockAudio
-	ContentBlockResourceLink             = schema.ContentBlockResourceLink
-	ContentBlockResource                 = schema.ContentBlockResource
-	ContentBlockCustom                   = schema.ContentBlockCustom
-	AbsolutePath                         = schema.AbsolutePath
-	MCPConnectionID                      = schema.MCPConnectionID
-	MCPServerACPID                       = schema.MCPServerACPID
-	StopReason                           = schema.StopReason
-	ToolCallContent                      = schema.ToolCallContent
-	ToolCallContentVariant               = schema.ToolCallContentVariant
-	ToolCallContentVariants              = schema.ToolCallContentVariants
-	ToolCallContentContent               = schema.ToolCallContentContent
-	ToolCallContentDiff                  = schema.ToolCallContentDiff
-	ToolCallContentTerminal              = schema.ToolCallContentTerminal
-	ToolCallContentCustom                = schema.ToolCallContentCustom
-	ToolCallLocation                     = schema.ToolCallLocation
-	ToolCallStatus                       = schema.ToolCallStatus
-	ToolKind                             = schema.ToolKind
-	AvailableCommand                     = schema.AvailableCommand
-	Cost                                 = schema.Cost
-	Implementation                       = schema.Implementation
-	PermissionOption                     = schema.PermissionOption
-	PermissionOptionKind                 = schema.PermissionOptionKind
-	ToolCallUpdate                       = schema.ToolCallUpdate
-	RequestPermissionOutcome             = schema.RequestPermissionOutcome
-	RequestPermissionOutcomeVariant      = schema.RequestPermissionOutcomeVariant
-	RequestPermissionOutcomeVariants     = schema.RequestPermissionOutcomeVariants
-	RequestPermissionOutcomeCancelled    = schema.RequestPermissionOutcomeCancelled
-	RequestPermissionOutcomeSelected     = schema.RequestPermissionOutcomeSelected
-	RequestPermissionOutcomeCustom       = schema.RequestPermissionOutcomeCustom
-	PlanEntryStatus                      = schema.PlanEntryStatus
-	PlanEntryPriority                    = schema.PlanEntryPriority
-	ReplayFrom                           = schema.ReplayFrom
-	ReplayFromVariant                    = schema.ReplayFromVariant
-	ReplayFromVariants                   = schema.ReplayFromVariants
-	ReplayFromStart                      = schema.ReplayFromStart
-	ReplayFromCustom                     = schema.ReplayFromCustom
-	MCPServer                            = schema.MCPServer
-	MCPServerVariant                     = schema.MCPServerVariant
-	MCPServerVariants                    = schema.MCPServerVariants
-	MCPServerHTTP                        = schema.MCPServerHTTP
-	MCPServerACP                         = schema.MCPServerACP
-	MCPServerStdio                       = schema.MCPServerStdio
-	MCPServerCustom                      = schema.MCPServerCustom
-	Meta                                 = schema.Meta
+	AbsolutePath                             = schema.AbsolutePath
+	AgentAuthCapabilities                    = schema.AgentAuthCapabilities
+	AgentCapabilities                        = schema.AgentCapabilities
+	Annotations                              = schema.Annotations
+	AuthCapabilities                         = schema.AuthCapabilities
+	AuthMethod                               = schema.AuthMethod
+	AuthMethodAgent                          = schema.AuthMethodAgent
+	AuthMethodCustom                         = schema.AuthMethodCustom
+	AuthMethodID                             = schema.AuthMethodID
+	AuthMethodTerminal                       = schema.AuthMethodTerminal
+	AuthMethodVariant                        = schema.AuthMethodVariant
+	AuthMethodVariants                       = schema.AuthMethodVariants
+	AvailableCommand                         = schema.AvailableCommand
+	AvailableCommandInput                    = schema.AvailableCommandInput
+	AvailableCommandInputCustom              = schema.AvailableCommandInputCustom
+	AvailableCommandInputText                = schema.AvailableCommandInputText
+	AvailableCommandInputVariant             = schema.AvailableCommandInputVariant
+	AvailableCommandInputVariants            = schema.AvailableCommandInputVariants
+	BlobResourceContents                     = schema.BlobResourceContents
+	ClientCapabilities                       = schema.ClientCapabilities
+	ClientNesCapabilities                    = schema.ClientNesCapabilities
+	CompactionID                             = schema.CompactionID
+	CompactionStatus                         = schema.CompactionStatus
+	ContentBlock                             = schema.ContentBlock
+	ContentBlockAudio                        = schema.ContentBlockAudio
+	ContentBlockCustom                       = schema.ContentBlockCustom
+	ContentBlockImage                        = schema.ContentBlockImage
+	ContentBlockResource                     = schema.ContentBlockResource
+	ContentBlockResourceLink                 = schema.ContentBlockResourceLink
+	ContentBlockText                         = schema.ContentBlockText
+	ContentBlockVariant                      = schema.ContentBlockVariant
+	ContentBlockVariants                     = schema.ContentBlockVariants
+	Cost                                     = schema.Cost
+	CreateElicitationRequestAlternative      = schema.CreateElicitationRequestAlternative
+	CreateElicitationRequestCustomRequest    = schema.CreateElicitationRequestCustomRequest
+	CreateElicitationRequestCustomSession    = schema.CreateElicitationRequestCustomSession
+	CreateElicitationRequestFormRequest      = schema.CreateElicitationRequestFormRequest
+	CreateElicitationRequestFormSession      = schema.CreateElicitationRequestFormSession
+	CreateElicitationRequestURLRequest       = schema.CreateElicitationRequestURLRequest
+	CreateElicitationRequestURLSession       = schema.CreateElicitationRequestURLSession
+	CreateElicitationResponseAccept          = schema.CreateElicitationResponseAccept
+	CreateElicitationResponseCancel          = schema.CreateElicitationResponseCancel
+	CreateElicitationResponseCustom          = schema.CreateElicitationResponseCustom
+	CreateElicitationResponseDecline         = schema.CreateElicitationResponseDecline
+	CreateElicitationResponseVariant         = schema.CreateElicitationResponseVariant
+	CreateElicitationResponseVariants        = schema.CreateElicitationResponseVariants
+	DiffChange                               = schema.DiffChange
+	DiffChangeAdd                            = schema.DiffChangeAdd
+	DiffChangeCopy                           = schema.DiffChangeCopy
+	DiffChangeCustom                         = schema.DiffChangeCustom
+	DiffChangeDelete                         = schema.DiffChangeDelete
+	DiffChangeModify                         = schema.DiffChangeModify
+	DiffChangeMove                           = schema.DiffChangeMove
+	DiffChangeVariant                        = schema.DiffChangeVariant
+	DiffChangeVariants                       = schema.DiffChangeVariants
+	DiffFileType                             = schema.DiffFileType
+	DiffPatch                                = schema.DiffPatch
+	DiffPatchFormat                          = schema.DiffPatchFormat
+	ElicitationCapabilities                  = schema.ElicitationCapabilities
+	ElicitationContentValue                  = schema.ElicitationContentValue
+	ElicitationContentValueAlternative       = schema.ElicitationContentValueAlternative
+	ElicitationFormCapabilities              = schema.ElicitationFormCapabilities
+	ElicitationID                            = schema.ElicitationID
+	ElicitationPropertySchema                = schema.ElicitationPropertySchema
+	ElicitationPropertySchemaArray           = schema.ElicitationPropertySchemaArray
+	ElicitationPropertySchemaBoolean         = schema.ElicitationPropertySchemaBoolean
+	ElicitationPropertySchemaCustom          = schema.ElicitationPropertySchemaCustom
+	ElicitationPropertySchemaInteger         = schema.ElicitationPropertySchemaInteger
+	ElicitationPropertySchemaNumber          = schema.ElicitationPropertySchemaNumber
+	ElicitationPropertySchemaString          = schema.ElicitationPropertySchemaString
+	ElicitationPropertySchemaVariant         = schema.ElicitationPropertySchemaVariant
+	ElicitationPropertySchemaVariants        = schema.ElicitationPropertySchemaVariants
+	ElicitationSchema                        = schema.ElicitationSchema
+	ElicitationSchemaType                    = schema.ElicitationSchemaType
+	ElicitationURLCapabilities               = schema.ElicitationURLCapabilities
+	EmbeddedResourceResource                 = schema.EmbeddedResourceResource
+	EmbeddedResourceResourceAlternative      = schema.EmbeddedResourceResourceAlternative
+	EnumOption                               = schema.EnumOption
+	EnvVariable                              = schema.EnvVariable
+	HTTPHeader                               = schema.HTTPHeader
+	Icon                                     = schema.Icon
+	IconTheme                                = schema.IconTheme
+	Implementation                           = schema.Implementation
+	LLMProtocol                              = schema.LLMProtocol
+	MCPACPCapabilities                       = schema.MCPACPCapabilities
+	MCPCapabilities                          = schema.MCPCapabilities
+	MCPConnectionID                          = schema.MCPConnectionID
+	MCPHTTPCapabilities                      = schema.MCPHTTPCapabilities
+	MCPServer                                = schema.MCPServer
+	MCPServerACP                             = schema.MCPServerACP
+	MCPServerACPID                           = schema.MCPServerACPID
+	MCPServerCustom                          = schema.MCPServerCustom
+	MCPServerHTTP                            = schema.MCPServerHTTP
+	MCPServerStdio                           = schema.MCPServerStdio
+	MCPServerVariant                         = schema.MCPServerVariant
+	MCPServerVariants                        = schema.MCPServerVariants
+	MCPStdioCapabilities                     = schema.MCPStdioCapabilities
+	MediaType                                = schema.MediaType
+	MessageID                                = schema.MessageID
+	Meta                                     = schema.Meta
+	MultiSelectItems                         = schema.MultiSelectItems
+	MultiSelectItemsCustom                   = schema.MultiSelectItemsCustom
+	MultiSelectItemsString                   = schema.MultiSelectItemsString
+	MultiSelectItemsVariant                  = schema.MultiSelectItemsVariant
+	MultiSelectItemsVariants                 = schema.MultiSelectItemsVariants
+	NesCapabilities                          = schema.NesCapabilities
+	NesContextCapabilities                   = schema.NesContextCapabilities
+	NesDiagnostic                            = schema.NesDiagnostic
+	NesDiagnosticSeverity                    = schema.NesDiagnosticSeverity
+	NesDiagnosticsCapabilities               = schema.NesDiagnosticsCapabilities
+	NesDocumentDidChangeCapabilities         = schema.NesDocumentDidChangeCapabilities
+	NesDocumentDidCloseCapabilities          = schema.NesDocumentDidCloseCapabilities
+	NesDocumentDidFocusCapabilities          = schema.NesDocumentDidFocusCapabilities
+	NesDocumentDidOpenCapabilities           = schema.NesDocumentDidOpenCapabilities
+	NesDocumentDidSaveCapabilities           = schema.NesDocumentDidSaveCapabilities
+	NesDocumentEventCapabilities             = schema.NesDocumentEventCapabilities
+	NesEditHistoryCapabilities               = schema.NesEditHistoryCapabilities
+	NesEditHistoryEntry                      = schema.NesEditHistoryEntry
+	NesEventCapabilities                     = schema.NesEventCapabilities
+	NesExcerpt                               = schema.NesExcerpt
+	NesJumpCapabilities                      = schema.NesJumpCapabilities
+	NesOpenFile                              = schema.NesOpenFile
+	NesOpenFilesCapabilities                 = schema.NesOpenFilesCapabilities
+	NesRecentFile                            = schema.NesRecentFile
+	NesRecentFilesCapabilities               = schema.NesRecentFilesCapabilities
+	NesRejectReason                          = schema.NesRejectReason
+	NesRelatedSnippet                        = schema.NesRelatedSnippet
+	NesRelatedSnippetsCapabilities           = schema.NesRelatedSnippetsCapabilities
+	NesRenameCapabilities                    = schema.NesRenameCapabilities
+	NesRepository                            = schema.NesRepository
+	NesSearchAndReplaceCapabilities          = schema.NesSearchAndReplaceCapabilities
+	NesSuggestContext                        = schema.NesSuggestContext
+	NesSuggestion                            = schema.NesSuggestion
+	NesSuggestionCustom                      = schema.NesSuggestionCustom
+	NesSuggestionEdit                        = schema.NesSuggestionEdit
+	NesSuggestionID                          = schema.NesSuggestionID
+	NesSuggestionJump                        = schema.NesSuggestionJump
+	NesSuggestionRename                      = schema.NesSuggestionRename
+	NesSuggestionSearchAndReplace            = schema.NesSuggestionSearchAndReplace
+	NesSuggestionVariant                     = schema.NesSuggestionVariant
+	NesSuggestionVariants                    = schema.NesSuggestionVariants
+	NesTextEdit                              = schema.NesTextEdit
+	NesTriggerKind                           = schema.NesTriggerKind
+	NesUserAction                            = schema.NesUserAction
+	NesUserActionsCapabilities               = schema.NesUserActionsCapabilities
+	NoticeSeverity                           = schema.NoticeSeverity
+	PermissionOption                         = schema.PermissionOption
+	PermissionOptionID                       = schema.PermissionOptionID
+	PermissionOptionKind                     = schema.PermissionOptionKind
+	PlanEntry                                = schema.PlanEntry
+	PlanEntryPriority                        = schema.PlanEntryPriority
+	PlanEntryStatus                          = schema.PlanEntryStatus
+	PlanID                                   = schema.PlanID
+	PlanUpdateContent                        = schema.PlanUpdateContent
+	PlanUpdateContentCustom                  = schema.PlanUpdateContentCustom
+	PlanUpdateContentFile                    = schema.PlanUpdateContentFile
+	PlanUpdateContentItems                   = schema.PlanUpdateContentItems
+	PlanUpdateContentMarkdown                = schema.PlanUpdateContentMarkdown
+	PlanUpdateContentVariant                 = schema.PlanUpdateContentVariant
+	PlanUpdateContentVariants                = schema.PlanUpdateContentVariants
+	Position                                 = schema.Position
+	PositionEncodingKind                     = schema.PositionEncodingKind
+	PromptAudioCapabilities                  = schema.PromptAudioCapabilities
+	PromptCapabilities                       = schema.PromptCapabilities
+	PromptEmbeddedContextCapabilities        = schema.PromptEmbeddedContextCapabilities
+	PromptImageCapabilities                  = schema.PromptImageCapabilities
+	ProviderCurrentConfig                    = schema.ProviderCurrentConfig
+	ProviderID                               = schema.ProviderID
+	ProviderInfo                             = schema.ProviderInfo
+	ProvidersCapabilities                    = schema.ProvidersCapabilities
+	Range                                    = schema.Range
+	ReplayFrom                               = schema.ReplayFrom
+	ReplayFromCustom                         = schema.ReplayFromCustom
+	ReplayFromStart                          = schema.ReplayFromStart
+	ReplayFromVariant                        = schema.ReplayFromVariant
+	ReplayFromVariants                       = schema.ReplayFromVariants
+	RequestID                                = schema.RequestID
+	RequestIDAlternative                     = schema.RequestIDAlternative
+	RequestPermissionOutcome                 = schema.RequestPermissionOutcome
+	RequestPermissionOutcomeCancelled        = schema.RequestPermissionOutcomeCancelled
+	RequestPermissionOutcomeCustom           = schema.RequestPermissionOutcomeCustom
+	RequestPermissionOutcomeSelected         = schema.RequestPermissionOutcomeSelected
+	RequestPermissionOutcomeVariant          = schema.RequestPermissionOutcomeVariant
+	RequestPermissionOutcomeVariants         = schema.RequestPermissionOutcomeVariants
+	RequestPermissionSubject                 = schema.RequestPermissionSubject
+	RequestPermissionSubjectCommand          = schema.RequestPermissionSubjectCommand
+	RequestPermissionSubjectCustom           = schema.RequestPermissionSubjectCustom
+	RequestPermissionSubjectToolCall         = schema.RequestPermissionSubjectToolCall
+	RequestPermissionSubjectVariant          = schema.RequestPermissionSubjectVariant
+	RequestPermissionSubjectVariants         = schema.RequestPermissionSubjectVariants
+	Role                                     = schema.Role
+	SessionAdditionalDirectoriesCapabilities = schema.SessionAdditionalDirectoriesCapabilities
+	SessionCapabilities                      = schema.SessionCapabilities
+	SessionConfigGroupID                     = schema.SessionConfigGroupID
+	SessionConfigID                          = schema.SessionConfigID
+	SessionConfigOption                      = schema.SessionConfigOption
+	SessionConfigOptionBoolean               = schema.SessionConfigOptionBoolean
+	SessionConfigOptionCategory              = schema.SessionConfigOptionCategory
+	SessionConfigOptionCustom                = schema.SessionConfigOptionCustom
+	SessionConfigOptionSelect                = schema.SessionConfigOptionSelect
+	SessionConfigOptionVariant               = schema.SessionConfigOptionVariant
+	SessionConfigOptionVariants              = schema.SessionConfigOptionVariants
+	SessionConfigSelectGroup                 = schema.SessionConfigSelectGroup
+	SessionConfigSelectOption                = schema.SessionConfigSelectOption
+	SessionConfigSelectOptions               = schema.SessionConfigSelectOptions
+	SessionConfigSelectOptionsAlternative    = schema.SessionConfigSelectOptionsAlternative
+	SessionConfigValueID                     = schema.SessionConfigValueID
+	SessionDeleteCapabilities                = schema.SessionDeleteCapabilities
+	SessionForkCapabilities                  = schema.SessionForkCapabilities
+	SessionID                                = schema.SessionID
+	SessionInfo                              = schema.SessionInfo
+	SessionListCursor                        = schema.SessionListCursor
+	SessionUpdate                            = schema.SessionUpdate
+	SessionUpdateAgentMessage                = schema.SessionUpdateAgentMessage
+	SessionUpdateAgentMessageChunk           = schema.SessionUpdateAgentMessageChunk
+	SessionUpdateAgentThought                = schema.SessionUpdateAgentThought
+	SessionUpdateAgentThoughtChunk           = schema.SessionUpdateAgentThoughtChunk
+	SessionUpdateAvailableCommandsUpdate     = schema.SessionUpdateAvailableCommandsUpdate
+	SessionUpdateCompactionSummaryChunk      = schema.SessionUpdateCompactionSummaryChunk
+	SessionUpdateCompactionUpdate            = schema.SessionUpdateCompactionUpdate
+	SessionUpdateConfigOptionUpdate          = schema.SessionUpdateConfigOptionUpdate
+	SessionUpdateCustom                      = schema.SessionUpdateCustom
+	SessionUpdateNotice                      = schema.SessionUpdateNotice
+	SessionUpdatePlanRemoved                 = schema.SessionUpdatePlanRemoved
+	SessionUpdatePlanUpdate                  = schema.SessionUpdatePlanUpdate
+	SessionUpdateSessionInfoUpdate           = schema.SessionUpdateSessionInfoUpdate
+	SessionUpdateStateUpdate                 = schema.SessionUpdateStateUpdate
+	SessionUpdateTerminalOutputChunk         = schema.SessionUpdateTerminalOutputChunk
+	SessionUpdateTerminalUpdate              = schema.SessionUpdateTerminalUpdate
+	SessionUpdateToolCallContentChunk        = schema.SessionUpdateToolCallContentChunk
+	SessionUpdateToolCallUpdate              = schema.SessionUpdateToolCallUpdate
+	SessionUpdateUsageUpdate                 = schema.SessionUpdateUsageUpdate
+	SessionUpdateUserMessage                 = schema.SessionUpdateUserMessage
+	SessionUpdateUserMessageChunk            = schema.SessionUpdateUserMessageChunk
+	SessionUpdateVariant                     = schema.SessionUpdateVariant
+	SessionUpdateVariants                    = schema.SessionUpdateVariants
+	SetSessionConfigOptionRequestBoolean     = schema.SetSessionConfigOptionRequestBoolean
+	SetSessionConfigOptionRequestCustom      = schema.SetSessionConfigOptionRequestCustom
+	SetSessionConfigOptionRequestID          = schema.SetSessionConfigOptionRequestID
+	SetSessionConfigOptionRequestVariant     = schema.SetSessionConfigOptionRequestVariant
+	SetSessionConfigOptionRequestVariants    = schema.SetSessionConfigOptionRequestVariants
+	StateUpdate                              = schema.StateUpdate
+	StateUpdateCustom                        = schema.StateUpdateCustom
+	StateUpdateIdle                          = schema.StateUpdateIdle
+	StateUpdateRequiresAction                = schema.StateUpdateRequiresAction
+	StateUpdateRunning                       = schema.StateUpdateRunning
+	StateUpdateVariant                       = schema.StateUpdateVariant
+	StateUpdateVariants                      = schema.StateUpdateVariants
+	StopReason                               = schema.StopReason
+	StringFormat                             = schema.StringFormat
+	TerminalAuthCapabilities                 = schema.TerminalAuthCapabilities
+	TerminalExitStatus                       = schema.TerminalExitStatus
+	TerminalID                               = schema.TerminalID
+	TerminalOutput                           = schema.TerminalOutput
+	TextDocumentContentChangeEvent           = schema.TextDocumentContentChangeEvent
+	TextDocumentSyncKind                     = schema.TextDocumentSyncKind
+	TextResourceContents                     = schema.TextResourceContents
+	TitledMultiSelectItems                   = schema.TitledMultiSelectItems
+	ToolCallContent                          = schema.ToolCallContent
+	ToolCallContentContent                   = schema.ToolCallContentContent
+	ToolCallContentCustom                    = schema.ToolCallContentCustom
+	ToolCallContentDiff                      = schema.ToolCallContentDiff
+	ToolCallContentTerminal                  = schema.ToolCallContentTerminal
+	ToolCallContentVariant                   = schema.ToolCallContentVariant
+	ToolCallContentVariants                  = schema.ToolCallContentVariants
+	ToolCallID                               = schema.ToolCallID
+	ToolCallLocation                         = schema.ToolCallLocation
+	ToolCallStatus                           = schema.ToolCallStatus
+	ToolCallUpdate                           = schema.ToolCallUpdate
+	ToolKind                                 = schema.ToolKind
+	Usage                                    = schema.Usage
+	WorkspaceFolder                          = schema.WorkspaceFolder
 )
 
 const (
-	StopReasonEndTurn                = schema.StopReasonEndTurn
-	StopReasonMaxTokens              = schema.StopReasonMaxTokens
-	StopReasonMaxTurnRequests        = schema.StopReasonMaxTurnRequests
-	StopReasonRefusal                = schema.StopReasonRefusal
-	StopReasonCancelled              = schema.StopReasonCancelled
-	ToolCallStatusPending            = schema.ToolCallStatusPending
-	ToolCallStatusInProgress         = schema.ToolCallStatusInProgress
-	ToolCallStatusCompleted          = schema.ToolCallStatusCompleted
-	ToolCallStatusFailed             = schema.ToolCallStatusFailed
-	ToolCallStatusCancelled          = schema.ToolCallStatusCancelled
-	ToolKindRead                     = schema.ToolKindRead
-	ToolKindEdit                     = schema.ToolKindEdit
-	ToolKindDelete                   = schema.ToolKindDelete
-	ToolKindMove                     = schema.ToolKindMove
-	ToolKindSearch                   = schema.ToolKindSearch
-	ToolKindExecute                  = schema.ToolKindExecute
-	ToolKindThink                    = schema.ToolKindThink
-	ToolKindFetch                    = schema.ToolKindFetch
-	ToolKindSwitchMode               = schema.ToolKindSwitchMode
-	ToolKindOther                    = schema.ToolKindOther
-	PermissionOptionKindAllowOnce    = schema.PermissionOptionKindAllowOnce
-	PermissionOptionKindAllowAlways  = schema.PermissionOptionKindAllowAlways
-	PermissionOptionKindRejectOnce   = schema.PermissionOptionKindRejectOnce
-	PermissionOptionKindRejectAlways = schema.PermissionOptionKindRejectAlways
-	PlanEntryStatusPending           = schema.PlanEntryStatusPending
-	PlanEntryStatusInProgress        = schema.PlanEntryStatusInProgress
-	PlanEntryStatusCompleted         = schema.PlanEntryStatusCompleted
-	PlanEntryStatusCancelled         = schema.PlanEntryStatusCancelled
-	PlanEntryPriorityHigh            = schema.PlanEntryPriorityHigh
-	PlanEntryPriorityMedium          = schema.PlanEntryPriorityMedium
-	PlanEntryPriorityLow             = schema.PlanEntryPriorityLow
+	CompactionStatusInProgress              = schema.CompactionStatusInProgress
+	CompactionStatusCompleted               = schema.CompactionStatusCompleted
+	CompactionStatusFailed                  = schema.CompactionStatusFailed
+	CompactionStatusCancelled               = schema.CompactionStatusCancelled
+	DiffFileTypeText                        = schema.DiffFileTypeText
+	DiffFileTypeBinary                      = schema.DiffFileTypeBinary
+	DiffFileTypeDirectory                   = schema.DiffFileTypeDirectory
+	DiffFileTypeSymlink                     = schema.DiffFileTypeSymlink
+	DiffPatchFormatGitPatch                 = schema.DiffPatchFormatGitPatch
+	ElicitationSchemaTypeObject             = schema.ElicitationSchemaTypeObject
+	IconThemeLight                          = schema.IconThemeLight
+	IconThemeDark                           = schema.IconThemeDark
+	LLMProtocolAnthropic                    = schema.LLMProtocolAnthropic
+	LLMProtocolOpenAI                       = schema.LLMProtocolOpenAI
+	LLMProtocolAzure                        = schema.LLMProtocolAzure
+	LLMProtocolVertex                       = schema.LLMProtocolVertex
+	LLMProtocolBedrock                      = schema.LLMProtocolBedrock
+	NesDiagnosticSeverityError              = schema.NesDiagnosticSeverityError
+	NesDiagnosticSeverityWarning            = schema.NesDiagnosticSeverityWarning
+	NesDiagnosticSeverityInformation        = schema.NesDiagnosticSeverityInformation
+	NesDiagnosticSeverityHint               = schema.NesDiagnosticSeverityHint
+	NesRejectReasonRejected                 = schema.NesRejectReasonRejected
+	NesRejectReasonIgnored                  = schema.NesRejectReasonIgnored
+	NesRejectReasonReplaced                 = schema.NesRejectReasonReplaced
+	NesRejectReasonCancelled                = schema.NesRejectReasonCancelled
+	NesTriggerKindAutomatic                 = schema.NesTriggerKindAutomatic
+	NesTriggerKindDiagnostic                = schema.NesTriggerKindDiagnostic
+	NesTriggerKindManual                    = schema.NesTriggerKindManual
+	NoticeSeverityInfo                      = schema.NoticeSeverityInfo
+	NoticeSeverityWarning                   = schema.NoticeSeverityWarning
+	NoticeSeverityError                     = schema.NoticeSeverityError
+	PermissionOptionKindAllowOnce           = schema.PermissionOptionKindAllowOnce
+	PermissionOptionKindAllowAlways         = schema.PermissionOptionKindAllowAlways
+	PermissionOptionKindRejectOnce          = schema.PermissionOptionKindRejectOnce
+	PermissionOptionKindRejectAlways        = schema.PermissionOptionKindRejectAlways
+	PlanEntryPriorityHigh                   = schema.PlanEntryPriorityHigh
+	PlanEntryPriorityMedium                 = schema.PlanEntryPriorityMedium
+	PlanEntryPriorityLow                    = schema.PlanEntryPriorityLow
+	PlanEntryStatusPending                  = schema.PlanEntryStatusPending
+	PlanEntryStatusInProgress               = schema.PlanEntryStatusInProgress
+	PlanEntryStatusCompleted                = schema.PlanEntryStatusCompleted
+	PlanEntryStatusCancelled                = schema.PlanEntryStatusCancelled
+	PositionEncodingKindUTF16               = schema.PositionEncodingKindUTF16
+	PositionEncodingKindUTF32               = schema.PositionEncodingKindUTF32
+	PositionEncodingKindUTF8                = schema.PositionEncodingKindUTF8
+	RoleAssistant                           = schema.RoleAssistant
+	RoleUser                                = schema.RoleUser
+	SessionConfigOptionCategoryMode         = schema.SessionConfigOptionCategoryMode
+	SessionConfigOptionCategoryModel        = schema.SessionConfigOptionCategoryModel
+	SessionConfigOptionCategoryModelConfig  = schema.SessionConfigOptionCategoryModelConfig
+	SessionConfigOptionCategoryThoughtLevel = schema.SessionConfigOptionCategoryThoughtLevel
+	StopReasonEndTurn                       = schema.StopReasonEndTurn
+	StopReasonMaxTokens                     = schema.StopReasonMaxTokens
+	StopReasonMaxTurnRequests               = schema.StopReasonMaxTurnRequests
+	StopReasonRefusal                       = schema.StopReasonRefusal
+	StopReasonCancelled                     = schema.StopReasonCancelled
+	StringFormatEmail                       = schema.StringFormatEmail
+	StringFormatURI                         = schema.StringFormatURI
+	StringFormatDate                        = schema.StringFormatDate
+	StringFormatDateTime                    = schema.StringFormatDateTime
+	TextDocumentSyncKindFull                = schema.TextDocumentSyncKindFull
+	TextDocumentSyncKindIncremental         = schema.TextDocumentSyncKindIncremental
+	ToolCallStatusPending                   = schema.ToolCallStatusPending
+	ToolCallStatusInProgress                = schema.ToolCallStatusInProgress
+	ToolCallStatusCompleted                 = schema.ToolCallStatusCompleted
+	ToolCallStatusFailed                    = schema.ToolCallStatusFailed
+	ToolCallStatusCancelled                 = schema.ToolCallStatusCancelled
+	ToolKindRead                            = schema.ToolKindRead
+	ToolKindEdit                            = schema.ToolKindEdit
+	ToolKindDelete                          = schema.ToolKindDelete
+	ToolKindMove                            = schema.ToolKindMove
+	ToolKindSearch                          = schema.ToolKindSearch
+	ToolKindExecute                         = schema.ToolKindExecute
+	ToolKindThink                           = schema.ToolKindThink
+	ToolKindFetch                           = schema.ToolKindFetch
+	ToolKindSwitchMode                      = schema.ToolKindSwitchMode
+	ToolKindOther                           = schema.ToolKindOther
 )
 
-// NewSessionConfigOption wraps a variant.
-func NewSessionConfigOption[T SessionConfigOptionVariants](v T) SessionConfigOption {
-	return schema.NewSessionConfigOption(v)
-}
+// NewAuthMethod wraps a variant.
+func NewAuthMethod[T AuthMethodVariants](v T) AuthMethod { return schema.NewAuthMethod(v) }
 
-// NewSessionUpdate wraps a variant.
-func NewSessionUpdate[T SessionUpdateVariants](v T) SessionUpdate { return schema.NewSessionUpdate(v) }
+// NewAvailableCommandInput wraps a variant.
+func NewAvailableCommandInput[T AvailableCommandInputVariants](v T) AvailableCommandInput {
+	return schema.NewAvailableCommandInput(v)
+}
 
 // NewContentBlock wraps a variant.
 func NewContentBlock[T ContentBlockVariants](v T) ContentBlock { return schema.NewContentBlock(v) }
 
-// NewToolCallContent wraps a variant.
-func NewToolCallContent[T ToolCallContentVariants](v T) ToolCallContent {
-	return schema.NewToolCallContent(v)
+// NewCreateElicitationRequest encodes value, one of the CreateElicitationRequestAlternative types.
+func NewCreateElicitationRequest[T CreateElicitationRequestAlternative](value T) (CreateElicitationRequest, error) {
+	return schema.NewCreateElicitationRequest(value)
+}
+
+// NewCreateElicitationResponse wraps a variant.
+func NewCreateElicitationResponse[T CreateElicitationResponseVariants](v T) CreateElicitationResponse {
+	return schema.NewCreateElicitationResponse(v)
+}
+
+// NewDiffChange wraps a variant.
+func NewDiffChange[T DiffChangeVariants](v T) DiffChange { return schema.NewDiffChange(v) }
+
+// NewElicitationContentValue encodes value, one of the ElicitationContentValueAlternative types.
+func NewElicitationContentValue[T ElicitationContentValueAlternative](value T) (ElicitationContentValue, error) {
+	return schema.NewElicitationContentValue(value)
+}
+
+// NewElicitationPropertySchema wraps a variant.
+func NewElicitationPropertySchema[T ElicitationPropertySchemaVariants](v T) ElicitationPropertySchema {
+	return schema.NewElicitationPropertySchema(v)
+}
+
+// NewEmbeddedResourceResource encodes value, one of the EmbeddedResourceResourceAlternative types.
+func NewEmbeddedResourceResource[T EmbeddedResourceResourceAlternative](value T) (EmbeddedResourceResource, error) {
+	return schema.NewEmbeddedResourceResource(value)
+}
+
+// NewMCPServer wraps a variant.
+func NewMCPServer[T MCPServerVariants](v T) MCPServer { return schema.NewMCPServer(v) }
+
+// NewMultiSelectItems wraps a variant.
+func NewMultiSelectItems[T MultiSelectItemsVariants](v T) MultiSelectItems {
+	return schema.NewMultiSelectItems(v)
+}
+
+// NewNesSuggestion wraps a variant.
+func NewNesSuggestion[T NesSuggestionVariants](v T) NesSuggestion { return schema.NewNesSuggestion(v) }
+
+// NewPlanUpdateContent wraps a variant.
+func NewPlanUpdateContent[T PlanUpdateContentVariants](v T) PlanUpdateContent {
+	return schema.NewPlanUpdateContent(v)
+}
+
+// NewReplayFrom wraps a variant.
+func NewReplayFrom[T ReplayFromVariants](v T) ReplayFrom { return schema.NewReplayFrom(v) }
+
+// NewRequestID encodes value, one of the RequestIDAlternative types.
+func NewRequestID[T RequestIDAlternative](value T) (RequestID, error) {
+	return schema.NewRequestID(value)
 }
 
 // NewRequestPermissionOutcome wraps a variant.
@@ -218,8 +498,33 @@ func NewRequestPermissionOutcome[T RequestPermissionOutcomeVariants](v T) Reques
 	return schema.NewRequestPermissionOutcome(v)
 }
 
-// NewReplayFrom wraps a variant.
-func NewReplayFrom[T ReplayFromVariants](v T) ReplayFrom { return schema.NewReplayFrom(v) }
+// NewRequestPermissionSubject wraps a variant.
+func NewRequestPermissionSubject[T RequestPermissionSubjectVariants](v T) RequestPermissionSubject {
+	return schema.NewRequestPermissionSubject(v)
+}
 
-// NewMCPServer wraps a variant.
-func NewMCPServer[T MCPServerVariants](v T) MCPServer { return schema.NewMCPServer(v) }
+// NewSessionConfigOption wraps a variant.
+func NewSessionConfigOption[T SessionConfigOptionVariants](v T) SessionConfigOption {
+	return schema.NewSessionConfigOption(v)
+}
+
+// NewSessionConfigSelectOptions encodes value, one of the SessionConfigSelectOptionsAlternative types.
+func NewSessionConfigSelectOptions[T SessionConfigSelectOptionsAlternative](value T) (SessionConfigSelectOptions, error) {
+	return schema.NewSessionConfigSelectOptions(value)
+}
+
+// NewSessionUpdate wraps a variant.
+func NewSessionUpdate[T SessionUpdateVariants](v T) SessionUpdate { return schema.NewSessionUpdate(v) }
+
+// NewSetSessionConfigOptionRequest wraps a variant.
+func NewSetSessionConfigOptionRequest[T SetSessionConfigOptionRequestVariants](v T) SetSessionConfigOptionRequest {
+	return schema.NewSetSessionConfigOptionRequest(v)
+}
+
+// NewStateUpdate wraps a variant.
+func NewStateUpdate[T StateUpdateVariants](v T) StateUpdate { return schema.NewStateUpdate(v) }
+
+// NewToolCallContent wraps a variant.
+func NewToolCallContent[T ToolCallContentVariants](v T) ToolCallContent {
+	return schema.NewToolCallContent(v)
+}

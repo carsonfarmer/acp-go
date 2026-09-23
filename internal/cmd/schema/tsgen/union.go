@@ -687,6 +687,7 @@ func (g *generator) union(name, sdkDoc string, t *tsdef.Type) error {
 			return err
 		}
 	}
+	g.decls[name] = Decl{Constraint: constraint, Constructor: "New" + name}
 	// One rule per alternative, grouped by the canonical Go type so aliases of
 	// the same type become one type-set term.
 	var terms []string

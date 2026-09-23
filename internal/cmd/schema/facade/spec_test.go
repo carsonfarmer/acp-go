@@ -12,10 +12,11 @@ import (
 )
 
 const fixture = `
-export type PingRequest = { sessionId: string; };
+export type PingRequest = { sessionId: string; marker?: Marker; };
 export type PingResponse = { ok: boolean; };
 export type ByeNotification = { reason?: string; };
 export type Marker = string;
+export type Unused = { note: string; };
 export const AGENT_METHODS = { ping: "ping", session_bye: "session/bye", extra: "extra/one" } as const;
 export const CLIENT_METHODS = { notice: "notice" } as const;
 export const PROTOCOL_METHODS = { cancel_request: "$/cancel_request" } as const;
@@ -34,17 +35,16 @@ func parse(t *testing.T) *tsdef.Schema {
 // generate runs Generate with the declarations tsgen reports for schema.
 func generate(t *testing.T, s *Spec, schema *tsdef.Schema) (map[string][]byte, error) {
 	t.Helper()
-	_, decls, err := tsgen.Generate(schema, "schema")
+	files, decls, err := tsgen.Generate(schema, "schema")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Generate(s, schema, decls)
+	return Generate(s, schema, files, decls)
 }
 
 func spec() *Spec {
 	return &Spec{
 		Package: "fixture", SchemaPath: "example.com/schema", Unhandled: []string{"extra/one"},
-		ExtraTypes: []string{"Marker"},
 		Agent: []Group{
 			{Interface: "Agent", Required: true, Doc: "Agent doc.", Methods: []Method{
 				{Wire: "ping", Name: "Ping", Params: "PingRequest", Response: "PingResponse", Doc: "Ping doc."},
@@ -92,6 +92,10 @@ func TestGenerateEmitsInterfacesCallsAndDispatch(t *testing.T) {
 			t.Errorf("types.gen.go lacks %q\n%s", want, types)
 		}
 	}
+	// Marker is reached through PingRequest; Unused is reached by nothing.
+	if strings.Contains(types, "Unused") {
+		t.Errorf("types.gen.go re-exports a type no payload reaches\n%s", types)
+	}
 	// The extension method must not be routed and the protocol method never appears.
 	for _, unwanted := range []string{"ExtraOne", "CancelRequest"} {
 		if strings.Contains(methods, unwanted) {
@@ -123,7 +127,6 @@ func TestValidationRejectsDrift(t *testing.T) {
 		"unknown wire method":       func(s *Spec) { s.Agent[1].Methods[0].Wire = "session/gone" },
 		"unknown params type":       func(s *Spec) { s.Agent[0].Methods[0].Params = "Nope" },
 		"unknown response type":     func(s *Spec) { s.Agent[0].Methods[0].Response = "Nope" },
-		"unknown extra type":        func(s *Spec) { s.ExtraTypes = []string{"Nope"} },
 		"duplicate method kind": func(s *Spec) {
 			s.Agent[1].Methods = append(s.Agent[1].Methods, s.Agent[1].Methods[0])
 		},

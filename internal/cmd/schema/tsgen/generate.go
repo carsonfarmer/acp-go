@@ -146,8 +146,9 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, Decls, error) {
 }
 
 // Decl lists the identifiers a schema type brings with it: an enum's
-// constants, or a tagged union's variant interface and constraint,
-// constructor and variant types.
+// constants; a tagged union's variant interface and constraint, constructor
+// and variant types; or a raw union's alternative constraint and constructor,
+// which returns an error. Only tagged unions have an Interface.
 type Decl struct {
 	Constants   []string
 	Interface   string
@@ -157,7 +158,7 @@ type Decl struct {
 }
 
 // Decls maps Go type names to the extra identifiers Generate declares for each
-// enum and tagged union.
+// enum and union.
 type Decls map[string]Decl
 
 // generate emits every declaration into the generator's buffers.

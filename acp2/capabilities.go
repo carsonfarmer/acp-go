@@ -14,7 +14,7 @@ import schema "github.com/ironpark/acp-go/schema/v2"
 // are set to empty objects, which advertises the group; fill in the sub-flags
 // the agent supports. Prompt, MCP and position encoding capabilities describe
 // content rather than methods and are left for the agent to set.
-func CapabilitiesOf(agent Agent) *schema.AgentCapabilities {
+func CapabilitiesOf(agent Agent) *AgentCapabilities {
 	caps := &schema.AgentCapabilities{}
 	session := &schema.SessionCapabilities{}
 	advertise := false

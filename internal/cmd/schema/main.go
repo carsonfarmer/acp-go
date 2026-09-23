@@ -51,7 +51,7 @@ func run(args []string) error {
 			continue
 		}
 		spec := specs[version]
-		facadeFiles, err := facade.Generate(spec, schema, decls)
+		facadeFiles, err := facade.Generate(spec, schema, files, decls)
 		if err != nil {
 			return fmt.Errorf("%s façade: %w", version, err)
 		}
