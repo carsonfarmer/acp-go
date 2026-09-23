@@ -71,6 +71,9 @@ type Connection struct {
 
 	wg        sync.WaitGroup // write loop
 	handlerWg sync.WaitGroup // in-flight request handlers
+	// lifecycle orders goroutine starts against Close: a WaitGroup must not
+	// gain a goroutine while Close waits on it from zero.
+	lifecycle sync.Mutex
 
 	errorHandler    func(error)
 	writeQueueSize  int
@@ -157,7 +160,10 @@ func (c *Connection) Start(ctx context.Context) error {
 	stop := context.AfterFunc(ctx, c.cancel)
 	defer stop()
 
-	c.wg.Go(c.writeLoop)
+	if !c.goUnlessClosed(&c.wg, c.writeLoop) {
+		c.failPending(errors.New("connection closed"))
+		return c.ctx.Err()
+	}
 
 	err := c.readLoop()
 	// The reader is done (typically EOF). Let in-flight handlers finish so
@@ -170,9 +176,23 @@ func (c *Connection) Start(ctx context.Context) error {
 	return err
 }
 
+// goUnlessClosed runs fn on wg, or reports false once the connection is
+// closed.
+func (c *Connection) goUnlessClosed(wg *sync.WaitGroup, fn func()) bool {
+	c.lifecycle.Lock()
+	defer c.lifecycle.Unlock()
+	if c.ctx.Err() != nil {
+		return false
+	}
+	wg.Go(fn)
+	return true
+}
+
 // Close cancels the connection and waits for in-flight handlers.
 func (c *Connection) Close() error {
+	c.lifecycle.Lock()
 	c.cancel()
+	c.lifecycle.Unlock()
 	waitAll := func() {
 		c.handlerWg.Wait()
 		c.wg.Wait()
@@ -241,7 +261,9 @@ func (c *Connection) readLoop() error {
 
 		switch {
 		case msg.Method != "" && len(msg.ID) > 0:
-			c.handlerWg.Go(func() { c.handleRequest(msg) })
+			if !c.goUnlessClosed(&c.handlerWg, func() { c.handleRequest(msg) }) {
+				return c.ctx.Err()
+			}
 		case msg.Method != "":
 			// Handled inline so notification ordering is preserved.
 			c.handleNotification(msg)

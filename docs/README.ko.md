@@ -194,6 +194,19 @@ if agent.V2 != nil {
 }
 ```
 
+원격 에이전트에는 `Connect`에 dial 함수를 넘깁니다. 시도할 때마다 한 번씩 호출됩니다:
+
+```go
+agent, err := router.NewClient().WithV1(…).WithV2(…).
+    Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
+        return acp.NewHTTPClientTransport("https://host/acp"), nil // 또는 acp.DialWebSocket
+    })
+```
+
+재연결은 다른 SDK와 같이 새 연결입니다: 같은 헤더와 `acp.WithCookieJar(jar)`로 다시 연결해 로드 밸런서의
+affinity 쿠키가 같은 백엔드로 보내게 하고, `Initialize` 뒤 에이전트가 `loadSession`을 지원하면 저장해 둔
+세션 id로 `LoadSession`합니다. 끊겨 있던 동안의 메시지는 재전송되지 않습니다(프로토콜 v2의 몫).
+
 ### 세션 관리
 
 ```go

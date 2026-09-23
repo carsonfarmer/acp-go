@@ -405,3 +405,22 @@ func TestMiddlewareWrapsBothDirections(t *testing.T) {
 		t.Errorf("middleware saw %v, want %v", calls, want)
 	}
 }
+
+// Close may run while Start is still starting its goroutines, as when a
+// caller closes a connection it just spawned; the race detector checks that
+// no goroutine joins a WaitGroup Close is already waiting on.
+func TestCloseRacesStart(t *testing.T) {
+	for range 200 {
+		r, w := io.Pipe()
+		conn := New(nil, nil, NewStdioTransport(r, io.Discard))
+		started := make(chan error, 1)
+		closed := make(chan error, 1)
+		go func() { started <- conn.Start(context.Background()) }()
+		go func() { closed <- conn.Close() }()
+		if err := <-closed; err != nil {
+			t.Fatal(err)
+		}
+		w.Close()
+		<-started
+	}
+}

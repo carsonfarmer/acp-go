@@ -193,6 +193,15 @@ if agent.V2 != nil {
 }
 ```
 
+For a remote agent, `Connect` takes a dial function instead, called once per attempt:
+
+```go
+agent, err := router.NewClient().WithV1(…).WithV2(…).
+    Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
+        return acp.NewHTTPClientTransport("https://host/acp"), nil // or acp.DialWebSocket
+    })
+```
+
 ### Transport Layer
 
 ```go
@@ -219,6 +228,11 @@ Streamable HTTP uses `POST` for client messages (`initialize` answers with an
 per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the whole connection
 as text frames instead. WebSockets from browser pages on other origins are refused unless
 `acp.WithWebSocketOrigins` allows them.
+
+Reconnecting is a new connection, as in the other SDKs: dial again with the same headers and
+`acp.WithCookieJar(jar)`, so a load balancer's affinity cookie routes the client back, then
+`Initialize` and `LoadSession` the saved session id if the agent advertises `loadSession`.
+Messages sent while the client was away are not replayed; the protocol leaves that to v2.
 
 ### Middleware
 

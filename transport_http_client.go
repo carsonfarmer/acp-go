@@ -46,6 +46,7 @@ type HTTPClientOption func(*httpClientConfig)
 type httpClientConfig struct {
 	client *http.Client
 	header http.Header
+	jar    http.CookieJar
 }
 
 // newHTTPClientConfig applies opts over the defaults: a client with a cookie
@@ -57,6 +58,11 @@ func newHTTPClientConfig(opts []HTTPClientOption) httpClientConfig {
 	for _, opt := range opts {
 		opt(&c)
 	}
+	if c.jar != nil {
+		client := *c.client
+		client.Jar = c.jar
+		c.client = &client
+	}
 	return c
 }
 
@@ -65,6 +71,18 @@ func newHTTPClientConfig(opts []HTTPClientOption) httpClientConfig {
 // Its Timeout must be zero, since the streams stay open.
 func WithHTTPClient(client *http.Client) HTTPClientOption {
 	return func(c *httpClientConfig) { c.client = client }
+}
+
+// WithCookieJar keeps the server's cookies in jar instead of a jar of the
+// transport's own. Reuse one jar across the transports of a reconnecting
+// client: servers behind a load balancer rely on cookies to route it back to
+// the backend holding its sessions. It overrides the jar of WithHTTPClient.
+//
+// Reconnecting in ACP v1 is a new connection: dial again with the same jar
+// and headers, initialize, check the agent's loadSession capability, and load
+// the saved session. Messages sent while disconnected are not replayed.
+func WithCookieJar(jar http.CookieJar) HTTPClientOption {
+	return func(c *httpClientConfig) { c.jar = jar }
 }
 
 // WithHTTPHeader adds a header to every request, such as Authorization.

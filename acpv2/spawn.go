@@ -9,18 +9,6 @@ import (
 	"github.com/ironpark/go-acp/internal/acpconn"
 )
 
-// AgentProcess is a connection to an agent running as a child process. It
-// embeds the connection, so every agent method is called on it directly.
-type AgentProcess struct {
-	*ClientSideConnection
-	wait func() error
-}
-
-// Wait blocks until the agent process has exited and the connection has
-// stopped. It reports ctx's error if SpawnAgent's ctx ended the process, the
-// process's exit error if it failed, or the connection's read error.
-func (p *AgentProcess) Wait() error { return p.wait() }
-
 // SpawnAgent starts cmd and connects to the agent over its stdio. The
 // connection is already processing messages when SpawnAgent returns:
 //
@@ -34,7 +22,11 @@ func (p *AgentProcess) Wait() error { return p.wait() }
 // closes once the process exits. On Unix the agent runs in its own process
 // group, so a terminal's Ctrl-C reaches only this process, which can turn it
 // into a cancel; set cmd.SysProcAttr to opt out.
-func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*AgentProcess, error) {
+//
+// The agent's Wait blocks until the process has exited and the connection has
+// stopped. It reports ctx's error if ctx ended the process, the process's
+// exit error if it failed, or the connection's read error.
+func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*RemoteAgent, error) {
 	var conn *ClientSideConnection
 	wait, err := acpconn.Spawn(ctx, cmd, func(r io.Reader, w io.Writer) acpconn.Conn {
 		conn = NewClientSideConnection(newClient, r, w, opts...)
@@ -43,7 +35,9 @@ func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideCo
 	if err != nil {
 		return nil, err
 	}
-	return &AgentProcess{ClientSideConnection: conn, wait: wait}, nil
+	// Close closes the agent's stdin and returns: the agent exits on its own,
+	// and Wait reports how.
+	return &RemoteAgent{ClientSideConnection: conn, wait: wait}, nil
 }
 
 // Pipe connects an agent and a client in memory and starts both, for tests
