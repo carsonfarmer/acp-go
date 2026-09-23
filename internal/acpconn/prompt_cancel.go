@@ -5,7 +5,6 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
-	"io"
 	"slices"
 	"sync"
 
@@ -27,7 +26,7 @@ const (
 // not started its turn yet: requests run in their own goroutines while
 // notifications run on the read loop, so without this the cancel could find
 // no turn to cancel and be lost. See [PromptCancelSignal].
-func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, reader io.Reader, writer io.Writer, opts []Option) *jsonrpc.Connection {
+func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, transport jsonrpc.Transport, opts []Option) *jsonrpc.Connection {
 	prompts := &pendingPrompts{sessions: map[string][]*pendingPrompt{}}
 	notify := func(ctx context.Context, method string, params jsontext.Value) error {
 		if method == methodSessionCancel {
@@ -38,7 +37,7 @@ func NewAgentConnection(request jsonrpc.RequestHandler, notification jsonrpc.Not
 	opts = append(slices.Clone(opts), func(o *Options) {
 		o.JSONRPC = append(o.JSONRPC, jsonrpc.WithRequestContext(prompts.accept))
 	})
-	return NewConnection(request, notify, reader, writer, opts)
+	return NewConnection(request, notify, transport, opts)
 }
 
 // PromptCancelSignal returns the signal a session/prompt request's context

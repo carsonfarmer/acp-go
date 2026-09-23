@@ -104,7 +104,7 @@ func main() {
 		a := &exampleAgent{SessionManager: manager, client: c}
 		a.HandleExt(pingMethod, a.ping)
 		return a
-	}, os.Stdin, os.Stdout,
+	}, acp.NewStdioTransport(os.Stdin, os.Stdout),
 		acp.WithMiddleware(acp.LoggingMiddleware(logger)),
 		acp.WithErrorHandler(func(err error) { logger.Error("acp", "error", err) }),
 	)

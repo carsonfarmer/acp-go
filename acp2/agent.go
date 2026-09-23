@@ -1,8 +1,6 @@
 package acp2
 
 import (
-	"io"
-
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
 	"github.com/ironpark/acp-go/internal/jsonrpc"
@@ -18,12 +16,13 @@ type AgentSideConnection struct {
 var _ Client = (*AgentSideConnection)(nil)
 
 // NewAgentSideConnection connects an agent to a client. newAgent receives the
-// connection being built so the agent can keep it as its [Client]. reader
-// carries messages from the client and writer carries messages to it.
-func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, reader io.Reader, writer io.Writer, opts ...acp.Option) *AgentSideConnection {
+// connection being built so the agent can keep it as its [Client]. transport
+// carries the messages to and from the client, such as
+// [acp.NewStdioTransport] over os.Stdin and os.Stdout.
+func NewAgentSideConnection(newAgent func(*AgentSideConnection) Agent, transport acp.Transport, opts ...acp.Option) *AgentSideConnection {
 	c := &AgentSideConnection{}
 	c.agent = newAgent(c)
-	c.conn = acpconn.NewAgentConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
+	c.conn = acpconn.NewAgentConnection(c.handleRequest, c.handleNotification, transport, opts)
 	return c
 }
 

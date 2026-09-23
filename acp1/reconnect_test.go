@@ -11,6 +11,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acphttp"
 )
 
 // replayAgent replays a loaded session's history before answering the load,
@@ -58,7 +59,7 @@ func TestReconnectLoadsSession(t *testing.T) {
 
 	jar, _ := cookiejar.New(nil)
 	connect := func(client *testClient) *acp1.RemoteAgent {
-		agent := acp1.ConnectAgent(t.Context(), acp.NewHTTPClientTransport(ts.URL, acp.WithCookieJar(jar)),
+		agent := acp1.ConnectAgent(t.Context(), acphttp.NewClientTransport(ts.URL, acphttp.WithCookieJar(jar)),
 			func(*acp1.ClientSideConnection) acp1.Client { return client })
 		init, err := agent.Initialize(t.Context(), &acp1.InitializeRequest{ProtocolVersion: acp1.ProtocolVersion})
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acphttp"
 )
 
 // permissionAgent asks the client for permission mid-turn, a request that
@@ -34,9 +35,9 @@ func (a *permissionAgent) Prompt(ctx context.Context, params *acp1.PromptRequest
 }
 
 // agentServer serves a new agent from newAgent on each HTTP connection.
-func agentServer(newAgent func(*acp1.AgentSideConnection) acp1.Agent) *acp.HTTPServer {
-	return acp.NewHTTPServer(func(ctx context.Context, tr acp.Transport) error {
-		return acp1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(tr)).Start(ctx)
+func agentServer(newAgent func(*acp1.AgentSideConnection) acp1.Agent) *acphttp.Server {
+	return acphttp.NewServer(func(ctx context.Context, tr acp.Transport) error {
+		return acp1.NewAgentSideConnection(newAgent, tr).Start(ctx)
 	})
 }
 
@@ -51,9 +52,9 @@ func TestConnectAgentOverHTTP(t *testing.T) {
 	defer server.Close()
 
 	transports := map[string]func() acp.Transport{
-		"streamable HTTP": func() acp.Transport { return acp.NewHTTPClientTransport(ts.URL) },
+		"streamable HTTP": func() acp.Transport { return acphttp.NewClientTransport(ts.URL) },
 		"WebSocket": func() acp.Transport {
-			ws, err := acp.DialWebSocket(t.Context(), "ws"+strings.TrimPrefix(ts.URL, "http"))
+			ws, err := acphttp.DialWebSocket(t.Context(), "ws"+strings.TrimPrefix(ts.URL, "http"))
 			if err != nil {
 				t.Fatal(err)
 			}

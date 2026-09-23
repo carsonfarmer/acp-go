@@ -11,7 +11,7 @@
 | [`agent`](./agent/) | 완전한 에이전트: `SessionManager`로 관리하는 세션과 취소, 세션 모드, 계획, 클라이언트 터미널에서 명령을 실행하고 파일 diff를 보여주는 `SessionStream` 도구 호출, 권한 요청, `ExtRouter` 확장 메서드, 로깅 미들웨어 | `go run ./examples/agent` |
 | [`client`](./client/) | 모든 stdio 에이전트용 대화형 클라이언트: `SpawnAgent`, `ClientSession`/`Turn`, 업데이트·계획·diff 렌더링, Ctrl-C 취소, 권한 요청 응답, `/mode` 전환, 파일 시스템·터미널 메서드, `CallExt` | `go run ./examples/client [에이전트 명령...]` |
 | [`open-agent`](./open-agent/) | [OpenRouter](https://openrouter.ai)의 모델이 이끄는 코딩 에이전트: 답변과 추론 스트리밍, 클라이언트를 통해 파일을 읽고 쓰고 클라이언트 터미널에서 명령을 실행하는 도구 호출 루프, ask 모드의 권한 요청, 사용량·비용 보고. 모델 클라이언트는 표준 라이브러리만 사용 | `OPENROUTER_API_KEY=... go run ./examples/open-agent` |
-| [`http-agent`](./http-agent/main.go) | `acp.HTTPServer`로 한 엔드포인트에서 Streamable HTTP와 WebSocket을 함께 제공하는 에코 에이전트. 연결보다 오래 사는 세션, 선택적 Bearer 토큰 | `go run ./examples/http-agent [-token secret]` |
+| [`http-agent`](./http-agent/main.go) | `acphttp.Server`로 한 엔드포인트에서 Streamable HTTP와 WebSocket을 함께 제공하는 에코 에이전트. 연결보다 오래 사는 세션, 선택적 Bearer 토큰 | `go run ./examples/http-agent [-token secret]` |
 | [`http-client`](./http-client/main.go) | `ConnectAgent`로 `http-agent`에 프롬프트 턴 한 번. Streamable HTTP 또는 `-ws`로 WebSocket, `-reconnect`는 이어서 `session/load`로 세션 재개 | `go run ./examples/http-client [-ws] [-reconnect] [-token secret]` |
 | [`dual-agent`](./dual-agent/) | `router.ProtocolRouter`로 ACP v1과 초안 v2를 한 바이너리에서 제공. v2 프롬프트 수명 주기, 기록을 재생하는 v2 세션 resume 포함. 버전별 에이전트는 각자의 파일에 | `go run ./examples/dual-agent` |
 | [`dual-client`](./dual-client/) | `router.ClientConnector`: 에이전트가 지원하면 v2, 아니면 v1. v2에서는 세션을 닫고 재생과 함께 다시 resume | `go run ./examples/dual-client [에이전트 명령...]` |
@@ -83,7 +83,7 @@ go run ./examples/http-client -reconnect  # 연결을 끊은 뒤 세션 불러�
 ```
 
 `http-agent -token secret`은 `http-client -token secret`처럼 `Authorization: Bearer secret`을 보내는 클라이언트만
-받습니다. 인증은 `acp.HTTPServer` 앞에 두는 평범한 `http.Handler` 미들웨어입니다.
+받습니다. 인증은 `acphttp.Server` 앞에 두는 평범한 `http.Handler` 미들웨어입니다.
 
 ## v1과 v2 함께
 

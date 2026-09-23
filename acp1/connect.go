@@ -19,7 +19,7 @@ type RemoteAgent struct {
 
 // ConnectAgent connects to an agent over transport and starts the read loop:
 //
-//	agent := acp1.ConnectAgent(ctx, acp.NewHTTPClientTransport("https://host/acp"), newClient)
+//	agent := acp1.ConnectAgent(ctx, acphttp.NewClientTransport("https://host/acp"), newClient)
 //	defer agent.Close()
 //	init, err := agent.Initialize(ctx, &acp1.InitializeRequest{})
 //
@@ -27,7 +27,7 @@ type RemoteAgent struct {
 // stops, which for Streamable HTTP deletes the connection on the server.
 // Cancelling ctx stops the connection too.
 func ConnectAgent(ctx context.Context, transport acp.Transport, newClient func(*ClientSideConnection) Client, opts ...acp.Option) *RemoteAgent {
-	conn := NewClientSideConnection(newClient, nil, nil, append(opts, acp.WithTransport(transport))...)
+	conn := NewClientSideConnection(newClient, transport, opts...)
 	wait := acpconn.Run(ctx, conn, transport)
 	return &RemoteAgent{ClientSideConnection: conn, wait: wait, close: func() error {
 		err := conn.Close()

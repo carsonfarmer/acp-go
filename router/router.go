@@ -63,8 +63,7 @@ func (r *ProtocolRouter) ServeStdio(ctx context.Context, reader io.Reader, write
 }
 
 // Serve routes one connection and runs it until the peer disconnects or ctx
-// is cancelled. opts configure whichever façade is selected; a transport
-// option among them is ignored in favour of transport.
+// is cancelled. opts configure whichever façade is selected.
 func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opts ...acp.Option) error {
 	first, err := readFirst(ctx, transport)
 	if err != nil {
@@ -113,12 +112,11 @@ func (r *ProtocolRouter) Serve(ctx context.Context, transport acp.Transport, opt
 	}
 
 	routed := &replayTransport{first: rewritten, Transport: transport}
-	opts = append(opts, acp.WithTransport(routed))
 	switch selected {
 	case 2:
-		return acp2.NewAgentSideConnection(r.v2, nil, nil, opts...).Start(ctx)
+		return acp2.NewAgentSideConnection(r.v2, routed, opts...).Start(ctx)
 	default:
-		return acp1.NewAgentSideConnection(r.v1, nil, nil, opts...).Start(ctx)
+		return acp1.NewAgentSideConnection(r.v1, routed, opts...).Start(ctx)
 	}
 }
 

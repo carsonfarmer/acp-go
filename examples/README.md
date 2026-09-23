@@ -11,7 +11,7 @@ different transport. Run each from the repository root.
 | [`agent`](./agent/) | A complete agent: `SessionManager` sessions and cancellation, session modes, a plan, `SessionStream` tool calls with a command run in the client's terminal and a file diff, a permission request, an `ExtRouter` extension method, logging middleware | `go run ./examples/agent` |
 | [`client`](./client/) | An interactive client for any stdio agent: `SpawnAgent`, `ClientSession`/`Turn`, rendering updates, plans and diffs, Ctrl-C cancellation, permission prompts, `/mode` switching, file system and terminal methods, `CallExt` | `go run ./examples/client [agent command...]` |
 | [`open-agent`](./open-agent/) | A coding agent driven by a model on [OpenRouter](https://openrouter.ai): streamed answers and reasoning, a tool-calling loop whose tools read and write files through the client and run commands in its terminal, permission in ask mode, usage and cost reports; the model client uses only the standard library | `OPENROUTER_API_KEY=... go run ./examples/open-agent` |
-| [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acp.HTTPServer`, with sessions that outlive a connection and an optional bearer token | `go run ./examples/http-agent [-token secret]` |
+| [`http-agent`](./http-agent/main.go) | The echo agent served over Streamable HTTP and WebSocket on one endpoint with `acphttp.Server`, with sessions that outlive a connection and an optional bearer token | `go run ./examples/http-agent [-token secret]` |
 | [`http-client`](./http-client/main.go) | One prompt turn against `http-agent` with `ConnectAgent`, over Streamable HTTP or, with `-ws`, WebSocket; `-reconnect` then resumes the session with `session/load` | `go run ./examples/http-client [-ws] [-reconnect] [-token secret]` |
 | [`dual-agent`](./dual-agent/) | One binary serving ACP v1 and the draft v2 through `router.ProtocolRouter`, including the v2 prompt lifecycle and v2 session resume with history replay; each version's agent in its own file | `go run ./examples/dual-agent` |
 | [`dual-client`](./dual-client/) | `router.ClientConnector`: v2 when the agent supports it, v1 otherwise; on v2 it closes the session and resumes it with a replay | `go run ./examples/dual-client [agent command...]` |
@@ -83,7 +83,7 @@ go run ./examples/http-client -reconnect  # drop the connection, then load the s
 ```
 
 `http-agent -token secret` accepts only clients that send `Authorization: Bearer secret`, as
-`http-client -token secret` does. Authentication is ordinary `http.Handler` middleware in front of `acp.HTTPServer`.
+`http-client -token secret` does. Authentication is ordinary `http.Handler` middleware in front of `acphttp.Server`.
 
 ## v1 and v2 together
 

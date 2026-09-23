@@ -44,8 +44,10 @@ See the [examples](./examples/) directory for complete working examples:
 
 ## Architecture
 
-- **`acp`** (root) — `Option`s, `Transport` (stdio, Streamable HTTP, WebSocket), `Middleware`, `RequestError`, `SessionStore`,
+- **`acp`** (root) — `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore`,
   `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`)
+- **`acphttp`** — Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio
+  programs do not link them
 - **`acp1.AgentSideConnection`** — serves an `Agent` and calls the peer client
 - **`acp1.ClientSideConnection`** — serves a `Client` and calls the peer agent
 - **`acp1.SpawnAgent`**, **`acp1.Pipe`** — an agent as a child process, or both sides in memory
@@ -69,7 +71,7 @@ and invalid ones are answered with `-32602` without invoking the handler.
 ```go
 conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
     return &MyAgent{client: c} // the connection is also the peer Client
-}, os.Stdin, os.Stdout)
+}, acp.NewStdioTransport(os.Stdin, os.Stdout))
 
 if err := conn.Start(context.Background()); err != nil {
     log.Fatal(err)
@@ -204,7 +206,7 @@ For a remote agent, `Connect` takes a dial function instead, called once per att
 ```go
 agent, err := router.NewClient().WithV1(…).WithV2(…).
     Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
-        return acp.NewHTTPClientTransport("https://host/acp"), nil // or acp.DialWebSocket
+        return acphttp.NewClientTransport("https://host/acp"), nil // or acphttp.DialWebSocket
     })
 ```
 
@@ -212,19 +214,19 @@ agent, err := router.NewClient().WithV1(…).WithV2(…).
 
 ```go
 // Default: stdio (newline-delimited JSON)
-conn := acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout)
+conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout))
 
 // Streamable HTTP and WebSocket for remote agents: one connection, and one agent, per client
-server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
-    return acp1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(t)).Start(ctx)
+server := acphttp.NewServer(func(ctx context.Context, t acp.Transport) error {
+    return acp1.NewAgentSideConnection(newAgent, t).Start(ctx)
 })
 http.Handle("/acp", server)
 
 // The client side of any transport
-agent := acp1.ConnectAgent(ctx, acp.NewHTTPClientTransport("https://host/acp"), newClient)
+agent := acp1.ConnectAgent(ctx, acphttp.NewClientTransport("https://host/acp"), newClient)
 defer agent.Close() // also ends the connection on the server
 
-ws, err := acp.DialWebSocket(ctx, "wss://host/acp") // the same endpoint over WebSocket
+ws, err := acphttp.DialWebSocket(ctx, "wss://host/acp") // the same endpoint over WebSocket
 agent := acp1.ConnectAgent(ctx, ws, newClient)
 ```
 
@@ -233,10 +235,10 @@ Streamable HTTP uses `POST` for client messages (`initialize` answers with an
 `Acp-Connection-Id`) and Server-Sent Events streams for the agent's, one per connection and one
 per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the whole connection
 as text frames instead. WebSockets from browser pages on other origins are refused unless
-`acp.WithWebSocketOrigins` allows them.
+`acphttp.WithWebSocketOrigins` allows them.
 
 Reconnecting is a new connection, as in the other SDKs: dial again with the same headers and
-`acp.WithCookieJar(jar)`, so a load balancer's affinity cookie routes the client back, then
+`acphttp.WithCookieJar(jar)`, so a load balancer's affinity cookie routes the client back, then
 `Initialize` and `LoadSession` the saved session id if the agent advertises `loadSession`.
 Messages sent while the client was away are not replayed; the protocol leaves that to v2.
 The `http-client` example shows the flow with `-reconnect`.
@@ -244,14 +246,14 @@ The `http-client` example shows the flow with `-reconnect`.
 Short drops are handled below that. The HTTP client reopens a dropped event stream, backing off,
 until the server answers that the connection is gone; the server hands a stream to the newer `GET`
 and resends a message whose write failed. The server ends a connection whose client has had no
-stream open for five minutes (`acp.WithIdleTimeout`), and both ends of a WebSocket ping every 15
-seconds and close it when the peer stops answering (`acp.WithWebSocketPing` on the server,
-`acp.WithPingInterval` on the client).
+stream open for five minutes (`acphttp.WithIdleTimeout`), and both ends of a WebSocket ping every 15
+seconds and close it when the peer stops answering (`acphttp.WithWebSocketPing` on the server,
+`acphttp.WithPingInterval` on the client).
 
 ### Middleware
 
 ```go
-conn := acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
     acp.WithMiddleware(
         acp.LoggingMiddleware(slog.Default()),   // log methods, durations and errors
         acp.TimeoutMiddleware(30*time.Second),   // per-handler timeout
@@ -397,7 +399,7 @@ Read the field itself when absence means something the zero value does not: a te
 ### Connection Options
 
 ```go
-acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
     acp.WithWriteQueueSize(500),               // outgoing queue depth
     acp.WithRequestTimeout(30*time.Second),    // default deadline for outgoing calls
     acp.WithShutdownTimeout(10*time.Second),   // bound Close on in-flight handlers

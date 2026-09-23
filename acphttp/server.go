@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	acp "github.com/ironpark/acp-go"
 )
 
 const (
@@ -26,13 +28,13 @@ const (
 	defaultIdleTimeout = 5 * time.Minute
 )
 
-// HTTPServer serves agents over Streamable HTTP and WebSocket on one
+// Server serves agents over Streamable HTTP and WebSocket on one
 // endpoint. Each initialize request, or each WebSocket, starts a connection
-// and calls serve with its [Transport]; serve runs the agent on it and returns
+// and calls serve with its [acp.Transport]; serve runs the agent on it and returns
 // when the connection ends:
 //
-//	server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
-//		conn := acp1.NewAgentSideConnection(newAgent, nil, nil, acp.WithTransport(t))
+//	server := acphttp.NewServer(func(ctx context.Context, t acp.Transport) error {
+//		conn := acp1.NewAgentSideConnection(newAgent, t)
 //		return conn.Start(ctx)
 //	})
 //	http.Handle("/acp", server)
@@ -40,12 +42,12 @@ const (
 // For an agent that speaks several protocol versions, serve can hand the
 // transport to a router.ProtocolRouter:
 //
-//	acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error { return r.Serve(ctx, t) })
+//	acphttp.NewServer(func(ctx context.Context, t acp.Transport) error { return r.Serve(ctx, t) })
 //
 // ctx is cancelled when the client deletes the connection or the server
 // closes.
-type HTTPServer struct {
-	serve        func(ctx context.Context, t Transport) error
+type Server struct {
+	serve        func(ctx context.Context, t acp.Transport) error
 	origins      []string
 	idleTimeout  time.Duration
 	pingInterval time.Duration
@@ -57,15 +59,15 @@ type HTTPServer struct {
 	sockets map[string]*WebSocketTransport
 }
 
-// HTTPServerOption configures [NewHTTPServer].
-type HTTPServerOption func(*HTTPServer)
+// ServerOption configures [NewServer].
+type ServerOption func(*Server)
 
 // WithWebSocketOrigins lets browser pages on other origins open WebSockets to
 // the server. Without it only pages on the server's own host may, which keeps
 // other sites from driving the agent with a visitor's cookies. Patterns match
 // the Origin host with path.Match, or "scheme://host" if they contain "://".
-func WithWebSocketOrigins(patterns ...string) HTTPServerOption {
-	return func(s *HTTPServer) { s.origins = append(s.origins, patterns...) }
+func WithWebSocketOrigins(patterns ...string) ServerOption {
+	return func(s *Server) { s.origins = append(s.origins, patterns...) }
 }
 
 // WithWebSocketPing sets how often the server pings each WebSocket client;
@@ -73,8 +75,8 @@ func WithWebSocketOrigins(patterns ...string) HTTPServerOption {
 // ending its connection. The default is 15 seconds; zero or less disables
 // pinging, leaving a vanished client to TCP. Clients set theirs with
 // [WithPingInterval].
-func WithWebSocketPing(interval time.Duration) HTTPServerOption {
-	return func(s *HTTPServer) { s.pingInterval = interval }
+func WithWebSocketPing(interval time.Duration) ServerOption {
+	return func(s *Server) { s.pingInterval = interval }
 }
 
 // WithIdleTimeout sets how long a Streamable HTTP connection may go without
@@ -87,14 +89,14 @@ func WithWebSocketPing(interval time.Duration) HTTPServerOption {
 //
 // It is unrelated to http.Server.IdleTimeout, which closes idle TCP
 // connections. WebSocket connections are checked with pings instead.
-func WithIdleTimeout(d time.Duration) HTTPServerOption {
-	return func(s *HTTPServer) { s.idleTimeout = d }
+func WithIdleTimeout(d time.Duration) ServerOption {
+	return func(s *Server) { s.idleTimeout = d }
 }
 
-// NewHTTPServer returns a handler that runs serve once per connection.
-func NewHTTPServer(serve func(ctx context.Context, t Transport) error, opts ...HTTPServerOption) *HTTPServer {
+// NewServer returns a handler that runs serve once per connection.
+func NewServer(serve func(ctx context.Context, t acp.Transport) error, opts ...ServerOption) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &HTTPServer{
+	s := &Server{
 		serve: serve, ctx: ctx, cancel: cancel,
 		idleTimeout: defaultIdleTimeout, pingInterval: keepaliveInterval,
 		conns: map[string]*httpServerConn{}, sockets: map[string]*WebSocketTransport{},
@@ -106,7 +108,7 @@ func NewHTTPServer(serve func(ctx context.Context, t Transport) error, opts ...H
 }
 
 // Close ends every connection. It does not stop the http.Server using it.
-func (s *HTTPServer) Close() error {
+func (s *Server) Close() error {
 	s.cancel()
 	s.mu.Lock()
 	conns, sockets := s.conns, s.sockets
@@ -123,7 +125,7 @@ func (s *HTTPServer) Close() error {
 
 // track registers a WebSocket connection so Close can end it, reporting false
 // once the server is closed.
-func (s *HTTPServer) track(id string, t *WebSocketTransport) bool {
+func (s *Server) track(id string, t *WebSocketTransport) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.ctx.Err() != nil {
@@ -133,7 +135,7 @@ func (s *HTTPServer) track(id string, t *WebSocketTransport) bool {
 	return true
 }
 
-func (s *HTTPServer) untrack(id string) {
+func (s *Server) untrack(id string) {
 	s.mu.Lock()
 	delete(s.sockets, id)
 	s.mu.Unlock()
@@ -141,7 +143,7 @@ func (s *HTTPServer) untrack(id string) {
 
 // ServeHTTP routes POST, GET and DELETE on the ACP endpoint, and GETs asking
 // to upgrade to WebSocket.
-func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		s.post(w, r)
@@ -159,7 +161,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *HTTPServer) connection(w http.ResponseWriter, r *http.Request) (*httpServerConn, bool) {
+func (s *Server) connection(w http.ResponseWriter, r *http.Request) (*httpServerConn, bool) {
 	id := r.Header.Get(ConnectionIDHeader)
 	if id == "" {
 		http.Error(w, "missing "+ConnectionIDHeader, http.StatusBadRequest)
@@ -175,7 +177,7 @@ func (s *HTTPServer) connection(w http.ResponseWriter, r *http.Request) (*httpSe
 	return c, true
 }
 
-func (s *HTTPServer) remove(id string) {
+func (s *Server) remove(id string) {
 	s.mu.Lock()
 	c := s.conns[id]
 	delete(s.conns, id)
@@ -185,7 +187,7 @@ func (s *HTTPServer) remove(id string) {
 	}
 }
 
-func (s *HTTPServer) post(w http.ResponseWriter, r *http.Request) {
+func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 	if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
 		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
 		return
@@ -231,7 +233,7 @@ func (s *HTTPServer) post(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *HTTPServer) initialize(w http.ResponseWriter, r *http.Request, msg jsontext.Value, e envelope) {
+func (s *Server) initialize(w http.ResponseWriter, r *http.Request, msg jsontext.Value, e envelope) {
 	c := newHTTPServerConn(rand.Text(), e.idKey())
 	s.mu.Lock()
 	if s.ctx.Err() != nil {
@@ -284,7 +286,7 @@ func (s *HTTPServer) initialize(w http.ResponseWriter, r *http.Request, msg json
 	}
 }
 
-func (s *HTTPServer) stream(w http.ResponseWriter, r *http.Request) {
+func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	if !acceptsEventStream(r.Header.Values("Accept")) {
 		http.Error(w, "Accept must include text/event-stream", http.StatusNotAcceptable)
 		return
@@ -362,7 +364,7 @@ func acceptsEventStream(values []string) bool {
 	return false
 }
 
-func (s *HTTPServer) delete(w http.ResponseWriter, r *http.Request) {
+func (s *Server) delete(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.connection(w, r)
 	if !ok {
 		return
@@ -371,7 +373,7 @@ func (s *HTTPServer) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-// httpServerConn is the [Transport] of one Streamable HTTP connection. POSTed
+// httpServerConn is the [acp.Transport] of one Streamable HTTP connection. POSTed
 // messages are read by the agent; what the agent writes goes to the
 // connection or a session stream.
 type httpServerConn struct {

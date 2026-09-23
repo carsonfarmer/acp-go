@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"errors"
@@ -21,7 +21,7 @@ func dialTest(t *testing.T, url string) *WebSocketTransport {
 }
 
 func TestWebSocketConversation(t *testing.T) {
-	server := NewHTTPServer(fakeAgent)
+	server := NewServer(fakeAgent)
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 	defer server.Close()
@@ -46,7 +46,7 @@ func TestWebSocketConversation(t *testing.T) {
 }
 
 func TestWebSocketUpgradeHasConnectionID(t *testing.T) {
-	server := NewHTTPServer(fakeAgent)
+	server := NewServer(fakeAgent)
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 	defer server.Close()
@@ -62,7 +62,7 @@ func TestWebSocketUpgradeHasConnectionID(t *testing.T) {
 }
 
 func TestWebSocketEOFWhenServerCloses(t *testing.T) {
-	server := NewHTTPServer(fakeAgent)
+	server := NewServer(fakeAgent)
 	ts := httptest.NewServer(server)
 	defer ts.Close()
 	ws := dialTest(t, ts.URL)
@@ -82,15 +82,15 @@ func TestWebSocketEOFWhenServerCloses(t *testing.T) {
 func TestWebSocketOrigin(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
-		opts    []HTTPServerOption
+		opts    []ServerOption
 		allowed bool
 	}{
 		{"other origin rejected by default", nil, false},
-		{"allowed by pattern", []HTTPServerOption{WithWebSocketOrigins("app.example.com")}, true},
+		{"allowed by pattern", []ServerOption{WithWebSocketOrigins("app.example.com")}, true},
 	} {
-		server := NewHTTPServer(fakeAgent, tt.opts...)
+		server := NewServer(fakeAgent, tt.opts...)
 		ts := httptest.NewServer(server)
-		_, err := DialWebSocket(t.Context(), ts.URL, WithHTTPHeader("Origin", "https://app.example.com"))
+		_, err := DialWebSocket(t.Context(), ts.URL, WithHeader("Origin", "https://app.example.com"))
 		if (err == nil) != tt.allowed {
 			t.Errorf("%s: dial error %v", tt.name, err)
 		}

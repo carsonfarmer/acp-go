@@ -10,14 +10,15 @@ import (
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
 	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/acphttp"
 	"github.com/ironpark/acp-go/router"
 )
 
-// remoteAgent runs serve behind an HTTPServer, for Streamable HTTP and
+// remoteAgent runs serve behind an Server, for Streamable HTTP and
 // WebSocket clients, counting the connections they open.
 func remoteAgent(t *testing.T, serve func(ctx context.Context, tr acp.Transport) error) (url string, connections *atomic.Int32) {
 	connections = new(atomic.Int32)
-	server := acp.NewHTTPServer(func(ctx context.Context, tr acp.Transport) error {
+	server := acphttp.NewServer(func(ctx context.Context, tr acp.Transport) error {
 		connections.Add(1)
 		return serve(ctx, tr)
 	})
@@ -31,9 +32,9 @@ func remoteAgent(t *testing.T, serve func(ctx context.Context, tr acp.Transport)
 
 func dialers(url string) map[string]func(context.Context) (acp.Transport, error) {
 	return map[string]func(context.Context) (acp.Transport, error){
-		"streamable HTTP": func(context.Context) (acp.Transport, error) { return acp.NewHTTPClientTransport(url), nil },
+		"streamable HTTP": func(context.Context) (acp.Transport, error) { return acphttp.NewClientTransport(url), nil },
 		"WebSocket": func(ctx context.Context) (acp.Transport, error) {
-			return acp.DialWebSocket(ctx, "ws"+strings.TrimPrefix(url, "http"))
+			return acphttp.DialWebSocket(ctx, "ws"+strings.TrimPrefix(url, "http"))
 		},
 	}
 }
@@ -83,7 +84,7 @@ func TestConnectFallsBackToV1(t *testing.T) {
 	url, connections := remoteAgent(t, func(ctx context.Context, tr acp.Transport) error {
 		conn := acp1.NewAgentSideConnection(func(*acp1.AgentSideConnection) acp1.Agent {
 			return &v1Agent{initialized: make(chan *acp1.InitializeRequest, 1)}
-		}, nil, nil, acp.WithTransport(tr))
+		}, tr)
 		return conn.Start(ctx)
 	})
 

@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 			a := newTestAgent()
 			a.client = c
 			return a
-		}, os.Stdin, os.Stdout)
+		}, acp.NewStdioTransport(os.Stdin, os.Stdout))
 		_ = conn.Start(context.Background())
 		os.Exit(0)
 	case "fail":

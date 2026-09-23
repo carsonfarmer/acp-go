@@ -29,7 +29,7 @@ import (
 func SpawnAgent(ctx context.Context, cmd *exec.Cmd, newClient func(*ClientSideConnection) Client, opts ...acp.Option) (*RemoteAgent, error) {
 	var conn *ClientSideConnection
 	wait, err := acpconn.Spawn(ctx, cmd, func(r io.Reader, w io.Writer) acpconn.Conn {
-		conn = NewClientSideConnection(newClient, r, w, opts...)
+		conn = NewClientSideConnection(newClient, acp.NewStdioTransport(r, w), opts...)
 		return conn
 	})
 	if err != nil {
@@ -47,10 +47,10 @@ func Pipe(ctx context.Context, newAgent func(*AgentSideConnection) Agent, newCli
 	var agent *AgentSideConnection
 	var client *ClientSideConnection
 	acpconn.Pipe(ctx, func(r io.Reader, w io.Writer) acpconn.Conn {
-		agent = NewAgentSideConnection(newAgent, r, w, opts...)
+		agent = NewAgentSideConnection(newAgent, acp.NewStdioTransport(r, w), opts...)
 		return agent
 	}, func(r io.Reader, w io.Writer) acpconn.Conn {
-		client = NewClientSideConnection(newClient, r, w, opts...)
+		client = NewClientSideConnection(newClient, acp.NewStdioTransport(r, w), opts...)
 		return client
 	})
 	return agent, client

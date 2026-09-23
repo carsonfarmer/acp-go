@@ -4,7 +4,6 @@
 package acpconn
 
 import (
-	"io"
 	"time"
 
 	"github.com/ironpark/acp-go/internal/jsonrpc"
@@ -15,8 +14,7 @@ type Option func(*Options)
 
 // Options is the resolved option set.
 type Options struct {
-	Transport jsonrpc.Transport
-	JSONRPC   []jsonrpc.Option
+	JSONRPC []jsonrpc.Option
 }
 
 // Apply folds opts into o.
@@ -24,11 +22,6 @@ func (o *Options) Apply(opts []Option) {
 	for _, opt := range opts {
 		opt(o)
 	}
-}
-
-// WithTransport replaces the default stdio transport.
-func WithTransport(t jsonrpc.Transport) Option {
-	return func(o *Options) { o.Transport = t }
 }
 
 // WithErrorHandler sets a callback for non-fatal errors.
@@ -56,14 +49,9 @@ func WithShutdownTimeout(d time.Duration) Option {
 	return func(o *Options) { o.JSONRPC = append(o.JSONRPC, jsonrpc.WithShutdownTimeout(d)) }
 }
 
-// NewConnection builds the JSON-RPC connection behind a façade, defaulting to
-// newline-delimited JSON over reader and writer.
-func NewConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, reader io.Reader, writer io.Writer, opts []Option) *jsonrpc.Connection {
+// NewConnection builds the JSON-RPC connection behind a façade over transport.
+func NewConnection(request jsonrpc.RequestHandler, notification jsonrpc.NotificationHandler, transport jsonrpc.Transport, opts []Option) *jsonrpc.Connection {
 	var o Options
 	o.Apply(opts)
-	transport := o.Transport
-	if transport == nil {
-		transport = jsonrpc.NewStdioTransport(reader, writer)
-	}
 	return jsonrpc.New(request, notification, transport, o.JSONRPC...)
 }

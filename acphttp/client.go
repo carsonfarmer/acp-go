@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// HTTPClientTransport is the client side of Streamable HTTP. It needs no setup
+// ClientTransport is the client side of Streamable HTTP. It needs no setup
 // beyond the endpoint URL: the first message it sends must be initialize,
 // whose reply carries the connection id; it then opens the connection stream,
 // and a session's stream as soon as a message names the session.
@@ -25,9 +25,9 @@ import (
 //
 // Close deletes the connection on the server. A connection never closes its
 // transport, so the caller does, after the connection stops.
-type HTTPClientTransport struct {
+type ClientTransport struct {
 	url string
-	httpClientConfig
+	clientConfig
 
 	inbox       chan jsontext.Value
 	done        chan struct{}
@@ -44,11 +44,11 @@ type HTTPClientTransport struct {
 	pendingLoads map[string]string // session/load request id -> session
 }
 
-// HTTPClientOption configures [NewHTTPClientTransport] and
+// ClientOption configures [NewClientTransport] and
 // [DialWebSocket].
-type HTTPClientOption func(*httpClientConfig)
+type ClientOption func(*clientConfig)
 
-type httpClientConfig struct {
+type clientConfig struct {
 	client       *http.Client
 	header       http.Header
 	jar          http.CookieJar
@@ -58,8 +58,8 @@ type httpClientConfig struct {
 // newHTTPClientConfig applies opts over the defaults: a client with a cookie
 // jar, since the protocol requires clients to keep the server's cookies for
 // the connection.
-func newHTTPClientConfig(opts []HTTPClientOption) httpClientConfig {
-	c := httpClientConfig{header: http.Header{}, pingInterval: keepaliveInterval}
+func newHTTPClientConfig(opts []ClientOption) clientConfig {
+	c := clientConfig{header: http.Header{}, pingInterval: keepaliveInterval}
 	for _, opt := range opts {
 		opt(&c)
 	}
@@ -80,8 +80,8 @@ func newHTTPClientConfig(opts []HTTPClientOption) httpClientConfig {
 // WithHTTPClient sets the HTTP client. The protocol requires clients to keep
 // cookies for the connection, so give it a Jar; the default client has one.
 // Its Timeout must be zero, since the streams stay open.
-func WithHTTPClient(client *http.Client) HTTPClientOption {
-	return func(c *httpClientConfig) { c.client = client }
+func WithHTTPClient(client *http.Client) ClientOption {
+	return func(c *clientConfig) { c.client = client }
 }
 
 // WithCookieJar keeps the server's cookies in jar instead of a jar of the
@@ -92,8 +92,8 @@ func WithHTTPClient(client *http.Client) HTTPClientOption {
 // Reconnecting in ACP v1 is a new connection: dial again with the same jar
 // and headers, initialize, check the agent's loadSession capability, and load
 // the saved session. Messages sent while disconnected are not replayed.
-func WithCookieJar(jar http.CookieJar) HTTPClientOption {
-	return func(c *httpClientConfig) { c.jar = jar }
+func WithCookieJar(jar http.CookieJar) ClientOption {
+	return func(c *clientConfig) { c.jar = jar }
 }
 
 // WithPingInterval sets how often [DialWebSocket] pings the server; a server
@@ -101,29 +101,29 @@ func WithCookieJar(jar http.CookieJar) HTTPClientOption {
 // ReadMessage reports it. The default is 15 seconds; zero or less disables
 // pinging. Streamable HTTP ignores it. Servers set theirs with
 // [WithWebSocketPing].
-func WithPingInterval(interval time.Duration) HTTPClientOption {
-	return func(c *httpClientConfig) { c.pingInterval = interval }
+func WithPingInterval(interval time.Duration) ClientOption {
+	return func(c *clientConfig) { c.pingInterval = interval }
 }
 
-// WithHTTPHeader adds a header to every request, such as Authorization.
-func WithHTTPHeader(key, value string) HTTPClientOption {
-	return func(c *httpClientConfig) { c.header.Add(key, value) }
+// WithHeader adds a header to every request, such as Authorization.
+func WithHeader(key, value string) ClientOption {
+	return func(c *clientConfig) { c.header.Add(key, value) }
 }
 
-// NewHTTPClientTransport returns a transport to the ACP endpoint at url, such
+// NewClientTransport returns a transport to the ACP endpoint at url, such
 // as "https://agent.example.com/acp".
-func NewHTTPClientTransport(url string, opts ...HTTPClientOption) *HTTPClientTransport {
+func NewClientTransport(url string, opts ...ClientOption) *ClientTransport {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &HTTPClientTransport{
-		url:              url,
-		httpClientConfig: newHTTPClientConfig(opts),
-		inbox:            make(chan jsontext.Value, streamBuffer),
-		done:             make(chan struct{}),
-		streamCtx:        ctx,
-		stopStreams:      cancel,
-		streamEnded:      make(chan struct{}),
-		sessions:         map[string]bool{},
-		pendingLoads:     map[string]string{},
+	return &ClientTransport{
+		url:          url,
+		clientConfig: newHTTPClientConfig(opts),
+		inbox:        make(chan jsontext.Value, streamBuffer),
+		done:         make(chan struct{}),
+		streamCtx:    ctx,
+		stopStreams:  cancel,
+		streamEnded:  make(chan struct{}),
+		sessions:     map[string]bool{},
+		pendingLoads: map[string]string{},
 	}
 }
 
@@ -131,7 +131,7 @@ func NewHTTPClientTransport(url string, opts ...HTTPClientOption) *HTTPClientTra
 // stream ends, it returns the messages already received and then io.EOF, or
 // the error that ended the stream, so the connection stops instead of waiting
 // for replies that cannot arrive. A session stream ending is not an error.
-func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (jsontext.Value, error) {
+func (t *ClientTransport) ReadMessage(ctx context.Context) (jsontext.Value, error) {
 	select {
 	case msg := <-t.inbox:
 		return msg, nil
@@ -152,7 +152,7 @@ func (t *HTTPClientTransport) ReadMessage(ctx context.Context) (jsontext.Value, 
 }
 
 // WriteMessage posts one message to the agent.
-func (t *HTTPClientTransport) WriteMessage(ctx context.Context, data jsontext.Value) error {
+func (t *ClientTransport) WriteMessage(ctx context.Context, data jsontext.Value) error {
 	select {
 	case <-t.done:
 		return ErrTransportClosed
@@ -202,7 +202,7 @@ func (t *HTTPClientTransport) WriteMessage(ctx context.Context, data jsontext.Va
 
 // initialize posts the initialize request, whose reply comes back in the
 // response body with the connection id, then opens the connection stream.
-func (t *HTTPClientTransport) initialize(ctx context.Context, data jsontext.Value) error {
+func (t *ClientTransport) initialize(ctx context.Context, data jsontext.Value) error {
 	resp, err := t.post(ctx, data, nil)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (t *HTTPClientTransport) initialize(ctx context.Context, data jsontext.Valu
 	return nil
 }
 
-func (t *HTTPClientTransport) post(ctx context.Context, data jsontext.Value, header http.Header) (*http.Response, error) {
+func (t *ClientTransport) post(ctx context.Context, data jsontext.Value, header http.Header) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.url, bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (t *HTTPClientTransport) post(ctx context.Context, data jsontext.Value, hea
 }
 
 // accepted checks a POST's status. 202 is the norm; a 200 body is a reply.
-func (t *HTTPClientTransport) accepted(resp *http.Response) error {
+func (t *ClientTransport) accepted(resp *http.Response) error {
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusAccepted:
@@ -289,7 +289,7 @@ func retryableStatus(status int) bool {
 	return status >= 500
 }
 
-func (t *HTTPClientTransport) setHeaders(req *http.Request, header http.Header) {
+func (t *ClientTransport) setHeaders(req *http.Request, header http.Header) {
 	for k, v := range t.header {
 		req.Header[k] = v
 	}
@@ -300,7 +300,7 @@ func (t *HTTPClientTransport) setHeaders(req *http.Request, header http.Header) 
 
 // openStream starts reading the connection stream (session "") or a
 // session's stream, once per session.
-func (t *HTTPClientTransport) openStream(session string) {
+func (t *ClientTransport) openStream(session string) {
 	t.mu.Lock()
 	if session != "" {
 		if t.sessions[session] {
@@ -334,7 +334,7 @@ func (t *HTTPClientTransport) openStream(session string) {
 // no longer knows it (nil), the transport closes (nil), the server refuses it
 // for good, as with 401, or reopening fails streamRetries times in a row (the
 // last error, or nil if the stream kept ending cleanly).
-func (t *HTTPClientTransport) followStream(connectionID, session string) error {
+func (t *ClientTransport) followStream(connectionID, session string) error {
 	for failures := 0; ; {
 		opened := time.Now()
 		err := t.readStream(connectionID, session)
@@ -361,7 +361,7 @@ func (t *HTTPClientTransport) followStream(connectionID, session string) error {
 	}
 }
 
-func (t *HTTPClientTransport) readStream(connectionID, session string) error {
+func (t *ClientTransport) readStream(connectionID, session string) error {
 	req, err := http.NewRequestWithContext(t.streamCtx, http.MethodGet, t.url, nil)
 	if err != nil {
 		return err
@@ -387,7 +387,7 @@ func (t *HTTPClientTransport) readStream(connectionID, session string) error {
 
 // receive queues a message from the agent, opening the stream of any
 // session it names.
-func (t *HTTPClientTransport) receive(msg jsontext.Value) {
+func (t *ClientTransport) receive(msg jsontext.Value) {
 	if e, err := parseEnvelope(msg); err == nil {
 		t.mu.Lock()
 		var open []string
@@ -420,7 +420,7 @@ func (t *HTTPClientTransport) receive(msg jsontext.Value) {
 	}
 }
 
-func (t *HTTPClientTransport) loading(session string) bool {
+func (t *ClientTransport) loading(session string) bool {
 	for _, s := range t.pendingLoads {
 		if s == session {
 			return true
@@ -430,7 +430,7 @@ func (t *HTTPClientTransport) loading(session string) bool {
 }
 
 // Close stops the streams and deletes the connection on the server.
-func (t *HTTPClientTransport) Close() error {
+func (t *ClientTransport) Close() error {
 	t.closeOnce.Do(func() {
 		close(t.done)
 		t.stopStreams()

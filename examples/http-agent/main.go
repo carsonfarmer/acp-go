@@ -7,7 +7,7 @@
 // With -token, it accepts only clients that send that bearer token, as
 // http-client -token does.
 //
-// acp.HTTPServer implements the remote transport the other ACP SDKs use, in
+// acphttp.Server implements the remote transport the other ACP SDKs use, in
 // both its profiles on one endpoint: Streamable HTTP, where the client POSTs
 // messages and reads the agent's from Server-Sent Events streams, and
 // WebSocket. Each client gets its own connection and its own agent; the agent
@@ -26,6 +26,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acphttp"
 )
 
 // history is what a session said. Sessions outlive connections, so a client
@@ -100,10 +101,10 @@ func main() {
 			return acp1.GenerateSessionID(), &history{}, nil
 		})
 	// serve runs once per connection, with that connection's transport.
-	server := acp.NewHTTPServer(func(ctx context.Context, t acp.Transport) error {
+	server := acphttp.NewServer(func(ctx context.Context, t acp.Transport) error {
 		conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
 			return &echoAgent{SessionManager: sessions, client: c}
-		}, nil, nil, acp.WithTransport(t))
+		}, t)
 		return conn.Start(ctx)
 	})
 	defer server.Close()
@@ -120,7 +121,7 @@ func main() {
 }
 
 // requireToken rejects requests without "Authorization: Bearer <token>", or
-// lets every request through when token is empty. HTTPServer is an ordinary
+// lets every request through when token is empty. Server is an ordinary
 // http.Handler, so authentication is ordinary middleware in front of it; it
 // covers POSTs, event streams and WebSocket upgrades alike.
 func requireToken(token string, next http.Handler) http.Handler {

@@ -32,10 +32,6 @@ func NewStdioTransport(reader io.Reader, writer io.Writer) Transport {
 // façade, so a transport or middleware set up once serves either version.
 type Option = acpconn.Option
 
-// WithTransport replaces the default stdio transport. The reader and writer
-// passed to the constructor are then unused.
-func WithTransport(t Transport) Option { return acpconn.WithTransport(t) }
-
 // WithErrorHandler sets a callback for non-fatal errors: undecodable messages,
 // write failures and errors returned by notification handlers.
 func WithErrorHandler(h func(error)) Option { return acpconn.WithErrorHandler(h) }

@@ -26,6 +26,7 @@ import (
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acphttp"
 )
 
 // echoClient prints the history a session/load replays; the turns read
@@ -63,16 +64,16 @@ func main() {
 	// every connection keeps its cookies in one jar, so a load balancer
 	// routes a reconnect to the backend that holds the session.
 	jar, _ := cookiejar.New(nil)
-	opts := []acp.HTTPClientOption{acp.WithCookieJar(jar)}
+	opts := []acphttp.ClientOption{acphttp.WithCookieJar(jar)}
 	if *token != "" {
-		opts = append(opts, acp.WithHTTPHeader("Authorization", "Bearer "+*token))
+		opts = append(opts, acphttp.WithHeader("Authorization", "Bearer "+*token))
 	}
 	if err := run(context.Background(), *url, *ws, *reconnect, opts); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(ctx context.Context, url string, ws, reconnect bool, opts []acp.HTTPClientOption) error {
+func run(ctx context.Context, url string, ws, reconnect bool, opts []acphttp.ClientOption) error {
 	client := &echoClient{}
 	agent, initialized, err := connect(ctx, url, ws, opts, client)
 	if err != nil {
@@ -120,12 +121,12 @@ func run(ctx context.Context, url string, ws, reconnect bool, opts []acp.HTTPCli
 // connect opens a connection over Streamable HTTP or WebSocket and
 // initializes it. ConnectAgent starts the connection over any transport;
 // Close also ends the connection on the server.
-func connect(ctx context.Context, url string, ws bool, opts []acp.HTTPClientOption, client acp1.Client) (*acp1.RemoteAgent, *acp1.InitializeResponse, error) {
+func connect(ctx context.Context, url string, ws bool, opts []acphttp.ClientOption, client acp1.Client) (*acp1.RemoteAgent, *acp1.InitializeResponse, error) {
 	// Streamable HTTP needs only the endpoint; a WebSocket is dialed up front.
-	var transport acp.Transport = acp.NewHTTPClientTransport(url, opts...)
+	var transport acp.Transport = acphttp.NewClientTransport(url, opts...)
 	if ws {
 		var err error
-		if transport, err = acp.DialWebSocket(ctx, url, opts...); err != nil {
+		if transport, err = acphttp.DialWebSocket(ctx, url, opts...); err != nil {
 			return nil, nil, err
 		}
 	}

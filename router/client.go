@@ -108,7 +108,7 @@ func (c *ClientConnector) Spawn(ctx context.Context, newCmd func() *exec.Cmd, op
 //
 //	agent, err := router.NewClient().WithV1(…).WithV2(…).
 //		Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
-//			return acp.NewHTTPClientTransport("https://host/acp"), nil
+//			return acphttp.NewClientTransport("https://host/acp"), nil
 //		})
 //
 // dial is called for each attempt, since a transport carries one connection;

@@ -2,7 +2,6 @@ package acp1
 
 import (
 	"context"
-	"io"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -31,17 +30,18 @@ var _ Agent = (*ClientSideConnection)(nil)
 //
 //	conn := acp1.NewClientSideConnection(func(c *acp1.ClientSideConnection) acp1.Client {
 //		return &myClient{agent: c}
-//	}, agentStdout, agentStdin)
+//	}, acp.NewStdioTransport(agentStdout, agentStdin))
 //	go conn.Start(ctx)
 //
-// reader carries messages from the agent and writer carries messages to it;
-// when spawning an agent process those are its stdout and stdin.
+// transport carries the messages to and from the agent; for an agent process
+// it is [acp.NewStdioTransport] over its stdout and stdin, which [SpawnAgent]
+// sets up.
 //
 // See protocol docs: [Communication Model](https://agentclientprotocol.com/protocol/overview#communication-model)
-func NewClientSideConnection(newClient func(*ClientSideConnection) Client, reader io.Reader, writer io.Writer, opts ...acp.Option) *ClientSideConnection {
+func NewClientSideConnection(newClient func(*ClientSideConnection) Client, transport acp.Transport, opts ...acp.Option) *ClientSideConnection {
 	c := &ClientSideConnection{}
 	c.client = newClient(c)
-	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, reader, writer, opts)
+	c.conn = acpconn.NewConnection(c.handleRequest, c.handleNotification, transport, opts)
 	return c
 }
 

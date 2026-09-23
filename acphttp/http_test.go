@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"context"
@@ -10,11 +10,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	acp "github.com/ironpark/acp-go"
 )
 
 // fakeAgent answers initialize, session/new and session/prompt over raw
 // JSON-RPC; a prompt first sends a session/update for its session.
-func fakeAgent(ctx context.Context, t Transport) error {
+func fakeAgent(ctx context.Context, t acp.Transport) error {
 	for {
 		msg, err := t.ReadMessage(ctx)
 		if err != nil {
@@ -44,11 +46,11 @@ func fakeAgent(ctx context.Context, t Transport) error {
 	}
 }
 
-func newHTTPPair(t *testing.T, opts ...HTTPServerOption) (*HTTPServer, *HTTPClientTransport, *httptest.Server) {
+func newHTTPPair(t *testing.T, opts ...ServerOption) (*Server, *ClientTransport, *httptest.Server) {
 	t.Helper()
-	server := NewHTTPServer(fakeAgent, opts...)
+	server := NewServer(fakeAgent, opts...)
 	ts := httptest.NewServer(server)
-	client := NewHTTPClientTransport(ts.URL)
+	client := NewClientTransport(ts.URL)
 	t.Cleanup(func() {
 		client.Close()
 		server.Close()
@@ -58,7 +60,7 @@ func newHTTPPair(t *testing.T, opts ...HTTPServerOption) (*HTTPServer, *HTTPClie
 }
 
 // waitAttached waits until the client's connection stream is open on server.
-func waitAttached(t *testing.T, server *HTTPServer) {
+func waitAttached(t *testing.T, server *Server) {
 	t.Helper()
 	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
 		server.mu.Lock()
@@ -76,21 +78,21 @@ func waitAttached(t *testing.T, server *HTTPServer) {
 	t.Fatal("the connection stream never opened")
 }
 
-func readWithin(t *testing.T, tr Transport) (jsontext.Value, error) {
+func readWithin(t *testing.T, tr acp.Transport) (jsontext.Value, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 	return tr.ReadMessage(ctx)
 }
 
-func call(t *testing.T, client *HTTPClientTransport, msg string) {
+func call(t *testing.T, client *ClientTransport, msg string) {
 	t.Helper()
 	if err := client.WriteMessage(t.Context(), jsontext.Value(msg)); err != nil {
 		t.Fatalf("send %s: %v", msg, err)
 	}
 }
 
-func expect(t *testing.T, client *HTTPClientTransport, contains string) {
+func expect(t *testing.T, client *ClientTransport, contains string) {
 	t.Helper()
 	got, err := readWithin(t, client)
 	if err != nil || !strings.Contains(string(got), contains) {

@@ -84,7 +84,7 @@ func (h *HostV1) DisconnectMCP(_ context.Context, params *acp1.DisconnectMCPRequ
 //
 //	acp1.NewAgentSideConnection(func(conn *acp1.AgentSideConnection) acp1.Agent {
 //		return &myAgent{DialerV1: acpmcp.NewDialerV1(conn)}
-//	}, os.Stdin, os.Stdout)
+//	}, acp.NewStdioTransport(os.Stdin, os.Stdout))
 type DialerV1 struct{ d *dialer }
 
 // NewDialerV1 returns a dialer that reaches the client on conn.

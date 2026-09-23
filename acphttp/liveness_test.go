@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"bytes"
@@ -14,11 +14,12 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	acp "github.com/ironpark/acp-go"
 )
 
 func TestHTTPServerEndsIdleConnection(t *testing.T) {
 	ended := make(chan struct{})
-	server := NewHTTPServer(func(ctx context.Context, tr Transport) error {
+	server := NewServer(func(ctx context.Context, tr acp.Transport) error {
 		defer close(ended)
 		return fakeAgent(ctx, tr)
 	}, WithIdleTimeout(50*time.Millisecond))
@@ -107,7 +108,7 @@ func (w dropFirstEvent) Flush() { w.ResponseWriter.(http.Flusher).Flush() }
 
 // A reply whose write fails is sent again when the client reopens the stream.
 func TestHTTPStreamDropRedeliversReply(t *testing.T) {
-	server := NewHTTPServer(fakeAgent)
+	server := NewServer(fakeAgent)
 	var dropped atomic.Bool
 	var streams atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +120,7 @@ func TestHTTPStreamDropRedeliversReply(t *testing.T) {
 	}))
 	defer ts.Close()
 	defer server.Close()
-	client := NewHTTPClientTransport(ts.URL)
+	client := NewClientTransport(ts.URL)
 	defer client.Close()
 
 	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
@@ -140,7 +141,7 @@ func TestHTTPStreamDropRedeliversReply(t *testing.T) {
 
 func TestWebSocketServerDropsSilentClient(t *testing.T) {
 	readErr := make(chan error, 1)
-	server := NewHTTPServer(func(ctx context.Context, tr Transport) error {
+	server := NewServer(func(ctx context.Context, tr acp.Transport) error {
 		_, err := tr.ReadMessage(ctx)
 		readErr <- err
 		return err
@@ -168,7 +169,7 @@ func TestWebSocketServerDropsSilentClient(t *testing.T) {
 
 func TestWebSocketClientDropsSilentServer(t *testing.T) {
 	// The agent never reads, so the server never answers a ping.
-	server := NewHTTPServer(func(ctx context.Context, tr Transport) error {
+	server := NewServer(func(ctx context.Context, tr acp.Transport) error {
 		<-ctx.Done()
 		return nil
 	})
@@ -190,7 +191,7 @@ func TestWebSocketClientDropsSilentServer(t *testing.T) {
 // A stream the server refuses for good ends the transport with that error,
 // not a clean EOF.
 func TestHTTPStreamRefusedIsReported(t *testing.T) {
-	server := NewHTTPServer(fakeAgent)
+	server := NewServer(fakeAgent)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			http.Error(w, "token expired", http.StatusUnauthorized)
@@ -200,7 +201,7 @@ func TestHTTPStreamRefusedIsReported(t *testing.T) {
 	}))
 	defer ts.Close()
 	defer server.Close()
-	client := NewHTTPClientTransport(ts.URL)
+	client := NewClientTransport(ts.URL)
 	defer client.Close()
 
 	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
@@ -212,7 +213,7 @@ func TestHTTPStreamRefusedIsReported(t *testing.T) {
 
 func TestWebSocketPingDisabled(t *testing.T) {
 	readErr := make(chan error, 1)
-	server := NewHTTPServer(func(ctx context.Context, tr Transport) error {
+	server := NewServer(func(ctx context.Context, tr acp.Transport) error {
 		_, err := tr.ReadMessage(ctx)
 		readErr <- err
 		return err
@@ -238,7 +239,7 @@ func TestWebSocketPingDisabled(t *testing.T) {
 // took to answer it.
 func TestHTTPServerIdleWaitStartsAfterInitialize(t *testing.T) {
 	server, client, _ := newHTTPPair(t, WithIdleTimeout(100*time.Millisecond))
-	server.serve = func(ctx context.Context, tr Transport) error {
+	server.serve = func(ctx context.Context, tr acp.Transport) error {
 		return fakeAgent(ctx, slowInitialize{tr})
 	}
 	call(t, client, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
@@ -249,7 +250,7 @@ func TestHTTPServerIdleWaitStartsAfterInitialize(t *testing.T) {
 
 // slowInitialize delays the agent's first message, its initialize reply,
 // past the idle timeout.
-type slowInitialize struct{ Transport }
+type slowInitialize struct{ acp.Transport }
 
 func (t slowInitialize) WriteMessage(ctx context.Context, msg jsontext.Value) error {
 	if strings.Contains(string(msg), `"protocolVersion"`) {

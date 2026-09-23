@@ -162,7 +162,7 @@ func main() {
 	)
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
 		return &openAgent{SessionManager: manager, client: c, llm: llm}
-	}, os.Stdin, os.Stdout,
+	}, acp.NewStdioTransport(os.Stdin, os.Stdout),
 		acp.WithMiddleware(acp.LoggingMiddleware(logger)),
 		acp.WithErrorHandler(func(err error) { logger.Error("acp", "error", err) }),
 	)

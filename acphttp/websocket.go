@@ -1,4 +1,4 @@
-package acp
+package acphttp
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 // Each text frame is one JSON-RPC message, in both directions; binary frames
 // are ignored. The first message is still initialize.
 //
-// [HTTPServer] accepts WebSocket upgrades; [DialWebSocket] is the client side.
+// [Server] accepts WebSocket upgrades; [DialWebSocket] is the client side.
 //
 // Both sides ping the peer every 15 seconds and close the socket when a pong
 // does not arrive within the next 15, so a peer that vanished without closing
@@ -73,7 +73,7 @@ func (t *WebSocketTransport) ping(ctx context.Context, interval time.Duration) {
 // DialWebSocket connects to the ACP endpoint at url over WebSocket, such as
 // "wss://agent.example.com/acp". The transport is open when DialWebSocket
 // returns; Close closes the socket, which ends the connection on the server.
-func DialWebSocket(ctx context.Context, url string, opts ...HTTPClientOption) (*WebSocketTransport, error) {
+func DialWebSocket(ctx context.Context, url string, opts ...ClientOption) (*WebSocketTransport, error) {
 	cfg := newHTTPClientConfig(opts)
 	conn, resp, err := websocket.Dial(ctx, url, &websocket.DialOptions{
 		HTTPClient: cfg.client,
@@ -136,7 +136,7 @@ func (t *WebSocketTransport) Close() error {
 
 // websocket upgrades a GET to a WebSocket and serves one connection on it,
 // until either side closes the socket.
-func (s *HTTPServer) websocket(w http.ResponseWriter, r *http.Request) {
+func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 	id := rand.Text()
 	w.Header().Set(ConnectionIDHeader, id)
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: s.origins})

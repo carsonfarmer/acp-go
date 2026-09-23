@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	case "v1":
 		// A plain v1 agent with no router: it receives the v2 initialize
 		// request as is.
-		_ = acp1.NewAgentSideConnection(newV1, os.Stdin, os.Stdout).Start(ctx)
+		_ = acp1.NewAgentSideConnection(newV1, acp.NewStdioTransport(os.Stdin, os.Stdout)).Start(ctx)
 		os.Exit(0)
 	case "both":
 		_ = router.New().WithV1(newV1).WithV2(newV2).ServeStdio(ctx, os.Stdin, os.Stdout)

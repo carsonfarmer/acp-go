@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 
+	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/acp1"
 )
 
@@ -41,7 +42,7 @@ func (a *echoAgent) Cancel(context.Context, *acp1.CancelNotification) error { re
 func main() {
 	conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
 		return &echoAgent{client: c}
-	}, os.Stdin, os.Stdout)
+	}, acp.NewStdioTransport(os.Stdin, os.Stdout))
 	if err := conn.Start(context.Background()); err != nil {
 		log.Fatal(err)
 	}

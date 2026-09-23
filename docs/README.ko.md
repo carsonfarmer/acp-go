@@ -50,7 +50,7 @@ go get github.com/ironpark/acp-go
 ```go
 conn := acp1.NewAgentSideConnection(func(c *acp1.AgentSideConnection) acp1.Agent {
     return &MyAgent{client: c} // 연결 자체가 상대편 Client 입니다
-}, os.Stdin, os.Stdout)
+}, acp.NewStdioTransport(os.Stdin, os.Stdout))
 
 if err := conn.Start(context.Background()); err != nil {
     log.Fatal(err)
@@ -107,8 +107,9 @@ response, err := turn.Wait() // 또는: text, response, err := turn.Text()
 
 ## 아키텍처
 
-- **`acp`** (루트): `Option`, `Transport`(stdio, Streamable HTTP, WebSocket), `Middleware`, `RequestError`, `SessionStore`,
+- **`acp`** (루트): `Option`, `Transport`와 stdio transport, `Middleware`, `RequestError`, `SessionStore`,
   `TurnTracker`, 타입 있는 확장(`CallExt`, `ExtRouter`)
+- **`acphttp`**: 초안 RFD를 따르는 Streamable HTTP·WebSocket transport. stdio 프로그램이 링크하지 않도록 루트와 분리
 - **`acp1.AgentSideConnection`**: `Agent`를 제공하고 상대편 클라이언트를 호출
 - **`acp1.ClientSideConnection`**: `Client`를 제공하고 상대편 에이전트를 호출
 - **`acp1.SpawnAgent`**, **`acp1.Pipe`**: 자식 프로세스 에이전트, 또는 메모리 내 양쪽 연결
@@ -202,20 +203,20 @@ if agent.V2 != nil {
 ```go
 agent, err := router.NewClient().WithV1(…).WithV2(…).
     Connect(ctx, func(ctx context.Context) (acp.Transport, error) {
-        return acp.NewHTTPClientTransport("https://host/acp"), nil // 또는 acp.DialWebSocket
+        return acphttp.NewClientTransport("https://host/acp"), nil // 또는 acphttp.DialWebSocket
     })
 ```
 
-재연결은 다른 SDK와 같이 새 연결입니다: 같은 헤더와 `acp.WithCookieJar(jar)`로 다시 연결해 로드 밸런서의
+재연결은 다른 SDK와 같이 새 연결입니다: 같은 헤더와 `acphttp.WithCookieJar(jar)`로 다시 연결해 로드 밸런서의
 affinity 쿠키가 같은 백엔드로 보내게 하고, `Initialize` 뒤 에이전트가 `loadSession`을 지원하면 저장해 둔
 세션 id로 `LoadSession`합니다. 끊겨 있던 동안의 메시지는 재전송되지 않습니다(프로토콜 v2의 몫).
 `http-client` 예제의 `-reconnect`가 이 흐름을 보여 줍니다.
 
 짧은 끊김은 그 아래에서 처리됩니다. HTTP 클라이언트는 끊긴 이벤트 스트림을 간격을 늘려 가며 다시 열고,
 서버가 연결이 없다고 답하면 멈춥니다. 서버는 스트림을 새 `GET`에 넘기고, 쓰기에 실패한 메시지는 다시
-보냅니다. 서버는 스트림이 5분 동안 열려 있지 않은 연결을 끝내며(`acp.WithIdleTimeout`), WebSocket은 양쪽이
-15초마다 ping을 보내 상대가 응답하지 않으면 닫습니다(서버는 `acp.WithWebSocketPing`, 클라이언트는
-`acp.WithPingInterval`).
+보냅니다. 서버는 스트림이 5분 동안 열려 있지 않은 연결을 끝내며(`acphttp.WithIdleTimeout`), WebSocket은 양쪽이
+15초마다 ping을 보내 상대가 응답하지 않으면 닫습니다(서버는 `acphttp.WithWebSocketPing`, 클라이언트는
+`acphttp.WithPingInterval`).
 
 ### 세션 관리
 
@@ -290,7 +291,7 @@ stream.WithMeta(meta).SendText(ctx, "…")                                    //
 ### 미들웨어
 
 ```go
-conn := acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
     acp.WithMiddleware(
         acp.LoggingMiddleware(slog.Default()), // 메서드, 소요 시간, 오류를 slog로 기록
         acp.TimeoutMiddleware(30*time.Second),
@@ -341,7 +342,7 @@ title := params.ToolCall.GetTitle() // 없으면 ""
 ### 연결 옵션
 
 ```go
-acp1.NewAgentSideConnection(newAgent, os.Stdin, os.Stdout,
+acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
     acp.WithWriteQueueSize(500),               // 쓰기 큐 크기
     acp.WithRequestTimeout(30*time.Second),    // 나가는 호출 기본 타임아웃
     acp.WithShutdownTimeout(10*time.Second),   // 셧다운 대기 한도
