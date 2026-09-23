@@ -59,7 +59,9 @@ type Authenticator interface {
 }
 
 // SessionLoader handles session/load. Advertise it with the `loadSession`
-// agent capability. [SessionManager] provides an implementation.
+// agent capability. Loading replays the conversation, which only the agent
+// knows, so [SessionManager] leaves it to the agent; [SessionManager.Lookup]
+// finds the session to replay.
 type SessionLoader interface {
 	LoadSession(ctx context.Context, params *LoadSessionRequest) (*LoadSessionResponse, error)
 }

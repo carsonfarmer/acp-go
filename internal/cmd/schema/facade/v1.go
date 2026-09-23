@@ -83,7 +83,9 @@ See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/aut
 		{
 			Interface: "SessionLoader",
 			Doc: `SessionLoader handles session/load. Advertise it with the ` + "`loadSession`" + `
-agent capability. [SessionManager] provides an implementation.`,
+agent capability. Loading replays the conversation, which only the agent
+knows, so [SessionManager] leaves it to the agent; [SessionManager.Lookup]
+finds the session to replay.`,
 			Methods: []Method{{
 				Wire: "session/load", Name: "LoadSession", Params: "LoadSessionRequest", Response: "LoadSessionResponse",
 				CallDoc: `LoadSession resumes a session and replays its history as notifications.
