@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
@@ -47,6 +48,18 @@ func TestPinnedSDKGeneration(t *testing.T) {
 	// standalone, so stale detection against the repository is their test.
 	if err := run(append(args, "-facade", "../../..", "-check")); err != nil {
 		t.Fatal(err)
+	}
+	// A second run leaves unchanged files alone.
+	unchanged := filepath.Join(output, "v1", "enums.gen.go")
+	past := time.Unix(1_000_000_000, 0)
+	if err := os.Chtimes(unchanged, past, past); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(args); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(unchanged); err != nil || !info.ModTime().Equal(past) {
+		t.Fatalf("regeneration rewrote an unchanged file: %v", err)
 	}
 	orphan := filepath.Join(output, "v1", "removed.gen.go")
 	if err := os.WriteFile(orphan, []byte("package schema\n"), 0644); err != nil {

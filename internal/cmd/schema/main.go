@@ -32,10 +32,6 @@ func run(args []string) error {
 		return fmt.Errorf("unexpected arguments: %v", flags.Args())
 	}
 	// Complete parsing and generation of both versions before modifying outputs.
-	type result struct {
-		path string
-		data []byte
-	}
 	var results []result
 	specs := map[string]*facade.Spec{"v1": facade.V1, "v2": facade.V2}
 	for _, version := range []string{"v1", "v2"} {
@@ -82,8 +78,8 @@ func run(args []string) error {
 			}
 		}
 	}
-	for _, r := range results {
-		if *check {
+	if *check {
+		for _, r := range results {
 			existing, err := os.ReadFile(r.path)
 			if err != nil {
 				return err
@@ -91,20 +87,66 @@ func run(args []string) error {
 			if string(existing) != string(r.data) {
 				return fmt.Errorf("%s is stale; run go generate ./...", r.path)
 			}
-		} else {
-			if err := os.MkdirAll(filepath.Dir(r.path), 0755); err != nil {
-				return err
-			}
-			if err := os.WriteFile(r.path, r.data, 0644); err != nil {
-				return err
-			}
 		}
+		if len(orphans) > 0 {
+			return fmt.Errorf("%s is no longer generated; run go generate ./...", orphans[0])
+		}
+		return nil
+	}
+	if err := write(results); err != nil {
+		return err
 	}
 	for _, path := range orphans {
-		if *check {
-			return fmt.Errorf("%s is no longer generated; run go generate ./...", path)
-		}
 		if err := os.Remove(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// result is one generated file and where it goes.
+type result struct {
+	path string
+	data []byte
+}
+
+// write stages every changed file next to its destination before renaming
+// any, so a failed write leaves the previous output in place; files whose
+// contents are unchanged are not touched.
+func write(results []result) error {
+	type staged struct{ temp, path string }
+	var pending []staged
+	defer func() {
+		for _, p := range pending {
+			os.Remove(p.temp) // a no-op once renamed
+		}
+	}()
+	for _, r := range results {
+		if existing, err := os.ReadFile(r.path); err == nil && string(existing) == string(r.data) {
+			continue
+		}
+		dir := filepath.Dir(r.path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		f, err := os.CreateTemp(dir, "."+filepath.Base(r.path)+".*")
+		if err != nil {
+			return err
+		}
+		pending = append(pending, staged{f.Name(), r.path})
+		_, err = f.Write(r.data)
+		if err == nil {
+			err = f.Chmod(0644)
+		}
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return err
+		}
+	}
+	for _, p := range pending {
+		if err := os.Rename(p.temp, p.path); err != nil {
 			return err
 		}
 	}
