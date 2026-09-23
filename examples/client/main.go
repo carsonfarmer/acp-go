@@ -1,7 +1,7 @@
 // Command client is an interactive ACP client for any agent over stdio.
 //
-//	go run ./docs/example/client                          # the sibling agent example
-//	go run ./docs/example/client go run ./docs/example/echo # any agent command
+//	go run ./examples/client                        # the sibling agent example
+//	go run ./examples/client go run ./examples/echo # any agent command
 //
 // It shows the client side of ACP: spawning an agent, driving turns with
 // ClientSession and Turn, rendering updates with a type switch over the

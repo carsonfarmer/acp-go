@@ -1,8 +1,8 @@
 // Command http-agent serves the echo agent over Streamable HTTP instead of
 // stdio, at http://localhost:8000/acp.
 //
-//	go run ./docs/example/http-agent        # listens on localhost:8000
-//	go run ./docs/example/http-client       # in another terminal
+//	go run ./examples/http-agent  # listens on localhost:8000
+//	go run ./examples/http-client # in another terminal
 //
 // With -token, it accepts only clients that send that bearer token, as
 // http-client -token does.

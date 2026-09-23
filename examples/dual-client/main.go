@@ -1,9 +1,9 @@
 // Command dual-client connects to an agent with ACP v2 when the agent
 // supports it and falls back to v1 when it does not, then runs one prompt.
 //
-//	go run ./docs/example/dual-client                     # dual-agent: speaks v2
-//	go build -o /tmp/echo ./docs/example/echo
-//	go run ./docs/example/dual-client /tmp/echo           # v1 only: falls back
+//	go run ./examples/dual-client           # dual-agent: speaks v2
+//	go build -o /tmp/echo ./examples/echo
+//	go run ./examples/dual-client /tmp/echo # v1 only: falls back
 //
 // router.ClientConnector spawns the agent and initializes with v2 first. An
 // agent that answers protocolVersion 1 is restarted and initialized with v1,

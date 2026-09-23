@@ -1,7 +1,7 @@
 // Command inprocess runs an agent and a client in one process, connected in
 // memory with acp1.Pipe instead of a child process's stdio:
 //
-//	go run ./docs/example/inprocess
+//	go run ./examples/inprocess
 //
 // The agent and client code is the same as over any transport. Use this to
 // test an agent or a client without spawning anything, or to embed an agent

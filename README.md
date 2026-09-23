@@ -29,15 +29,15 @@ go get github.com/ironpark/go-acp
 
 ## Example Code
 
-See the [docs/example](./docs/example/) directory for complete working examples:
+See the [examples](./examples/) directory for complete working examples:
 
-- **[Echo Agent](./docs/example/echo/)** — the smallest agent: the four required methods
-- **[Agent](./docs/example/agent/)** — sessions, modes, cancellation, a plan, tool calls with a terminal and a diff, a permission request, an extension method
-- **[Client](./docs/example/client/)** — an interactive client for any stdio agent: Ctrl-C cancellation, mode switching, terminals, file methods
-- **[Open Agent](./docs/example/open-agent/)** — a coding agent driven by a model on OpenRouter: streaming, tool calls through the client's files and terminal, permission prompts
-- **[HTTP Agent](./docs/example/http-agent/) / [HTTP Client](./docs/example/http-client/)** — the same connection over Streamable HTTP or WebSocket, with a bearer token and a reconnect that loads the session
-- **[Dual Agent](./docs/example/dual-agent/) / [Dual Client](./docs/example/dual-client/)** — v1 and v2 on one endpoint, a client that falls back from v2 to v1, and v2 session resume with replay
-- **[In-process](./docs/example/inprocess/)** — an agent and a client in one process, connected with `acp1.Pipe`
+- **[Echo Agent](./examples/echo/)** — the smallest agent: the four required methods
+- **[Agent](./examples/agent/)** — sessions, modes, cancellation, a plan, tool calls with a terminal and a diff, a permission request, an extension method
+- **[Client](./examples/client/)** — an interactive client for any stdio agent: Ctrl-C cancellation, mode switching, terminals, file methods
+- **[Open Agent](./examples/open-agent/)** — a coding agent driven by a model on OpenRouter: streaming, tool calls through the client's files and terminal, permission prompts
+- **[HTTP Agent](./examples/http-agent/) / [HTTP Client](./examples/http-client/)** — the same connection over Streamable HTTP or WebSocket, with a bearer token and a reconnect that loads the session
+- **[Dual Agent](./examples/dual-agent/) / [Dual Client](./examples/dual-client/)** — v1 and v2 on one endpoint, a client that falls back from v2 to v1, and v2 session resume with replay
+- **[In-process](./examples/inprocess/)** — an agent and a client in one process, connected with `acp1.Pipe`
 - **[MCP over ACP](./acpmcp/)** (unstable) — MCP servers provided by the client and called over the ACP connection, in the separate `acpmcp` module
 
 ## Architecture

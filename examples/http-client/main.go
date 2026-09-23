@@ -1,11 +1,11 @@
 // Command http-client connects to the http-agent example over Streamable HTTP,
 // or over WebSocket with -ws, and runs one prompt turn. Start the agent first:
 //
-//	go run ./docs/example/http-agent
-//	go run ./docs/example/http-client
-//	go run ./docs/example/http-client -ws
-//	go run ./docs/example/http-client -reconnect
-//	go run ./docs/example/http-client -token secret  # for http-agent -token secret
+//	go run ./examples/http-agent
+//	go run ./examples/http-client
+//	go run ./examples/http-client -ws
+//	go run ./examples/http-client -reconnect
+//	go run ./examples/http-client -token secret  # for http-agent -token secret
 //
 // Both transports use the same endpoint, and the connection code is the same
 // for either: only the transport passed to ConnectAgent differs.
