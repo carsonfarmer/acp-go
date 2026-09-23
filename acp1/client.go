@@ -75,7 +75,7 @@ func (UnimplementedClient) RequestPermission(context.Context, *RequestPermission
 // initialize sends initialize, filling in a zero protocol version. The
 // generated [ClientSideConnection.Initialize] goes through it.
 func (c *ClientSideConnection) initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
-	request := InitializeRequest{}
+	var request InitializeRequest
 	if params != nil {
 		request = *params
 	}

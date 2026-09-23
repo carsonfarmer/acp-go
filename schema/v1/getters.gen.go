@@ -12,11 +12,11 @@ func (x *AgentAuthCapabilities) GetLogout() *LogoutCapabilities {
 
 // GetLoadSession returns the value of LoadSession, or the zero value if x or LoadSession is nil.
 func (x *AgentCapabilities) GetLoadSession() bool {
-	if x == nil || x.LoadSession == nil {
-		var zero bool
-		return zero
+	if x != nil && x.LoadSession != nil {
+		return *x.LoadSession
 	}
-	return *x.LoadSession
+	var zero bool
+	return zero
 }
 
 // GetPromptCapabilities returns PromptCapabilities, or nil if x is nil.
@@ -69,56 +69,56 @@ func (x *AgentCapabilities) GetNes() *NesCapabilities {
 
 // GetPositionEncoding returns the value of PositionEncoding, or the zero value if x or PositionEncoding is nil.
 func (x *AgentCapabilities) GetPositionEncoding() PositionEncodingKind {
-	if x == nil || x.PositionEncoding == nil {
-		var zero PositionEncodingKind
-		return zero
+	if x != nil && x.PositionEncoding != nil {
+		return *x.PositionEncoding
 	}
-	return *x.PositionEncoding
+	var zero PositionEncodingKind
+	return zero
 }
 
 // GetLastModified returns the value of LastModified, or the zero value if x or LastModified is nil.
 func (x *Annotations) GetLastModified() string {
-	if x == nil || x.LastModified == nil {
-		var zero string
-		return zero
+	if x != nil && x.LastModified != nil {
+		return *x.LastModified
 	}
-	return *x.LastModified
+	var zero string
+	return zero
 }
 
 // GetPriority returns the value of Priority, or the zero value if x or Priority is nil.
 func (x *Annotations) GetPriority() float64 {
-	if x == nil || x.Priority == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Priority != nil {
+		return *x.Priority
 	}
-	return *x.Priority
+	var zero float64
+	return zero
 }
 
 // GetTerminal returns the value of Terminal, or the zero value if x or Terminal is nil.
 func (x *AuthCapabilities) GetTerminal() bool {
-	if x == nil || x.Terminal == nil {
-		var zero bool
-		return zero
+	if x != nil && x.Terminal != nil {
+		return *x.Terminal
 	}
-	return *x.Terminal
+	var zero bool
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *AuthMethodAgent) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *AuthMethodTerminal) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetInput returns Input, or nil if x is nil.
@@ -131,11 +131,11 @@ func (x *AvailableCommand) GetInput() *AvailableCommandInput {
 
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *BlobResourceContents) GetMIMEType() string {
-	if x == nil || x.MIMEType == nil {
-		var zero string
-		return zero
+	if x != nil && x.MIMEType != nil {
+		return *x.MIMEType
 	}
-	return *x.MIMEType
+	var zero string
+	return zero
 }
 
 // GetFS returns FS, or nil if x is nil.
@@ -148,11 +148,11 @@ func (x *ClientCapabilities) GetFS() *FileSystemCapabilities {
 
 // GetTerminal returns the value of Terminal, or the zero value if x or Terminal is nil.
 func (x *ClientCapabilities) GetTerminal() bool {
-	if x == nil || x.Terminal == nil {
-		var zero bool
-		return zero
+	if x != nil && x.Terminal != nil {
+		return *x.Terminal
 	}
-	return *x.Terminal
+	var zero bool
+	return zero
 }
 
 // GetSession returns Session, or nil if x is nil.
@@ -221,11 +221,11 @@ func (x *ClientNesCapabilities) GetSearchAndReplace() *NesSearchAndReplaceCapabi
 
 // GetCompaction returns the value of Compaction, or the zero value if x or Compaction is nil.
 func (x *ClientSessionCapabilities) GetCompaction() CompactionCapabilities {
-	if x == nil || x.Compaction == nil {
-		var zero CompactionCapabilities
-		return zero
+	if x != nil && x.Compaction != nil {
+		return *x.Compaction
 	}
-	return *x.Compaction
+	var zero CompactionCapabilities
+	return zero
 }
 
 // GetConfigOptions returns ConfigOptions, or nil if x is nil.
@@ -238,11 +238,11 @@ func (x *ClientSessionCapabilities) GetConfigOptions() *SessionConfigOptionsCapa
 
 // GetNotices returns the value of Notices, or the zero value if x or Notices is nil.
 func (x *ClientSessionCapabilities) GetNotices() NoticeCapabilities {
-	if x == nil || x.Notices == nil {
-		var zero NoticeCapabilities
-		return zero
+	if x != nil && x.Notices != nil {
+		return *x.Notices
 	}
-	return *x.Notices
+	var zero NoticeCapabilities
+	return zero
 }
 
 // GetAnnotations returns Annotations, or nil if x is nil.
@@ -263,11 +263,11 @@ func (x *ContentBlockImage) GetAnnotations() *Annotations {
 
 // GetURI returns the value of URI, or the zero value if x or URI is nil.
 func (x *ContentBlockImage) GetURI() string {
-	if x == nil || x.URI == nil {
-		var zero string
-		return zero
+	if x != nil && x.URI != nil {
+		return *x.URI
 	}
-	return *x.URI
+	var zero string
+	return zero
 }
 
 // GetAnnotations returns Annotations, or nil if x is nil.
@@ -288,38 +288,38 @@ func (x *ContentBlockResourceLink) GetAnnotations() *Annotations {
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ContentBlockResourceLink) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *ContentBlockResourceLink) GetMIMEType() string {
-	if x == nil || x.MIMEType == nil {
-		var zero string
-		return zero
+	if x != nil && x.MIMEType != nil {
+		return *x.MIMEType
 	}
-	return *x.MIMEType
+	var zero string
+	return zero
 }
 
 // GetSize returns the value of Size, or the zero value if x or Size is nil.
 func (x *ContentBlockResourceLink) GetSize() float64 {
-	if x == nil || x.Size == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Size != nil {
+		return *x.Size
 	}
-	return *x.Size
+	var zero float64
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ContentBlockResourceLink) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetAnnotations returns Annotations, or nil if x is nil.
@@ -332,56 +332,56 @@ func (x *ContentBlockText) GetAnnotations() *Annotations {
 
 // GetMessageID returns the value of MessageID, or the zero value if x or MessageID is nil.
 func (x *ContentChunk) GetMessageID() MessageID {
-	if x == nil || x.MessageID == nil {
-		var zero MessageID
-		return zero
+	if x != nil && x.MessageID != nil {
+		return *x.MessageID
 	}
-	return *x.MessageID
+	var zero MessageID
+	return zero
 }
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *CreateElicitationRequestCustomSession) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *CreateElicitationRequestFormSession) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *CreateElicitationRequestURLSession) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetCwd returns the value of Cwd, or the zero value if x or Cwd is nil.
 func (x *CreateTerminalRequest) GetCwd() string {
-	if x == nil || x.Cwd == nil {
-		var zero string
-		return zero
+	if x != nil && x.Cwd != nil {
+		return *x.Cwd
 	}
-	return *x.Cwd
+	var zero string
+	return zero
 }
 
 // GetOutputByteLimit returns the value of OutputByteLimit, or the zero value if x or OutputByteLimit is nil.
 func (x *CreateTerminalRequest) GetOutputByteLimit() float64 {
-	if x == nil || x.OutputByteLimit == nil {
-		var zero float64
-		return zero
+	if x != nil && x.OutputByteLimit != nil {
+		return *x.OutputByteLimit
 	}
-	return *x.OutputByteLimit
+	var zero float64
+	return zero
 }
 
 // GetForm returns Form, or nil if x is nil.
@@ -402,299 +402,299 @@ func (x *ElicitationCapabilities) GetURL() *ElicitationURLCapabilities {
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *ElicitationFormModeSession) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationPropertySchemaArray) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationPropertySchemaArray) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMinItems returns the value of MinItems, or the zero value if x or MinItems is nil.
 func (x *ElicitationPropertySchemaArray) GetMinItems() float64 {
-	if x == nil || x.MinItems == nil {
-		var zero float64
-		return zero
+	if x != nil && x.MinItems != nil {
+		return *x.MinItems
 	}
-	return *x.MinItems
+	var zero float64
+	return zero
 }
 
 // GetMaxItems returns the value of MaxItems, or the zero value if x or MaxItems is nil.
 func (x *ElicitationPropertySchemaArray) GetMaxItems() float64 {
-	if x == nil || x.MaxItems == nil {
-		var zero float64
-		return zero
+	if x != nil && x.MaxItems != nil {
+		return *x.MaxItems
 	}
-	return *x.MaxItems
+	var zero float64
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationPropertySchemaBoolean) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationPropertySchemaBoolean) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetDefault returns the value of Default, or the zero value if x or Default is nil.
 func (x *ElicitationPropertySchemaBoolean) GetDefault() bool {
-	if x == nil || x.Default == nil {
-		var zero bool
-		return zero
+	if x != nil && x.Default != nil {
+		return *x.Default
 	}
-	return *x.Default
+	var zero bool
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationPropertySchemaInteger) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationPropertySchemaInteger) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMinimum returns the value of Minimum, or the zero value if x or Minimum is nil.
 func (x *ElicitationPropertySchemaInteger) GetMinimum() float64 {
-	if x == nil || x.Minimum == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Minimum != nil {
+		return *x.Minimum
 	}
-	return *x.Minimum
+	var zero float64
+	return zero
 }
 
 // GetMaximum returns the value of Maximum, or the zero value if x or Maximum is nil.
 func (x *ElicitationPropertySchemaInteger) GetMaximum() float64 {
-	if x == nil || x.Maximum == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Maximum != nil {
+		return *x.Maximum
 	}
-	return *x.Maximum
+	var zero float64
+	return zero
 }
 
 // GetDefault returns the value of Default, or the zero value if x or Default is nil.
 func (x *ElicitationPropertySchemaInteger) GetDefault() float64 {
-	if x == nil || x.Default == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Default != nil {
+		return *x.Default
 	}
-	return *x.Default
+	var zero float64
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationPropertySchemaNumber) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationPropertySchemaNumber) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMinimum returns the value of Minimum, or the zero value if x or Minimum is nil.
 func (x *ElicitationPropertySchemaNumber) GetMinimum() float64 {
-	if x == nil || x.Minimum == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Minimum != nil {
+		return *x.Minimum
 	}
-	return *x.Minimum
+	var zero float64
+	return zero
 }
 
 // GetMaximum returns the value of Maximum, or the zero value if x or Maximum is nil.
 func (x *ElicitationPropertySchemaNumber) GetMaximum() float64 {
-	if x == nil || x.Maximum == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Maximum != nil {
+		return *x.Maximum
 	}
-	return *x.Maximum
+	var zero float64
+	return zero
 }
 
 // GetDefault returns the value of Default, or the zero value if x or Default is nil.
 func (x *ElicitationPropertySchemaNumber) GetDefault() float64 {
-	if x == nil || x.Default == nil {
-		var zero float64
-		return zero
+	if x != nil && x.Default != nil {
+		return *x.Default
 	}
-	return *x.Default
+	var zero float64
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationPropertySchemaString) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationPropertySchemaString) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMinLength returns the value of MinLength, or the zero value if x or MinLength is nil.
 func (x *ElicitationPropertySchemaString) GetMinLength() uint32 {
-	if x == nil || x.MinLength == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.MinLength != nil {
+		return *x.MinLength
 	}
-	return *x.MinLength
+	var zero uint32
+	return zero
 }
 
 // GetMaxLength returns the value of MaxLength, or the zero value if x or MaxLength is nil.
 func (x *ElicitationPropertySchemaString) GetMaxLength() uint32 {
-	if x == nil || x.MaxLength == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.MaxLength != nil {
+		return *x.MaxLength
 	}
-	return *x.MaxLength
+	var zero uint32
+	return zero
 }
 
 // GetPattern returns the value of Pattern, or the zero value if x or Pattern is nil.
 func (x *ElicitationPropertySchemaString) GetPattern() string {
-	if x == nil || x.Pattern == nil {
-		var zero string
-		return zero
+	if x != nil && x.Pattern != nil {
+		return *x.Pattern
 	}
-	return *x.Pattern
+	var zero string
+	return zero
 }
 
 // GetFormat returns the value of Format, or the zero value if x or Format is nil.
 func (x *ElicitationPropertySchemaString) GetFormat() StringFormat {
-	if x == nil || x.Format == nil {
-		var zero StringFormat
-		return zero
+	if x != nil && x.Format != nil {
+		return *x.Format
 	}
-	return *x.Format
+	var zero StringFormat
+	return zero
 }
 
 // GetDefault returns the value of Default, or the zero value if x or Default is nil.
 func (x *ElicitationPropertySchemaString) GetDefault() string {
-	if x == nil || x.Default == nil {
-		var zero string
-		return zero
+	if x != nil && x.Default != nil {
+		return *x.Default
 	}
-	return *x.Default
+	var zero string
+	return zero
 }
 
 // GetType returns the value of Type, or the zero value if x or Type is nil.
 func (x *ElicitationSchema) GetType() ElicitationSchemaType {
-	if x == nil || x.Type == nil {
-		var zero ElicitationSchemaType
-		return zero
+	if x != nil && x.Type != nil {
+		return *x.Type
 	}
-	return *x.Type
+	var zero ElicitationSchemaType
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ElicitationSchema) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *ElicitationSchema) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *ElicitationSessionScope) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetToolCallID returns the value of ToolCallID, or the zero value if x or ToolCallID is nil.
 func (x *ElicitationURLModeSession) GetToolCallID() ToolCallID {
-	if x == nil || x.ToolCallID == nil {
-		var zero ToolCallID
-		return zero
+	if x != nil && x.ToolCallID != nil {
+		return *x.ToolCallID
 	}
-	return *x.ToolCallID
+	var zero ToolCallID
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *EnumOption) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetReadTextFile returns the value of ReadTextFile, or the zero value if x or ReadTextFile is nil.
 func (x *FileSystemCapabilities) GetReadTextFile() bool {
-	if x == nil || x.ReadTextFile == nil {
-		var zero bool
-		return zero
+	if x != nil && x.ReadTextFile != nil {
+		return *x.ReadTextFile
 	}
-	return *x.ReadTextFile
+	var zero bool
+	return zero
 }
 
 // GetWriteTextFile returns the value of WriteTextFile, or the zero value if x or WriteTextFile is nil.
 func (x *FileSystemCapabilities) GetWriteTextFile() bool {
-	if x == nil || x.WriteTextFile == nil {
-		var zero bool
-		return zero
+	if x != nil && x.WriteTextFile != nil {
+		return *x.WriteTextFile
 	}
-	return *x.WriteTextFile
+	var zero bool
+	return zero
 }
 
 // GetModes returns Modes, or nil if x is nil.
@@ -707,11 +707,11 @@ func (x *ForkSessionResponse) GetModes() *SessionModeState {
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *Implementation) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetClientCapabilities returns ClientCapabilities, or nil if x is nil.
@@ -748,29 +748,29 @@ func (x *InitializeResponse) GetAgentInfo() *Implementation {
 
 // GetCwd returns the value of Cwd, or the zero value if x or Cwd is nil.
 func (x *ListSessionsRequest) GetCwd() string {
-	if x == nil || x.Cwd == nil {
-		var zero string
-		return zero
+	if x != nil && x.Cwd != nil {
+		return *x.Cwd
 	}
-	return *x.Cwd
+	var zero string
+	return zero
 }
 
 // GetCursor returns the value of Cursor, or the zero value if x or Cursor is nil.
 func (x *ListSessionsRequest) GetCursor() string {
-	if x == nil || x.Cursor == nil {
-		var zero string
-		return zero
+	if x != nil && x.Cursor != nil {
+		return *x.Cursor
 	}
-	return *x.Cursor
+	var zero string
+	return zero
 }
 
 // GetNextCursor returns the value of NextCursor, or the zero value if x or NextCursor is nil.
 func (x *ListSessionsResponse) GetNextCursor() string {
-	if x == nil || x.NextCursor == nil {
-		var zero string
-		return zero
+	if x != nil && x.NextCursor != nil {
+		return *x.NextCursor
 	}
-	return *x.NextCursor
+	var zero string
+	return zero
 }
 
 // GetModes returns Modes, or nil if x is nil.
@@ -783,29 +783,29 @@ func (x *LoadSessionResponse) GetModes() *SessionModeState {
 
 // GetHTTP returns the value of HTTP, or the zero value if x or HTTP is nil.
 func (x *MCPCapabilities) GetHTTP() bool {
-	if x == nil || x.HTTP == nil {
-		var zero bool
-		return zero
+	if x != nil && x.HTTP != nil {
+		return *x.HTTP
 	}
-	return *x.HTTP
+	var zero bool
+	return zero
 }
 
 // GetSSE returns the value of SSE, or the zero value if x or SSE is nil.
 func (x *MCPCapabilities) GetSSE() bool {
-	if x == nil || x.SSE == nil {
-		var zero bool
-		return zero
+	if x != nil && x.SSE != nil {
+		return *x.SSE
 	}
-	return *x.SSE
+	var zero bool
+	return zero
 }
 
 // GetACP returns the value of ACP, or the zero value if x or ACP is nil.
 func (x *MCPCapabilities) GetACP() bool {
-	if x == nil || x.ACP == nil {
-		var zero bool
-		return zero
+	if x != nil && x.ACP != nil {
+		return *x.ACP
 	}
-	return *x.ACP
+	var zero bool
+	return zero
 }
 
 // GetEvents returns Events, or nil if x is nil.
@@ -914,11 +914,11 @@ func (x *NesDocumentEventCapabilities) GetDidFocus() *NesDocumentDidFocusCapabil
 
 // GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
 func (x *NesEditHistoryCapabilities) GetMaxCount() uint32 {
-	if x == nil || x.MaxCount == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.MaxCount != nil {
+		return *x.MaxCount
 	}
-	return *x.MaxCount
+	var zero uint32
+	return zero
 }
 
 // GetDocument returns Document, or nil if x is nil.
@@ -939,20 +939,20 @@ func (x *NesOpenFile) GetVisibleRange() *Range {
 
 // GetLastFocusedMs returns the value of LastFocusedMs, or the zero value if x or LastFocusedMs is nil.
 func (x *NesOpenFile) GetLastFocusedMs() float64 {
-	if x == nil || x.LastFocusedMs == nil {
-		var zero float64
-		return zero
+	if x != nil && x.LastFocusedMs != nil {
+		return *x.LastFocusedMs
 	}
-	return *x.LastFocusedMs
+	var zero float64
+	return zero
 }
 
 // GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
 func (x *NesRecentFilesCapabilities) GetMaxCount() uint32 {
-	if x == nil || x.MaxCount == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.MaxCount != nil {
+		return *x.MaxCount
 	}
-	return *x.MaxCount
+	var zero uint32
+	return zero
 }
 
 // GetCursorPosition returns CursorPosition, or nil if x is nil.
@@ -965,20 +965,20 @@ func (x *NesSuggestionEdit) GetCursorPosition() *Position {
 
 // GetIsRegex returns the value of IsRegex, or the zero value if x or IsRegex is nil.
 func (x *NesSuggestionSearchAndReplace) GetIsRegex() bool {
-	if x == nil || x.IsRegex == nil {
-		var zero bool
-		return zero
+	if x != nil && x.IsRegex != nil {
+		return *x.IsRegex
 	}
-	return *x.IsRegex
+	var zero bool
+	return zero
 }
 
 // GetMaxCount returns the value of MaxCount, or the zero value if x or MaxCount is nil.
 func (x *NesUserActionsCapabilities) GetMaxCount() uint32 {
-	if x == nil || x.MaxCount == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.MaxCount != nil {
+		return *x.MaxCount
 	}
-	return *x.MaxCount
+	var zero uint32
+	return zero
 }
 
 // GetModes returns Modes, or nil if x is nil.
@@ -991,29 +991,29 @@ func (x *NewSessionResponse) GetModes() *SessionModeState {
 
 // GetImage returns the value of Image, or the zero value if x or Image is nil.
 func (x *PromptCapabilities) GetImage() bool {
-	if x == nil || x.Image == nil {
-		var zero bool
-		return zero
+	if x != nil && x.Image != nil {
+		return *x.Image
 	}
-	return *x.Image
+	var zero bool
+	return zero
 }
 
 // GetAudio returns the value of Audio, or the zero value if x or Audio is nil.
 func (x *PromptCapabilities) GetAudio() bool {
-	if x == nil || x.Audio == nil {
-		var zero bool
-		return zero
+	if x != nil && x.Audio != nil {
+		return *x.Audio
 	}
-	return *x.Audio
+	var zero bool
+	return zero
 }
 
 // GetEmbeddedContext returns the value of EmbeddedContext, or the zero value if x or EmbeddedContext is nil.
 func (x *PromptCapabilities) GetEmbeddedContext() bool {
-	if x == nil || x.EmbeddedContext == nil {
-		var zero bool
-		return zero
+	if x != nil && x.EmbeddedContext != nil {
+		return *x.EmbeddedContext
 	}
-	return *x.EmbeddedContext
+	var zero bool
+	return zero
 }
 
 // GetUsage returns Usage, or nil if x is nil.
@@ -1034,29 +1034,29 @@ func (x *ProviderInfo) GetCurrent() *ProviderCurrentConfig {
 
 // GetLine returns the value of Line, or the zero value if x or Line is nil.
 func (x *ReadTextFileRequest) GetLine() uint32 {
-	if x == nil || x.Line == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.Line != nil {
+		return *x.Line
 	}
-	return *x.Line
+	var zero uint32
+	return zero
 }
 
 // GetLimit returns the value of Limit, or the zero value if x or Limit is nil.
 func (x *ReadTextFileRequest) GetLimit() uint32 {
-	if x == nil || x.Limit == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.Limit != nil {
+		return *x.Limit
 	}
-	return *x.Limit
+	var zero uint32
+	return zero
 }
 
 // GetReason returns the value of Reason, or the zero value if x or Reason is nil.
 func (x *RejectNesNotification) GetReason() NesRejectReason {
-	if x == nil || x.Reason == nil {
-		var zero NesRejectReason
-		return zero
+	if x != nil && x.Reason != nil {
+		return *x.Reason
 	}
-	return *x.Reason
+	var zero NesRejectReason
+	return zero
 }
 
 // GetModes returns Modes, or nil if x is nil.
@@ -1117,38 +1117,38 @@ func (x *SessionCapabilities) GetClose() *SessionCloseCapabilities {
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionConfigOptionBoolean) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetCategory returns the value of Category, or the zero value if x or Category is nil.
 func (x *SessionConfigOptionBoolean) GetCategory() SessionConfigOptionCategory {
-	if x == nil || x.Category == nil {
-		var zero SessionConfigOptionCategory
-		return zero
+	if x != nil && x.Category != nil {
+		return *x.Category
 	}
-	return *x.Category
+	var zero SessionConfigOptionCategory
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionConfigOptionSelect) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetCategory returns the value of Category, or the zero value if x or Category is nil.
 func (x *SessionConfigOptionSelect) GetCategory() SessionConfigOptionCategory {
-	if x == nil || x.Category == nil {
-		var zero SessionConfigOptionCategory
-		return zero
+	if x != nil && x.Category != nil {
+		return *x.Category
 	}
-	return *x.Category
+	var zero SessionConfigOptionCategory
+	return zero
 }
 
 // GetBoolean returns Boolean, or nil if x is nil.
@@ -1161,155 +1161,155 @@ func (x *SessionConfigOptionsCapabilities) GetBoolean() *BooleanConfigOptionCapa
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionConfigSelectOption) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *SessionInfo) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetUpdatedAt returns the value of UpdatedAt, or the zero value if x or UpdatedAt is nil.
 func (x *SessionInfo) GetUpdatedAt() string {
-	if x == nil || x.UpdatedAt == nil {
-		var zero string
-		return zero
+	if x != nil && x.UpdatedAt != nil {
+		return *x.UpdatedAt
 	}
-	return *x.UpdatedAt
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionMode) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetMessageID returns the value of MessageID, or the zero value if x or MessageID is nil.
 func (x *SessionUpdateAgentMessageChunk) GetMessageID() MessageID {
-	if x == nil || x.MessageID == nil {
-		var zero MessageID
-		return zero
+	if x != nil && x.MessageID != nil {
+		return *x.MessageID
 	}
-	return *x.MessageID
+	var zero MessageID
+	return zero
 }
 
 // GetMessageID returns the value of MessageID, or the zero value if x or MessageID is nil.
 func (x *SessionUpdateAgentThoughtChunk) GetMessageID() MessageID {
-	if x == nil || x.MessageID == nil {
-		var zero MessageID
-		return zero
+	if x != nil && x.MessageID != nil {
+		return *x.MessageID
 	}
-	return *x.MessageID
+	var zero MessageID
+	return zero
 }
 
 // GetError returns the value of Error, or the zero value if x or Error is nil.
 func (x *SessionUpdateCompactionUpdate) GetError() string {
-	if x == nil || x.Error == nil {
-		var zero string
-		return zero
+	if x != nil && x.Error != nil {
+		return *x.Error
 	}
-	return *x.Error
+	var zero string
+	return zero
 }
 
 // GetDescription returns the value of Description, or the zero value if x or Description is nil.
 func (x *SessionUpdateNotice) GetDescription() string {
-	if x == nil || x.Description == nil {
-		var zero string
-		return zero
+	if x != nil && x.Description != nil {
+		return *x.Description
 	}
-	return *x.Description
+	var zero string
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *SessionUpdateSessionInfoUpdate) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetUpdatedAt returns the value of UpdatedAt, or the zero value if x or UpdatedAt is nil.
 func (x *SessionUpdateSessionInfoUpdate) GetUpdatedAt() string {
-	if x == nil || x.UpdatedAt == nil {
-		var zero string
-		return zero
+	if x != nil && x.UpdatedAt != nil {
+		return *x.UpdatedAt
 	}
-	return *x.UpdatedAt
+	var zero string
+	return zero
 }
 
 // GetName returns the value of Name, or the zero value if x or Name is nil.
 func (x *SessionUpdateToolCall) GetName() string {
-	if x == nil || x.Name == nil {
-		var zero string
-		return zero
+	if x != nil && x.Name != nil {
+		return *x.Name
 	}
-	return *x.Name
+	var zero string
+	return zero
 }
 
 // GetKind returns the value of Kind, or the zero value if x or Kind is nil.
 func (x *SessionUpdateToolCall) GetKind() ToolKind {
-	if x == nil || x.Kind == nil {
-		var zero ToolKind
-		return zero
+	if x != nil && x.Kind != nil {
+		return *x.Kind
 	}
-	return *x.Kind
+	var zero ToolKind
+	return zero
 }
 
 // GetStatus returns the value of Status, or the zero value if x or Status is nil.
 func (x *SessionUpdateToolCall) GetStatus() ToolCallStatus {
-	if x == nil || x.Status == nil {
-		var zero ToolCallStatus
-		return zero
+	if x != nil && x.Status != nil {
+		return *x.Status
 	}
-	return *x.Status
+	var zero ToolCallStatus
+	return zero
 }
 
 // GetKind returns the value of Kind, or the zero value if x or Kind is nil.
 func (x *SessionUpdateToolCallUpdate) GetKind() ToolKind {
-	if x == nil || x.Kind == nil {
-		var zero ToolKind
-		return zero
+	if x != nil && x.Kind != nil {
+		return *x.Kind
 	}
-	return *x.Kind
+	var zero ToolKind
+	return zero
 }
 
 // GetStatus returns the value of Status, or the zero value if x or Status is nil.
 func (x *SessionUpdateToolCallUpdate) GetStatus() ToolCallStatus {
-	if x == nil || x.Status == nil {
-		var zero ToolCallStatus
-		return zero
+	if x != nil && x.Status != nil {
+		return *x.Status
 	}
-	return *x.Status
+	var zero ToolCallStatus
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *SessionUpdateToolCallUpdate) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetName returns the value of Name, or the zero value if x or Name is nil.
 func (x *SessionUpdateToolCallUpdate) GetName() string {
-	if x == nil || x.Name == nil {
-		var zero string
-		return zero
+	if x != nil && x.Name != nil {
+		return *x.Name
 	}
-	return *x.Name
+	var zero string
+	return zero
 }
 
 // GetCost returns Cost, or nil if x is nil.
@@ -1322,20 +1322,20 @@ func (x *SessionUpdateUsageUpdate) GetCost() *Cost {
 
 // GetMessageID returns the value of MessageID, or the zero value if x or MessageID is nil.
 func (x *SessionUpdateUserMessageChunk) GetMessageID() MessageID {
-	if x == nil || x.MessageID == nil {
-		var zero MessageID
-		return zero
+	if x != nil && x.MessageID != nil {
+		return *x.MessageID
 	}
-	return *x.MessageID
+	var zero MessageID
+	return zero
 }
 
 // GetWorkspaceURI returns the value of WorkspaceURI, or the zero value if x or WorkspaceURI is nil.
 func (x *StartNesRequest) GetWorkspaceURI() string {
-	if x == nil || x.WorkspaceURI == nil {
-		var zero string
-		return zero
+	if x != nil && x.WorkspaceURI != nil {
+		return *x.WorkspaceURI
 	}
-	return *x.WorkspaceURI
+	var zero string
+	return zero
 }
 
 // GetRepository returns Repository, or nil if x is nil.
@@ -1364,20 +1364,20 @@ func (x *SuggestNesRequest) GetContext() *NesSuggestContext {
 
 // GetExitCode returns the value of ExitCode, or the zero value if x or ExitCode is nil.
 func (x *TerminalExitStatus) GetExitCode() uint32 {
-	if x == nil || x.ExitCode == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.ExitCode != nil {
+		return *x.ExitCode
 	}
-	return *x.ExitCode
+	var zero uint32
+	return zero
 }
 
 // GetSignal returns the value of Signal, or the zero value if x or Signal is nil.
 func (x *TerminalExitStatus) GetSignal() string {
-	if x == nil || x.Signal == nil {
-		var zero string
-		return zero
+	if x != nil && x.Signal != nil {
+		return *x.Signal
 	}
-	return *x.Signal
+	var zero string
+	return zero
 }
 
 // GetExitStatus returns ExitStatus, or nil if x is nil.
@@ -1398,108 +1398,108 @@ func (x *TextDocumentContentChangeEvent) GetRange() *Range {
 
 // GetMIMEType returns the value of MIMEType, or the zero value if x or MIMEType is nil.
 func (x *TextResourceContents) GetMIMEType() string {
-	if x == nil || x.MIMEType == nil {
-		var zero string
-		return zero
+	if x != nil && x.MIMEType != nil {
+		return *x.MIMEType
 	}
-	return *x.MIMEType
+	var zero string
+	return zero
 }
 
 // GetOldText returns the value of OldText, or the zero value if x or OldText is nil.
 func (x *ToolCallContentDiff) GetOldText() string {
-	if x == nil || x.OldText == nil {
-		var zero string
-		return zero
+	if x != nil && x.OldText != nil {
+		return *x.OldText
 	}
-	return *x.OldText
+	var zero string
+	return zero
 }
 
 // GetLine returns the value of Line, or the zero value if x or Line is nil.
 func (x *ToolCallLocation) GetLine() uint32 {
-	if x == nil || x.Line == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.Line != nil {
+		return *x.Line
 	}
-	return *x.Line
+	var zero uint32
+	return zero
 }
 
 // GetKind returns the value of Kind, or the zero value if x or Kind is nil.
 func (x *ToolCallUpdate) GetKind() ToolKind {
-	if x == nil || x.Kind == nil {
-		var zero ToolKind
-		return zero
+	if x != nil && x.Kind != nil {
+		return *x.Kind
 	}
-	return *x.Kind
+	var zero ToolKind
+	return zero
 }
 
 // GetStatus returns the value of Status, or the zero value if x or Status is nil.
 func (x *ToolCallUpdate) GetStatus() ToolCallStatus {
-	if x == nil || x.Status == nil {
-		var zero ToolCallStatus
-		return zero
+	if x != nil && x.Status != nil {
+		return *x.Status
 	}
-	return *x.Status
+	var zero ToolCallStatus
+	return zero
 }
 
 // GetTitle returns the value of Title, or the zero value if x or Title is nil.
 func (x *ToolCallUpdate) GetTitle() string {
-	if x == nil || x.Title == nil {
-		var zero string
-		return zero
+	if x != nil && x.Title != nil {
+		return *x.Title
 	}
-	return *x.Title
+	var zero string
+	return zero
 }
 
 // GetName returns the value of Name, or the zero value if x or Name is nil.
 func (x *ToolCallUpdate) GetName() string {
-	if x == nil || x.Name == nil {
-		var zero string
-		return zero
+	if x != nil && x.Name != nil {
+		return *x.Name
 	}
-	return *x.Name
+	var zero string
+	return zero
 }
 
 // GetThoughtTokens returns the value of ThoughtTokens, or the zero value if x or ThoughtTokens is nil.
 func (x *Usage) GetThoughtTokens() float64 {
-	if x == nil || x.ThoughtTokens == nil {
-		var zero float64
-		return zero
+	if x != nil && x.ThoughtTokens != nil {
+		return *x.ThoughtTokens
 	}
-	return *x.ThoughtTokens
+	var zero float64
+	return zero
 }
 
 // GetCachedReadTokens returns the value of CachedReadTokens, or the zero value if x or CachedReadTokens is nil.
 func (x *Usage) GetCachedReadTokens() float64 {
-	if x == nil || x.CachedReadTokens == nil {
-		var zero float64
-		return zero
+	if x != nil && x.CachedReadTokens != nil {
+		return *x.CachedReadTokens
 	}
-	return *x.CachedReadTokens
+	var zero float64
+	return zero
 }
 
 // GetCachedWriteTokens returns the value of CachedWriteTokens, or the zero value if x or CachedWriteTokens is nil.
 func (x *Usage) GetCachedWriteTokens() float64 {
-	if x == nil || x.CachedWriteTokens == nil {
-		var zero float64
-		return zero
+	if x != nil && x.CachedWriteTokens != nil {
+		return *x.CachedWriteTokens
 	}
-	return *x.CachedWriteTokens
+	var zero float64
+	return zero
 }
 
 // GetExitCode returns the value of ExitCode, or the zero value if x or ExitCode is nil.
 func (x *WaitForTerminalExitResponse) GetExitCode() uint32 {
-	if x == nil || x.ExitCode == nil {
-		var zero uint32
-		return zero
+	if x != nil && x.ExitCode != nil {
+		return *x.ExitCode
 	}
-	return *x.ExitCode
+	var zero uint32
+	return zero
 }
 
 // GetSignal returns the value of Signal, or the zero value if x or Signal is nil.
 func (x *WaitForTerminalExitResponse) GetSignal() string {
-	if x == nil || x.Signal == nil {
-		var zero string
-		return zero
+	if x != nil && x.Signal != nil {
+		return *x.Signal
 	}
-	return *x.Signal
+	var zero string
+	return zero
 }

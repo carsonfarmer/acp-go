@@ -28,8 +28,6 @@ type generator struct {
 	unmarshalers []string            // json.UnmarshalFromFunc entries for variant interfaces
 	openTags     map[string]openTags // Go union name -> tags known to its Unknown variant
 	usesMeta     bool                // some struct has a _meta field typed as Meta
-	structs      map[string]bool     // Go names declared as structs
-	aliasTargets map[string]string   // Go alias name -> the type expression it names
 	getters      []getter            // pointer fields of payload structs, emitted last
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
@@ -101,7 +99,6 @@ func newGenerator(schema *tsdef.Schema, pkg string) (*generator, error) {
 		defs: map[string]*tsdef.Type{}, docs: map[string]string{}, refs: map[string]int{},
 		absorbed: map[string]*absorption{}, decls: map[string]Decl{},
 		names: map[string]bool{}, aliases: map[string]bool{}, openTags: map[string]openTags{},
-		structs: map[string]bool{}, aliasTargets: map[string]string{},
 		pkg: pkg, buffers: map[string]*bytes.Buffer{},
 	}
 	for _, d := range schema.Types {

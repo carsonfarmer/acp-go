@@ -64,7 +64,7 @@ func TestReconnectLoadsSession(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if l := init.AgentCapabilities.LoadSession; l == nil || !*l {
+		if !init.GetAgentCapabilities().GetLoadSession() {
 			t.Fatal("agent cannot load sessions")
 		}
 		return agent

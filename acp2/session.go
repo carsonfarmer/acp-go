@@ -127,7 +127,9 @@ func (t *Turn) Text() (string, StopReason, error) {
 			if u.Content != nil {
 				b := message(u.MessageID)
 				b.Reset()
-				b.WriteString(JoinTexts(u.Content))
+				for text := range Texts(u.Content) {
+					b.WriteString(text)
+				}
 			}
 		}
 	}

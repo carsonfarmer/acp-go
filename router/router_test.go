@@ -214,7 +214,7 @@ func TestV2ClientIsDowngradedForV1OnlyAgent(t *testing.T) {
 	if caps.Terminal == nil || *caps.Terminal {
 		t.Errorf("terminal = %v, want false", caps.Terminal)
 	}
-	if caps.Auth == nil || caps.Auth.Terminal == nil || !*caps.Auth.Terminal {
+	if !caps.GetAuth().GetTerminal() {
 		t.Errorf("auth.terminal = %+v, want true", caps.Auth)
 	}
 	if caps.Elicitation == nil || caps.Elicitation.Form == nil {

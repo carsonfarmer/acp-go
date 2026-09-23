@@ -22,8 +22,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		return nil
 	}
 	g.write("type %s struct {\n", name)
-	g.structs[name] = true
-	payload := g.out != g.buffers[fileEnvelope]
+	payload := !envelope(name)
 	names := map[string]bool{}
 	var pointers []getter
 	for _, f := range t.Fields {
@@ -66,7 +65,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 		}
 		g.write("%s%s %s `json:%q`\n", comment(text), field, expr, tag)
 		if payload && strings.HasPrefix(expr, "*") {
-			pointers = append(pointers, getter{typ: name, field: field, elem: strings.TrimPrefix(expr, "*")})
+			pointers = append(pointers, getter{typ: name, field: field, elem: strings.TrimPrefix(expr, "*"), object: g.isStruct(f.Type)})
 		}
 	}
 	for _, p := range pointers {
@@ -102,6 +101,7 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 // getter is a pointer field that gets a nil-safe accessor.
 type getter struct {
 	typ, field, elem string // struct, field and pointed-to type
+	object           bool   // elem is a struct
 }
 
 // emitGetters writes a GetX method for every pointer field of a payload
@@ -116,28 +116,28 @@ func (g *generator) emitGetters() {
 	// Group by type; within a type, fields keep their declaration order.
 	slices.SortStableFunc(g.getters, func(a, b getter) int { return strings.Compare(a.typ, b.typ) })
 	for _, p := range g.getters {
-		if g.isStruct(p.elem) {
+		if p.object {
 			g.write("// Get%[2]s returns %[2]s, or nil if x is nil.\n", p.typ, p.field)
 			g.write("func (x *%s) Get%s() *%s {\nif x == nil {\nreturn nil\n}\nreturn x.%s\n}\n\n", p.typ, p.field, p.elem, p.field)
 			continue
 		}
 		g.write("// Get%[2]s returns the value of %[2]s, or the zero value if x or %[2]s is nil.\n", p.typ, p.field)
-		g.write("func (x *%s) Get%s() %s {\nif x == nil || x.%s == nil {\nvar zero %s\nreturn zero\n}\nreturn *x.%s\n}\n\n", p.typ, p.field, p.elem, p.field, p.elem, p.field)
+		g.write("func (x *%s) Get%s() %s {\nif x != nil && x.%s != nil {\nreturn *x.%s\n}\nvar zero %s\nreturn zero\n}\n\n", p.typ, p.field, p.elem, p.field, p.field, p.elem)
 	}
 }
 
-// isStruct reports whether a Go type expression names a struct, directly or
-// through aliases.
-func (g *generator) isStruct(expr string) bool {
-	for range len(g.aliasTargets) + 1 {
-		if g.structs[expr] {
-			return true
+// isStruct reports whether a field of schema type t is emitted as a struct,
+// following references through aliases.
+func (g *generator) isStruct(t *tsdef.Type) bool {
+	for {
+		t, _ = nullable(t)
+		if t.Kind != "ref" {
+			break
 		}
-		target, ok := g.aliasTargets[expr]
-		if !ok {
+		if t = g.defs[t.Name]; t == nil {
 			return false
 		}
-		expr = target
 	}
-	return false
+	f, _, err := g.form(t)
+	return err == nil && f == formStruct
 }

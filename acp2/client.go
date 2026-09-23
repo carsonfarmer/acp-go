@@ -39,11 +39,7 @@ func (c *ClientSideConnection) sessionUpdate(ctx context.Context, n *UpdateSessi
 	if t := c.turns.Deliver(n.SessionID, n.Update); t != nil {
 		if state, ok := n.Update.As[schema.SessionUpdateStateUpdate](); ok {
 			if idle, ok := state.Value.As[schema.StateUpdateIdle](); ok {
-				var reason StopReason
-				if idle.StopReason != nil {
-					reason = *idle.StopReason
-				}
-				c.turns.End(n.SessionID, t, reason, nil)
+				c.turns.End(n.SessionID, t, idle.GetStopReason(), nil)
 			}
 		}
 	}
@@ -74,7 +70,7 @@ func (UnimplementedClient) RequestPermission(context.Context, *RequestPermission
 // initialize sends initialize, filling in a zero protocol version. The
 // generated [ClientSideConnection.Initialize] goes through it.
 func (c *ClientSideConnection) initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error) {
-	request := InitializeRequest{}
+	var request InitializeRequest
 	if params != nil {
 		request = *params
 	}

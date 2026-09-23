@@ -45,7 +45,7 @@ func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 
 	// The manager supplies session/load, session/list and session/delete.
 	caps := acp1.CapabilitiesOf(bareAgent{manager})
-	if caps.LoadSession == nil || !*caps.LoadSession {
+	if !caps.GetLoadSession() {
 		t.Errorf("loadSession = %v, want true", caps.LoadSession)
 	}
 	if caps.SessionCapabilities == nil || caps.SessionCapabilities.List == nil || caps.SessionCapabilities.Delete == nil {
@@ -61,7 +61,7 @@ func TestCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	if caps := acp1.CapabilitiesOf(forkingAgent{bareAgent{manager}}); caps.SessionCapabilities.Fork == nil {
 		t.Error("fork not advertised for an agent implementing SessionForker")
 	}
-	if caps := acp1.CapabilitiesOf(mcpAgent{bareAgent{manager}}); caps.MCPCapabilities == nil || caps.MCPCapabilities.ACP == nil || !*caps.MCPCapabilities.ACP {
+	if !acp1.CapabilitiesOf(mcpAgent{bareAgent{manager}}).GetMCPCapabilities().GetACP() {
 		t.Error("mcpCapabilities.acp not advertised for an agent implementing MCPMessageHandler")
 	}
 }
@@ -78,7 +78,7 @@ func (readOnlyClient) ReadTextFile(context.Context, *acp1.ReadTextFileRequest) (
 
 func TestClientCapabilitiesOfFollowsImplementedInterfaces(t *testing.T) {
 	caps := acp1.ClientCapabilitiesOf(readOnlyClient{})
-	if caps.FS == nil || caps.FS.ReadTextFile == nil || !*caps.FS.ReadTextFile {
+	if !caps.GetFS().GetReadTextFile() {
 		t.Errorf("fs.readTextFile = %+v, want true", caps.FS)
 	}
 	if caps.FS.WriteTextFile == nil || *caps.FS.WriteTextFile {

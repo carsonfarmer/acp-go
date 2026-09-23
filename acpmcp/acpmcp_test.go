@@ -148,12 +148,8 @@ func (v1Agent) Prompt(context.Context, *acp1.PromptRequest) (*acp1.PromptRespons
 func (v1Agent) Cancel(context.Context, *acp1.CancelNotification) error { return nil }
 
 type v1Client struct {
+	acp1.UnimplementedClient
 	*acpmcp.HostV1
-}
-
-func (v1Client) SessionUpdate(context.Context, *acp1.SessionNotification) error { return nil }
-func (v1Client) RequestPermission(context.Context, *acp1.RequestPermissionRequest) (*acp1.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
 }
 
 func TestMCPOverACPv1(t *testing.T) {
@@ -162,11 +158,11 @@ func TestMCPOverACPv1(t *testing.T) {
 	acp1.Pipe(t.Context(),
 		func(c *acp1.AgentSideConnection) acp1.Agent { agent = &v1Agent{acpmcp.NewDialerV1(c)}; return agent },
 		func(c *acp1.ClientSideConnection) acp1.Client {
-			client = &v1Client{acpmcp.NewHostV1(c)}
+			client = &v1Client{HostV1: acpmcp.NewHostV1(c)}
 			return client
 		})
 
-	if caps := acp1.CapabilitiesOf(agent); caps.MCPCapabilities == nil || caps.MCPCapabilities.ACP == nil || !*caps.MCPCapabilities.ACP {
+	if !acp1.CapabilitiesOf(agent).GetMCPCapabilities().GetACP() {
 		t.Error("an agent embedding DialerV1 does not advertise mcpCapabilities.acp")
 	}
 	exercise(t, func(ctx context.Context, server *mcp.Server, mcpClient *mcp.Client, opts *mcp.ClientSessionOptions) (*mcp.ClientSession, error) {
@@ -199,12 +195,8 @@ func (v2Agent) Prompt(context.Context, *acp2.PromptRequest) (*acp2.PromptRespons
 func (v2Agent) CancelSession(context.Context, *acp2.CancelSessionNotification) error { return nil }
 
 type v2Client struct {
+	acp2.UnimplementedClient
 	*acpmcp.HostV2
-}
-
-func (v2Client) SessionUpdate(context.Context, *acp2.UpdateSessionNotification) error { return nil }
-func (v2Client) RequestPermission(context.Context, *acp2.RequestPermissionRequest) (*acp2.RequestPermissionResponse, error) {
-	return nil, acp.ErrMethodNotFound("session/request_permission")
 }
 
 func TestMCPOverACPv2(t *testing.T) {
@@ -213,7 +205,7 @@ func TestMCPOverACPv2(t *testing.T) {
 	acp2.Pipe(t.Context(),
 		func(c *acp2.AgentSideConnection) acp2.Agent { agent = &v2Agent{acpmcp.NewDialerV2(c)}; return agent },
 		func(c *acp2.ClientSideConnection) acp2.Client {
-			client = &v2Client{acpmcp.NewHostV2(c)}
+			client = &v2Client{HostV2: acpmcp.NewHostV2(c)}
 			return client
 		})
 

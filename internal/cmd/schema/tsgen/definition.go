@@ -132,7 +132,6 @@ func (g *generator) definition(d tsdef.Definition) error {
 // it shares a reflect.Type with expr.
 func (g *generator) alias(name, expr string) {
 	g.aliases[name] = true
-	g.aliasTargets[name] = expr
 	g.write("type %s = %s\n", name, expr)
 }
 
