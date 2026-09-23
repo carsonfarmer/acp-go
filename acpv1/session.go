@@ -9,10 +9,6 @@ import (
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
 
-// ErrTurnInProgress is returned by [ClientSession.Prompt] while the session's
-// previous turn is still running.
-var ErrTurnInProgress = acpconn.ErrTurnInProgress
-
 // ClientSession drives prompt turns on one session from the client side:
 //
 //	session, err := agent.StartSession(ctx, &acpv1.NewSessionRequest{Cwd: cwd})
@@ -47,7 +43,8 @@ func (c *ClientSideConnection) Session(id SessionID) *ClientSession {
 }
 
 // Prompt starts a turn and returns at once; the turn ends when the agent
-// answers the prompt. Cancelling ctx abandons the request; use
+// answers the prompt. A v1 session runs one turn at a time, so Prompt fails
+// with [acp.ErrTurnInProgress] until the previous turn has ended. Cancelling ctx abandons the request; use
 // [ClientSession.Cancel] to stop the turn the way the protocol intends.
 func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, error) {
 	t, err := s.conn.turns.Begin(s.ID)

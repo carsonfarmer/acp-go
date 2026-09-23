@@ -46,7 +46,10 @@ func (a *exampleAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) 
 	}
 
 	// The embedded manager's Cancel cancels this context.
-	ctx, done := a.BeginTurn(ctx, params.SessionID)
+	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
+	if err != nil {
+		return nil, err // a second prompt while this session's turn runs
+	}
 	defer done()
 
 	if err := a.runTurn(ctx, params.SessionID); err != nil {

@@ -49,7 +49,7 @@ func TestTurnCollectsItsUpdates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := session.Prompt(ctx, acpv1.TextBlock("again")); !errors.Is(err, acpv1.ErrTurnInProgress) {
+	if _, err := session.Prompt(ctx, acpv1.TextBlock("again")); !errors.Is(err, acp.ErrTurnInProgress) {
 		t.Fatalf("second prompt during a turn: %v", err)
 	}
 	close(agent.release)
@@ -93,7 +93,10 @@ func (cancellableAgent) Initialize(context.Context, *acpv1.InitializeRequest) (*
 }
 
 func (a cancellableAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
-	ctx, done := a.BeginTurn(ctx, params.SessionID)
+	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
+	if err != nil {
+		return nil, err
+	}
 	defer done()
 	close(a.started)
 	<-ctx.Done()
@@ -129,5 +132,40 @@ func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
 	response, err := turn.Wait()
 	if err != nil || response.StopReason != schema.StopReasonCancelled {
 		t.Fatalf("got %+v %v", response, err)
+	}
+}
+
+// A v1 client that ignores the one-turn rule gets an invalid-request error
+// from an agent using BeginTurn, and the running turn is left alone.
+func TestOverlappingPromptIsRejectedByTheAgent(t *testing.T) {
+	agent := cancellableAgent{
+		SessionManager: acpv1.NewSessionManager(acpv1.NewMemoryStore[struct{}](),
+			func(context.Context, *acpv1.NewSessionRequest) (acpv1.SessionID, struct{}, error) {
+				return acpv1.GenerateSessionID(), struct{}{}, nil
+			}),
+		started: make(chan struct{}),
+	}
+	_, conn := acpv1.Pipe(t.Context(), func(*acpv1.AgentSideConnection) acpv1.Agent { return agent },
+		func(*acpv1.ClientSideConnection) acpv1.Client { return newTestClient() })
+
+	session, err := conn.StartSession(t.Context(), &acpv1.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, err := session.Prompt(t.Context(), acpv1.TextBlock("work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-agent.started
+	// Bypass ClientSession, which would refuse locally.
+	_, err = conn.Prompt(t.Context(), &acpv1.PromptRequest{SessionID: session.ID, Prompt: []acpv1.ContentBlock{acpv1.TextBlock("again")}})
+	if !acp.IsCode(err, acp.ErrorCodeInvalidRequest) {
+		t.Fatalf("overlapping prompt: %v", err)
+	}
+	if err := session.Cancel(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if response, err := turn.Wait(); err != nil || response.StopReason != schema.StopReasonCancelled {
+		t.Fatalf("first turn: %+v %v", response, err)
 	}
 }

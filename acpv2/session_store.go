@@ -41,7 +41,7 @@ type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) 
 // Embedding it satisfies [Agent]'s NewSession and CancelSession plus
 // [SessionLister] and [SessionDeleter]; override any of them by declaring the
 // method on the agent itself. CancelSession stops the context of the turn
-// started with [SessionManager.BeginTurn]. There is no session/load in v2. The agent still advertises the
+// started with [SessionManager.JoinTurn]. There is no session/load in v2. The agent still advertises the
 // matching capabilities from Initialize — the manager does not do that for it.
 type SessionManager[T any] struct {
 	store   SessionStore[T]
@@ -60,22 +60,26 @@ func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
 // Session returns the state for a session id.
 func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
 
-// BeginTurn starts a turn of foreground work on a session and returns its
-// context and a done func to call once the agent reports idle. A v2 turn
-// outlives the prompt request, so the context keeps ctx's values but not its
-// cancellation; [SessionManager.CancelSession] cancels it with
+// JoinTurn returns the session's foreground work in progress, or starts it.
+// In v2 a prompt may contribute to work that is already running, so a prompt
+// that arrives mid-turn joins it: joined is true, done is a no-op, and the
+// agent folds the new message into the running work. The starter runs the
+// work and calls done once it reports idle.
+//
+// The turn outlives the prompt request, so its context keeps ctx's values but
+// not its cancellation; [SessionManager.CancelSession] cancels it with
 // [acp.ErrTurnCancelled]:
 //
 //	func (a *myAgent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
-//		turn, done := a.BeginTurn(ctx, params.SessionID)
-//		go func() {
-//			defer done()
-//			// ... stream updates with turn, then report idle ...
-//		}()
+//		turn, done, joined := a.JoinTurn(ctx, params.SessionID)
+//		id := a.insert(params) // the user message, now part of the conversation
+//		if !joined {
+//			go a.run(turn, params.SessionID, done) // report running … idle, then done()
+//		}
 //		return &acpv2.PromptResponse{MessageID: id}, nil
 //	}
-func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func()) {
-	return m.turns.Begin(context.WithoutCancel(ctx), id)
+func (m *SessionManager[T]) JoinTurn(ctx context.Context, id SessionID) (turn context.Context, done func(), joined bool) {
+	return m.turns.Join(context.WithoutCancel(ctx), id)
 }
 
 // CancelSession cancels the session's turn in progress, if any.

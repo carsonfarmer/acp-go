@@ -18,7 +18,7 @@ import (
 type ClientSideConnection struct {
 	conn   *jsonrpc.Connection
 	client Client
-	turns  acpconn.Turns[SessionID, SessionUpdate, *TurnResult]
+	turns  acpconn.Turns[SessionID, SessionUpdate, *StopReason]
 	idle   sync.Map // SessionID -> chan *StopReason, while a turn runs
 }
 

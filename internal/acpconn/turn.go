@@ -1,14 +1,16 @@
 package acpconn
 
 import (
-	"errors"
 	"iter"
 	"sync"
+
+	"github.com/ironpark/go-acp/internal/jsonrpc"
 )
 
 // ErrTurnInProgress reports a prompt on a session whose previous turn has not
-// ended yet.
-var ErrTurnInProgress = errors.New("acp: session already has a turn in progress")
+// ended yet. It is an invalid-request error, so an agent can return it to the
+// client as is.
+var ErrTurnInProgress = jsonrpc.InvalidRequest(nil, "session already has a prompt turn in progress")
 
 // Turn buffers the session updates of one prompt turn for a single reader and
 // holds the turn's result once it ends. The buffer is unbounded so that the
@@ -113,6 +115,22 @@ func (r *Turns[ID, U, R]) Begin(id ID) (*Turn[U, R], error) {
 	t := NewTurn[U, R]()
 	r.active[id] = t
 	return t, nil
+}
+
+// Join returns the session's turn in progress, or registers a new one;
+// created reports which.
+func (r *Turns[ID, U, R]) Join(id ID) (t *Turn[U, R], created bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if t := r.active[id]; t != nil {
+		return t, false
+	}
+	if r.active == nil {
+		r.active = map[ID]*Turn[U, R]{}
+	}
+	t = NewTurn[U, R]()
+	r.active[id] = t
+	return t, true
 }
 
 // Deliver pushes an update to the session's turn in progress and returns that

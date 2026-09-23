@@ -47,20 +47,20 @@ func TestTurnEndsOnIdle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		turn, err := session.Prompt(t.Context(), acpv2.TextBlock("hi"))
-		if err != nil {
-			t.Fatal(err)
+		turn, messageID, err := session.Prompt(t.Context(), acpv2.TextBlock("hi"))
+		if err != nil || messageID != "user_1" {
+			t.Fatalf("idleFirst=%v: prompt %q %v", idleFirst, messageID, err)
 		}
 		text, err := turn.Text()
 		if err != nil || text != "Hello, world" {
 			t.Fatalf("idleFirst=%v: got %q %v", idleFirst, text, err)
 		}
-		result, _ := turn.Wait()
-		if result.MessageID != "user_1" || result.StopReason == nil || *result.StopReason != schema.StopReasonEndTurn {
-			t.Fatalf("idleFirst=%v: got %+v", idleFirst, result)
+		reason, _ := turn.Wait()
+		if reason == nil || *reason != schema.StopReasonEndTurn {
+			t.Fatalf("idleFirst=%v: got %v", idleFirst, reason)
 		}
-		// The session accepts the next prompt once the turn has ended.
-		if next, err := session.Prompt(t.Context(), acpv2.TextBlock("again")); err != nil {
+		// The next prompt starts a new turn once this one has ended.
+		if next, _, err := session.Prompt(t.Context(), acpv2.TextBlock("again")); err != nil {
 			t.Fatal(err)
 		} else if _, err := next.Wait(); err != nil {
 			t.Fatal(err)
@@ -68,12 +68,14 @@ func TestTurnEndsOnIdle(t *testing.T) {
 	}
 }
 
-// cancellableAgent runs each turn in the background, as v2 allows, and relies
-// on the embedded manager's CancelSession to stop it.
+// cancellableAgent runs each turn in the background, as v2 allows, folds
+// prompts that arrive mid-turn into it, and relies on the embedded manager's
+// CancelSession to stop it.
 type cancellableAgent struct {
 	*acpv2.SessionManager[struct{}]
 	client  acpv2.Client
 	started chan struct{}
+	joined  chan acpv2.MessageID
 }
 
 func (cancellableAgent) Initialize(context.Context, *acpv2.InitializeRequest) (*acpv2.InitializeResponse, error) {
@@ -81,7 +83,11 @@ func (cancellableAgent) Initialize(context.Context, *acpv2.InitializeRequest) (*
 }
 
 func (a *cancellableAgent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
-	turn, done := a.BeginTurn(ctx, params.SessionID)
+	turn, done, joined := a.JoinTurn(ctx, params.SessionID)
+	if joined {
+		a.joined <- "user_2"
+		return &acpv2.PromptResponse{MessageID: "user_2"}, nil
+	}
 	stream := acpv2.NewSessionStream(a.client, params.SessionID)
 	go func() {
 		defer done()
@@ -97,13 +103,14 @@ func (a *cancellableAgent) Prompt(ctx context.Context, params *acpv2.PromptReque
 	return &acpv2.PromptResponse{MessageID: "user_1"}, nil
 }
 
-func TestSessionManagerCancelSessionStopsTheTurn(t *testing.T) {
+func TestPromptsJoinAndCancelTheRunningTurn(t *testing.T) {
 	agent := &cancellableAgent{
 		SessionManager: acpv2.NewSessionManager(acpv2.NewMemoryStore[struct{}](),
 			func(context.Context, *acpv2.NewSessionRequest) (acpv2.SessionID, struct{}, error) {
 				return acpv2.GenerateSessionID(), struct{}{}, nil
 			}),
 		started: make(chan struct{}),
+		joined:  make(chan acpv2.MessageID, 1),
 	}
 	_, conn := acpv2.Pipe(t.Context(), func(c *acpv2.AgentSideConnection) acpv2.Agent {
 		agent.client = c
@@ -114,16 +121,26 @@ func TestSessionManagerCancelSessionStopsTheTurn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	turn, err := session.Prompt(t.Context(), acpv2.TextBlock("work"))
+	turn, _, err := session.Prompt(t.Context(), acpv2.TextBlock("work"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	<-agent.started
+
+	// A prompt sent while the work runs contributes to it: the agent joins it
+	// and the client gets the same turn.
+	joinedTurn, messageID, err := session.Prompt(t.Context(), acpv2.TextBlock("also this"))
+	if err != nil || messageID != "user_2" || <-agent.joined != "user_2" {
+		t.Fatalf("joining prompt: %q %v", messageID, err)
+	}
+
 	if err := session.Cancel(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	result, err := turn.Wait()
-	if err != nil || result.StopReason == nil || *result.StopReason != schema.StopReasonCancelled {
-		t.Fatalf("got %+v %v", result, err)
+	for _, tr := range []*acpv2.Turn{turn, joinedTurn} {
+		reason, err := tr.Wait()
+		if err != nil || reason == nil || *reason != schema.StopReasonCancelled {
+			t.Fatalf("got %v %v", reason, err)
+		}
 	}
 }

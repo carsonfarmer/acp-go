@@ -243,7 +243,10 @@ type MyAgent struct {
 }
 
 func (a *MyAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
-    ctx, done := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
+    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
+    if err != nil {
+        return nil, err // acp.ErrTurnInProgress: v1 runs one turn per session
+    }
     defer done()
     if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
         return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
@@ -365,6 +368,12 @@ through `ExtMethodHandler`. `$/cancel_request` is handled by the connection itse
 v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MCP — so
 `TerminalHandle` exists only in the v1 package. In v2 the prompt response only accepts the message;
 a `Turn` ends when the agent reports the idle state.
+
+Overlapping prompts follow each version's rules on both sides. A v1 session runs one turn at a
+time: `ClientSession.Prompt` and `SessionManager.BeginTurn` both refuse a second prompt with
+`acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to running work: `Prompt`
+returns `(*Turn, MessageID, error)` once the message is accepted and joins the running turn, and
+`SessionManager.JoinTurn` hands the agent the running turn's context.
 
 ## Contributing
 

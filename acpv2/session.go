@@ -10,18 +10,14 @@ import (
 	schema "github.com/ironpark/go-acp/schema/v2"
 )
 
-// ErrTurnInProgress is returned by [ClientSession.Prompt] while the session's
-// previous turn is still running.
-var ErrTurnInProgress = acpconn.ErrTurnInProgress
-
 // ClientSession drives prompt turns on one session from the client side:
 //
 //	session, err := agent.StartSession(ctx, &acpv2.NewSessionRequest{Cwd: cwd})
-//	turn, err := session.Prompt(ctx, acpv2.TextBlock("Summarize README.md"))
+//	turn, messageID, err := session.Prompt(ctx, acpv2.TextBlock("Summarize README.md"))
 //	for update := range turn.Updates() {
 //		// render tool calls, plans, messages...
 //	}
-//	result, err := turn.Wait()
+//	stopReason, err := turn.Wait()
 //
 // The client's [Client.SessionUpdate] still receives every update; a turn
 // sees a copy of those that arrive while it runs.
@@ -47,49 +43,45 @@ func (c *ClientSideConnection) Session(id SessionID) *ClientSession {
 	return &ClientSession{ID: id, conn: c}
 }
 
-// TurnResult is how a turn ended.
-type TurnResult struct {
-	// MessageID identifies the user message the prompt inserted.
-	MessageID MessageID
-	// StopReason is the reason from the agent's idle state update, or nil if
-	// it gave none.
-	StopReason *StopReason
-}
-
 var errConnectionClosed = errors.New("acpv2: connection closed before the turn ended")
 
-// Prompt starts a turn and returns at once. In v2 the prompt request only
-// inserts the message; the turn ends when the agent reports the idle state.
-// Cancelling ctx abandons the turn on this side; use [ClientSession.Cancel] to
-// stop it the way the protocol intends.
-func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, error) {
-	t, err := s.conn.turns.Begin(s.ID)
-	if err != nil {
-		return nil, err
+// Prompt sends a user message and returns once the agent has accepted it,
+// that is inserted it into the conversation, with the message's id. A
+// rejected prompt returns the agent's error.
+//
+// The returned [Turn] is the session's foreground work, which ends when the
+// agent reports idle. v2 lets a prompt contribute to work already running, so
+// a prompt sent mid-turn joins it and returns the same turn.
+func (s *ClientSession) Prompt(ctx context.Context, content ...ContentBlock) (*Turn, MessageID, error) {
+	t, created := s.conn.turns.Join(s.ID)
+	if created {
+		idle := make(chan *StopReason, 1)
+		s.conn.idle.Store(s.ID, idle)
+		go s.watch(t, idle)
 	}
-	idle := make(chan *StopReason, 1)
-	s.conn.idle.Store(s.ID, idle)
-	go func() {
-		end := func(result *TurnResult, err error) {
-			s.conn.idle.CompareAndDelete(s.ID, idle)
-			s.conn.turns.End(s.ID, t, result, err)
+	response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content})
+	if err != nil {
+		if created {
+			// This prompt was to start the work; nothing will report idle.
+			s.conn.turns.End(s.ID, t, nil, err)
 		}
-		response, err := s.conn.Prompt(ctx, &PromptRequest{SessionID: s.ID, Prompt: content})
-		if err != nil {
-			end(nil, err)
-			return
-		}
-		// The idle update may arrive before or after the response.
-		select {
-		case reason := <-idle:
-			end(&TurnResult{MessageID: response.MessageID, StopReason: reason}, nil)
-		case <-ctx.Done():
-			end(nil, ctx.Err())
-		case <-s.conn.Done():
-			end(nil, errConnectionClosed)
-		}
-	}()
-	return &Turn{t: t}, nil
+		return nil, "", err
+	}
+	return &Turn{t: t}, response.MessageID, nil
+}
+
+// watch ends t when the agent reports idle or the connection closes. The idle
+// update may arrive before or after the prompt response.
+func (s *ClientSession) watch(t *acpconn.Turn[SessionUpdate, *StopReason], idle chan *StopReason) {
+	defer s.conn.idle.CompareAndDelete(s.ID, idle)
+	select {
+	case reason := <-idle:
+		s.conn.turns.End(s.ID, t, reason, nil)
+	case <-s.conn.Done():
+		s.conn.turns.End(s.ID, t, nil, errConnectionClosed)
+	case <-t.Done():
+		// Ended by a rejected prompt.
+	}
 }
 
 // Cancel asks the agent to stop the session's foreground work; the turn then
@@ -98,9 +90,10 @@ func (s *ClientSession) Cancel(ctx context.Context) error {
 	return s.conn.CancelSession(ctx, &CancelSessionNotification{SessionID: s.ID})
 }
 
-// Turn is one prompt turn started by [ClientSession.Prompt].
+// Turn is a session's foreground work, from the prompt that started it until
+// the agent reports idle. Prompts that join it share it.
 type Turn struct {
-	t *acpconn.Turn[SessionUpdate, *TurnResult]
+	t *acpconn.Turn[SessionUpdate, *StopReason]
 }
 
 // Updates yields the turn's session updates in order and stops when the turn
@@ -108,8 +101,9 @@ type Turn struct {
 // should range over it.
 func (t *Turn) Updates() iter.Seq[SessionUpdate] { return t.t.Updates() }
 
-// Wait blocks until the turn ends and reports how it ended.
-func (t *Turn) Wait() (*TurnResult, error) { return t.t.Wait() }
+// Wait blocks until the turn ends and returns the stop reason from the
+// agent's idle update, or nil if it gave none.
+func (t *Turn) Wait() (*StopReason, error) { return t.t.Wait() }
 
 // Done is closed once the turn ends.
 func (t *Turn) Done() <-chan struct{} { return t.t.Done() }

@@ -62,17 +62,22 @@ func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get
 
 // BeginTurn starts a prompt turn on a session. Run the turn's work with the
 // returned context, which [SessionManager.Cancel] cancels with
-// [acp.ErrTurnCancelled], and call done when Prompt returns:
+// [acp.ErrTurnCancelled], and call done when Prompt returns. A v1 session runs
+// one turn at a time, so a prompt that overlaps a running turn gets
+// [acp.ErrTurnInProgress], an invalid-request error to return as is:
 //
 //	func (a *myAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
-//		ctx, done := a.BeginTurn(ctx, params.SessionID)
+//		ctx, done, err := a.BeginTurn(ctx, params.SessionID)
+//		if err != nil {
+//			return nil, err
+//		}
 //		defer done()
 //		// ... stream updates with ctx ...
 //		if context.Cause(ctx) == acp.ErrTurnCancelled {
 //			return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
 //		}
 //	}
-func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func()) {
+func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func(), error) {
 	return m.turns.Begin(ctx, id)
 }
 
