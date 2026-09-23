@@ -9,25 +9,6 @@ import (
 	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
-func nullable(t *tsdef.Type) (*tsdef.Type, bool) {
-	if t.Kind != tsdef.KindUnion {
-		return t, t.Kind == tsdef.KindNull
-	}
-	var members []*tsdef.Type
-	null := false
-	for _, m := range t.Members {
-		if m.Kind == tsdef.KindNull {
-			null = true
-		} else {
-			members = append(members, m)
-		}
-	}
-	if len(members) == 1 {
-		return members[0], null
-	}
-	return &tsdef.Type{Kind: tsdef.KindUnion, Members: members}, null
-}
-
 func literals(t *tsdef.Type) (string, bool) {
 	if t.Kind == tsdef.KindLiteral {
 		if strings.HasPrefix(t.Literal, "\"") || strings.HasPrefix(t.Literal, "'") {
@@ -131,7 +112,7 @@ func (g *generator) canonical(m *tsdef.Type, expr string) string {
 // declaration.
 func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (string, bool, error) {
 	static := seen != nil
-	t, isNull := nullable(t)
+	t, isNull := t.NonNull()
 	var out string
 	switch t.Kind {
 	case tsdef.KindRef:
@@ -206,7 +187,7 @@ func (g *generator) render(t *tsdef.Type, hint string, seen map[string]bool) (st
 func (g *generator) isUnion(t *tsdef.Type) bool {
 	seen := map[string]bool{}
 	for {
-		t, _ = nullable(t)
+		t, _ = t.NonNull()
 		if t.Kind != tsdef.KindRef || seen[t.Name] {
 			break
 		}

@@ -142,32 +142,36 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 }
 
-// start runs serve for a new connection in a goroutine, with a context that
-// has r's values and ends with the server or when stop is called, reporting
-// false instead once the server is closed or shutting down. register adds
-// the connection to the server's records while that is checked.
-func (s *Server) start(r *http.Request, t acp.Transport, register func(), done func()) (stop context.CancelFunc, ok bool) {
+// admit registers a new connection unless the server is closed or shutting
+// down. Its context has r's values and ends with the server or when the
+// cancel passed to register is called; release must be called once the
+// connection's serve has returned.
+func (s *Server) admit(r *http.Request, register func(cancel context.CancelFunc)) (ctx context.Context, release func(), ok bool) {
+	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
 	s.mu.Lock()
 	if s.draining || s.ctx.Err() != nil {
 		s.mu.Unlock()
-		return nil, false
+		cancel()
+		return nil, nil, false
 	}
-	register()
+	register(cancel)
 	s.running.Add(1)
 	s.mu.Unlock()
 
-	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
 	unlink := context.AfterFunc(s.ctx, cancel)
-	go func() {
-		defer s.running.Done()
-		defer done()
-		defer unlink()
-		defer cancel()
-		if err := s.serve(ctx, t); err != nil && ctx.Err() == nil && s.onError != nil {
-			s.onError(err)
-		}
-	}()
-	return cancel, true
+	return ctx, func() {
+		unlink()
+		cancel()
+		s.running.Done()
+	}, true
+}
+
+// run serves an admitted connection, reporting an error that its context
+// ending did not cause.
+func (s *Server) run(ctx context.Context, t acp.Transport) {
+	if err := s.serve(ctx, t); err != nil && ctx.Err() == nil && s.onError != nil {
+		s.onError(err)
+	}
 }
 
 // Close ends every connection. It does not stop the http.Server using it.
@@ -286,16 +290,18 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) initialize(w http.ResponseWriter, r *http.Request, msg jsontext.Value, e envelope) {
 	c := newHTTPServerConn(rand.Text(), e.idKey())
-	cancel, ok := s.start(r, c, func() { s.conns[c.id] = c }, func() { s.remove(c.id) })
+	ctx, release, ok := s.admit(r, func(cancel context.CancelFunc) {
+		c.stop = cancel // a DELETE or Close ends serve
+		s.conns[c.id] = c
+	})
 	if !ok {
 		http.Error(w, "server closed", http.StatusServiceUnavailable)
 		return
 	}
-	// The connection ends with its transport: a DELETE or Close stops serve.
-	// serve's end removes and so closes the connection, so this returns.
 	go func() {
-		<-c.done
-		cancel()
+		defer release()
+		s.run(ctx, c)
+		s.remove(c.id)
 	}()
 
 	fail := func(status int, text string) {
@@ -422,6 +428,7 @@ type httpServerConn struct {
 	incoming     chan jsontext.Value
 	done         chan struct{}
 	closeOnce    sync.Once
+	stop         context.CancelFunc // ends serve; set when the server admits it
 
 	mu            sync.Mutex
 	idle          *time.Timer // ends the connection once it fires
@@ -618,6 +625,9 @@ func (c *httpServerConn) loading(session string) bool {
 func (c *httpServerConn) Close() error {
 	c.closeOnce.Do(func() {
 		close(c.done)
+		if c.stop != nil {
+			c.stop()
+		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.idle != nil {

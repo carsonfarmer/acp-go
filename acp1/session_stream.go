@@ -128,11 +128,7 @@ func (s *SessionStream) SendThought(ctx context.Context, text string, opts ...Se
 // SendUserMessage echoes user message text, which agents use when replaying a
 // loaded session's history.
 func (s *SessionStream) SendUserMessage(ctx context.Context, text string, opts ...SendOption) error {
-	o := applySendOptions(opts)
-	return s.Send(ctx, schema.SessionUpdateUserMessageChunk{
-		Content:   TextBlock(text),
-		MessageID: o.messageID,
-	})
+	return s.SendUserContent(ctx, TextBlock(text), opts...)
 }
 
 // SendUserContent replays an arbitrary content block of the user's message,
@@ -286,11 +282,7 @@ func (s *SessionStream) NewTerminal(ctx context.Context, params CreateTerminalRe
 		return nil, errors.New("acp1: the stream's client cannot run terminals")
 	}
 	params.SessionID = s.sessionID
-	response, err := terminals.CreateTerminal(ctx, &params)
-	if err != nil {
-		return nil, err
-	}
-	return NewTerminalHandle(response.TerminalID, s.sessionID, terminals), nil
+	return newTerminal(ctx, terminals, &params)
 }
 
 // Send sends any session update variant, including those without a helper:

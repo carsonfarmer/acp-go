@@ -56,7 +56,7 @@ func (g *generator) form(t *tsdef.Type) (form, *tsdef.Type, error) {
 		}
 		return formStruct, t, nil
 	case tsdef.KindUnion:
-		if nonnull, isNull := nullable(t); isNull && nonnull.Kind != tsdef.KindUnion {
+		if nonnull, isNull := t.NonNull(); isNull && nonnull.Kind != tsdef.KindUnion {
 			return formAlias, t, nil
 		}
 		return formUnion, t, nil

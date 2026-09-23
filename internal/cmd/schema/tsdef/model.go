@@ -78,3 +78,24 @@ type Constant struct {
 	Value   string
 	Members []Constant
 }
+
+// NonNull returns t without its null member, and whether it had one; a lone
+// null reports itself.
+func (t *Type) NonNull() (*Type, bool) {
+	if t.Kind != KindUnion {
+		return t, t.Kind == KindNull
+	}
+	var members []*Type
+	null := false
+	for _, m := range t.Members {
+		if m.Kind == KindNull {
+			null = true
+		} else {
+			members = append(members, m)
+		}
+	}
+	if len(members) == 1 {
+		return members[0], null
+	}
+	return &Type{Kind: KindUnion, Members: members}, null
+}

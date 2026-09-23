@@ -144,16 +144,13 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		return // Accept has answered the request
 	}
 	t := newWebSocketTransport(conn, s.pingInterval)
-	ended := make(chan struct{})
-	_, ok := s.start(r, t, func() { s.sockets[id] = t }, func() {
-		s.untrack(id)
-		t.Close()
-		close(ended)
-	})
+	ctx, release, ok := s.admit(r, func(context.CancelFunc) { s.sockets[id] = t })
 	if !ok {
 		conn.Close(websocket.StatusGoingAway, "server closed")
 		return
 	}
-	// The handler holds the upgraded connection until serve is done with it.
-	<-ended
+	defer release()
+	defer t.Close()
+	defer s.untrack(id)
+	s.run(ctx, t)
 }

@@ -13,8 +13,7 @@ import (
 // on it directly.
 type RemoteAgent struct {
 	*ClientSideConnection
-	wait  func() error
-	close func() error
+	wait func() error
 }
 
 // ConnectAgent connects to an agent over transport and starts the read loop:
@@ -28,12 +27,7 @@ type RemoteAgent struct {
 // Cancelling ctx stops the connection too.
 func ConnectAgent(ctx context.Context, transport acp.Transport, newClient func(*ClientSideConnection) Client, opts ...acp.Option) *RemoteAgent {
 	conn := NewClientSideConnection(newClient, transport, opts...)
-	wait := acpconn.Run(ctx, conn, transport)
-	return &RemoteAgent{ClientSideConnection: conn, wait: wait, close: func() error {
-		err := conn.Close()
-		_ = wait()
-		return err
-	}}
+	return &RemoteAgent{ClientSideConnection: conn, wait: acpconn.Run(ctx, conn, transport)}
 }
 
 // Close stops the connection and returns once it has stopped, whichever way
@@ -41,10 +35,14 @@ func ConnectAgent(ctx context.Context, transport acp.Transport, newClient func(*
 // waits for the process to exit, killing it after [ExitGrace]; for
 // [ConnectAgent] it closes the transport, which for Streamable HTTP deletes
 // the connection on the server. [RemoteAgent.Wait] reports how it ended.
-func (a *RemoteAgent) Close() error { return a.close() }
+func (a *RemoteAgent) Close() error {
+	err := a.ClientSideConnection.Close()
+	_ = a.wait()
+	return err
+}
 
-// ExitGrace is how long [RemoteAgent.Close] gives a spawned agent to exit on
-// its own before killing it.
+// ExitGrace is how long a spawned agent has to exit on its own, once its
+// connection stops, before it is killed.
 const ExitGrace = acpconn.ExitGrace
 
 // Wait blocks until the connection has stopped: for [SpawnAgent] until the

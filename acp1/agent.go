@@ -49,9 +49,13 @@ func (c *AgentSideConnection) Client() Client { return c }
 // NewTerminal is CreateTerminal plus a [TerminalHandle] bound to the new
 // terminal, which is usually what an agent wants.
 func (c *AgentSideConnection) NewTerminal(ctx context.Context, params *CreateTerminalRequest) (*TerminalHandle, error) {
-	response, err := c.CreateTerminal(ctx, params)
+	return newTerminal(ctx, c, params)
+}
+
+func newTerminal(ctx context.Context, terminals TerminalHandler, params *CreateTerminalRequest) (*TerminalHandle, error) {
+	response, err := terminals.CreateTerminal(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	return NewTerminalHandle(response.TerminalID, params.SessionID, c), nil
+	return NewTerminalHandle(response.TerminalID, params.SessionID, terminals), nil
 }

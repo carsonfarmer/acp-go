@@ -130,7 +130,7 @@ func (g *generator) emitGetters() {
 // following references through aliases.
 func (g *generator) isStruct(t *tsdef.Type) bool {
 	for {
-		t, _ = nullable(t)
+		t, _ = t.NonNull()
 		if t.Kind != tsdef.KindRef {
 			break
 		}

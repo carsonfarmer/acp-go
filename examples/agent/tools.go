@@ -112,7 +112,7 @@ func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStrea
 	diff := acp1.ToolDiff(path, &oldText, newText)
 
 	if sess.currentMode() == askMode {
-		allowed, err := a.askPermission(ctx, stream.SessionID(), id, path, diff)
+		allowed, err := askPermission(ctx, stream, id, path, diff)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (a *exampleAgent) editConfig(ctx context.Context, stream *acp1.SessionStrea
 }
 
 // askPermission shows the user the proposed diff and asks whether to apply it.
-func (a *exampleAgent) askPermission(ctx context.Context, sessionID acp1.SessionID, id acp1.ToolCallID, path string, diff acp1.ToolCallContent) (bool, error) {
+func askPermission(ctx context.Context, stream *acp1.SessionStream, id acp1.ToolCallID, path string, diff acp1.ToolCallContent) (bool, error) {
 	// Anything but an allowing choice, including a cancelled request, skips
 	// the change.
 	toolCall := acp1.ToolCallUpdate{
@@ -141,7 +141,7 @@ func (a *exampleAgent) askPermission(ctx context.Context, sessionID acp1.Session
 		Locations:  []acp1.ToolCallLocation{{Path: path}},
 		Content:    []acp1.ToolCallContent{diff},
 	}
-	_, allowed, err := acp1.NewSessionStream(a.client, sessionID).RequestPermission(ctx, toolCall,
+	_, allowed, err := stream.RequestPermission(ctx, toolCall,
 		acp1.NewPermissionOption(acp1.PermissionOptionKindAllowOnce, "Allow this change"),
 		acp1.NewPermissionOption(acp1.PermissionOptionKindRejectOnce, "Skip this change"))
 	return allowed, err

@@ -1,6 +1,9 @@
 package facade
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -208,18 +211,8 @@ func TestHandWrittenDocsNameSchemaTypes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var schemaSrc strings.Builder
-		for _, path := range generated {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			schemaSrc.Write(data)
-		}
-		facadeSrc, err := os.ReadFile(root + s.Dir + "/types.gen.go")
-		if err != nil {
-			t.Fatal(err)
-		}
+		declared := topLevelNames(t, generated...)
+		reexported := topLevelNames(t, root+s.Dir+"/types.gen.go")
 		files, err := filepath.Glob(root + s.Dir + "/*.go")
 		if err != nil {
 			t.Fatal(err)
@@ -237,17 +230,48 @@ func TestHandWrittenDocsNameSchemaTypes(t *testing.T) {
 					continue
 				}
 				for _, m := range ref.FindAllStringSubmatch(line, -1) {
-					name := m[1]
-					declared := regexp.MustCompile(`(?m)^(type|func|var) ` + name + `\b|^\s+` + name + `\b`)
-					reexported := regexp.MustCompile(`(?m)^\s*` + name + `\s*=|^func ` + name + `[\[(]`)
-					switch {
-					case reexported.Match(facadeSrc):
+					switch name := m[1]; {
+					case reexported[name]:
 						t.Errorf("%s:%d: %s is re-exported; drop the schema qualifier", path, i+1, name)
-					case !declared.MatchString(schemaSrc.String()):
+					case !declared[name]:
 						t.Errorf("%s:%d: schema.%s does not exist in %s", path, i+1, name, version)
 					}
 				}
 			}
 		}
 	}
+}
+
+// topLevelNames returns the package-level names the Go files declare:
+// types, constants, variables and functions other than methods.
+func topLevelNames(t *testing.T, paths ...string) map[string]bool {
+	t.Helper()
+	names := map[string]bool{}
+	fset := token.NewFileSet()
+	for _, path := range paths {
+		file, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range file.Decls {
+			switch decl := decl.(type) {
+			case *ast.FuncDecl:
+				if decl.Recv == nil {
+					names[decl.Name.Name] = true
+				}
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						names[spec.Name.Name] = true
+					case *ast.ValueSpec:
+						for _, n := range spec.Names {
+							names[n.Name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return names
 }

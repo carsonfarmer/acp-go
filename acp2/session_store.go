@@ -164,13 +164,14 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 // Work that reports its own state, such as requiring action, uses
 // [SessionManager.JoinTurn].
 func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream *SessionStream, work func(ctx context.Context, session T) StopReason) (joined bool, err error) {
-	session, err := m.Lookup(ctx, id)
-	if err != nil {
-		return false, err
-	}
 	turn, done, joined := m.JoinTurn(ctx, id)
 	if joined {
-		return true, nil
+		return true, nil // a running turn means the session exists
+	}
+	session, err := m.Lookup(ctx, id)
+	if err != nil {
+		done()
+		return false, err
 	}
 	report := context.WithoutCancel(turn)
 	if err := stream.Running(report); err != nil {

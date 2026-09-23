@@ -25,17 +25,18 @@ type Conn interface {
 // connection stops once the process exits. On Unix the process gets its own
 // process group, so a terminal's Ctrl-C reaches only the client.
 //
-// The returned wait blocks until both have stopped. It reports ctx's error if
+// Once the connection stops, the process gets ExitGrace to exit before it is
+// killed. The returned wait blocks until both have stopped. It reports ctx's error if
 // ctx ended the process, otherwise the process's exit error, otherwise the
 // read loop's error.
-func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) Conn) (wait, stop func() error, err error) {
+func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) Conn) (wait func() error, err error) {
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("agent stdin pipe: %w", err)
+		return nil, fmt.Errorf("agent stdin pipe: %w", err)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("agent stdout pipe: %w", err)
+		return nil, fmt.Errorf("agent stdout pipe: %w", err)
 	}
 	if cmd.Stderr == nil {
 		// An agent reports startup failures on stderr; dropping it would
@@ -44,16 +45,26 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) C
 	}
 	detach(cmd)
 	if err := cmd.Start(); err != nil {
-		return nil, nil, fmt.Errorf("start agent process: %w", err)
+		return nil, fmt.Errorf("start agent process: %w", err)
 	}
 
 	conn := connect(jsonrpc.NewStdioTransport(stdout, stdin))
 	stopKill := context.AfterFunc(ctx, func() { _ = cmd.Process.Kill() })
 	// Closing the agent's stdin is how a stdio agent learns the client is
-	// gone; it exits, and the read loop then sees EOF on its stdout.
+	// gone; it exits, and the read loop then sees EOF on its stdout. One that
+	// does not is killed.
+	exited := make(chan struct{})
+	grace := exitGrace
 	go func() {
 		<-conn.Done()
 		_ = stdin.Close()
+		timer := time.NewTimer(grace)
+		defer timer.Stop()
+		select {
+		case <-exited:
+		case <-timer.C:
+			_ = cmd.Process.Kill()
+		}
 	}()
 
 	// Every way out ends the read loop first: the agent exiting or being
@@ -64,6 +75,7 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) C
 	go func() {
 		loopErr := conn.Start(ctx)
 		processErr := cmd.Wait()
+		close(exited)
 		stopKill()
 		switch {
 		case ctx.Err() != nil:
@@ -76,31 +88,11 @@ func Spawn(ctx context.Context, cmd *exec.Cmd, connect func(jsonrpc.Transport) C
 			done <- loopErr
 		}
 	}()
-	wait = sync.OnceValue(func() error { return <-done })
-	// stop closes the connection, which closes the agent's stdin, and waits
-	// for the process to exit, killing it if it has not within ExitGrace.
-	stop = func() error {
-		err := conn.Close()
-		exited := make(chan struct{})
-		go func() {
-			_ = wait()
-			close(exited)
-		}()
-		timer := time.NewTimer(exitGrace)
-		defer timer.Stop()
-		select {
-		case <-exited:
-		case <-timer.C:
-			_ = cmd.Process.Kill()
-			<-exited
-		}
-		return err
-	}
-	return wait, stop, nil
+	return sync.OnceValue(func() error { return <-done }), nil
 }
 
-// ExitGrace is how long closing a spawned agent waits for the process to exit
-// on its own, after its stdin closes, before killing it.
+// ExitGrace is how long a spawned agent has to exit on its own, after its
+// connection stops and its stdin closes, before it is killed.
 const ExitGrace = 5 * time.Second
 
 // exitGrace is ExitGrace, shortened by tests.

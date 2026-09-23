@@ -12,16 +12,24 @@ import (
 	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
+// spawnForTest spawns cmd and returns a stop that closes the connection and
+// waits, as RemoteAgent.Close does.
 func spawnForTest(t *testing.T, cmd *exec.Cmd) (wait, stop func() error) {
 	t.Helper()
-	wait, stop, err := Spawn(t.Context(), cmd, func(tr jsonrpc.Transport) Conn {
-		return jsonrpc.New(func(context.Context, string, jsontext.Value) (any, error) { return nil, nil },
+	var conn Conn
+	wait, err := Spawn(t.Context(), cmd, func(tr jsonrpc.Transport) Conn {
+		conn = jsonrpc.New(func(context.Context, string, jsontext.Value) (any, error) { return nil, nil },
 			func(context.Context, string, jsontext.Value) error { return nil }, tr)
+		return conn
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return wait, stop
+	return wait, func() error {
+		err := conn.Close()
+		_ = wait()
+		return err
+	}
 }
 
 // TestStopWaitsForTheProcess: an agent that exits when its stdin closes has

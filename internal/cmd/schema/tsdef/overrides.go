@@ -73,21 +73,8 @@ func (o *Overrides) Apply(schema *Schema) (map[string]bool, error) {
 // numberMember returns t when it is a number, or its number member when it
 // is number | null.
 func numberMember(t *Type) *Type {
-	if t.Kind == KindNumber {
+	if t, _ := t.NonNull(); t.Kind == KindNumber {
 		return t
 	}
-	if t.Kind != KindUnion {
-		return nil
-	}
-	var number *Type
-	for _, m := range t.Members {
-		switch m.Kind {
-		case KindNumber:
-			number = m
-		case KindNull:
-		default:
-			return nil
-		}
-	}
-	return number
+	return nil
 }
