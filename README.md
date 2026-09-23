@@ -26,7 +26,7 @@ serves both versions on one endpoint.
 ## Installation
 
 ```bash
-go get github.com/ironpark/go-acp
+go get github.com/ironpark/acp-go
 ```
 
 ## Example Code

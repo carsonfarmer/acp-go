@@ -5,8 +5,8 @@ import (
 	"slices"
 	"sync"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp2"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp2"
 )
 
 // v2Agent follows the v2 prompt lifecycle: the prompt response only accepts

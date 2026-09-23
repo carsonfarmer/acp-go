@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/facade"
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsgen"
+	"github.com/ironpark/acp-go/internal/cmd/schema/facade"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsgen"
 )
 
 func main() {

@@ -9,17 +9,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 // ZodRuntime is the import path of the shared rule evaluator.
-const ZodRuntime = "github.com/ironpark/go-acp/schema/zod"
+const ZodRuntime = "github.com/ironpark/acp-go/schema/zod"
 
 // UnionRuntime is the import path of the shared raw-union alternative matcher.
-const UnionRuntime = "github.com/ironpark/go-acp/schema/union"
+const UnionRuntime = "github.com/ironpark/acp-go/schema/union"
 
 // MetaRuntime is the import path of the shared _meta map type.
-const MetaRuntime = "github.com/ironpark/go-acp/schema/meta"
+const MetaRuntime = "github.com/ironpark/acp-go/schema/meta"
 
 // zodKinds maps parsed builder names to zod.Kind constant names. Unknown
 // builders fail generation instead of producing an unsupported rule.

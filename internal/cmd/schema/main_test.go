@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 func TestPinnedSDKGeneration(t *testing.T) {

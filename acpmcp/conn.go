@@ -10,7 +10,7 @@ import (
 	"io"
 	"sync"
 
-	acp "github.com/ironpark/go-acp"
+	acp "github.com/ironpark/acp-go"
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -16,7 +16,7 @@ the client serves an `*mcp.Server`, the agent talks to it through an `*mcp.Clien
 It is a separate module so that the SDK does not depend on the MCP SDK.
 
 ```sh
-go get github.com/ironpark/go-acp/acpmcp
+go get github.com/ironpark/acp-go/acpmcp
 ```
 
 ## Client: provide a server

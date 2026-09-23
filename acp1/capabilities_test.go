@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // bareAgent implements only the required methods.

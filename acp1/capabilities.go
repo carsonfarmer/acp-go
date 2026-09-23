@@ -1,6 +1,6 @@
 package acp1
 
-import schema "github.com/ironpark/go-acp/schema/v1"
+import schema "github.com/ironpark/acp-go/schema/v1"
 
 // CapabilitiesOf derives the agent capabilities implied by the optional
 // interfaces agent implements, so an Initialize response cannot advertise a

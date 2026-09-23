@@ -35,8 +35,8 @@ Inputs and outputs:
 
 | Upstream | Snapshot | Go import |
 | --- | --- | --- |
-| `src/schema/*.ts` | `typescript/v1` | `github.com/ironpark/go-acp/schema/v1` |
-| `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/go-acp/schema/v2` |
+| `src/schema/*.ts` | `typescript/v1` | `github.com/ironpark/acp-go/schema/v1` |
+| `src/v2/schema/*.ts` | `typescript/v2` | `github.com/ironpark/acp-go/schema/v2` |
 
 Both Go packages are named `schema`; use aliases such as `acp1` and `acp2` when importing both.
 `acp1` implements ACP v1 on top of `schema/v1`, `acp2` implements the draft v2 on top of

@@ -3,8 +3,8 @@ package acp2_test
 import (
 	"testing"
 
-	"github.com/ironpark/go-acp/acp2"
-	schema "github.com/ironpark/go-acp/schema/v2"
+	"github.com/ironpark/acp-go/acp2"
+	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 func TestJoinTexts(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ironpark/go-acp/schema/zod"
+	"github.com/ironpark/acp-go/schema/zod"
 )
 
 // Rule describes when a JSON payload is one alternative of a raw union.

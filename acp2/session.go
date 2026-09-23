@@ -6,8 +6,8 @@ import (
 	"iter"
 	"strings"
 
-	"github.com/ironpark/go-acp/internal/acpconn"
-	schema "github.com/ironpark/go-acp/schema/v2"
+	"github.com/ironpark/acp-go/internal/acpconn"
+	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 // ClientSession drives prompt turns on one session from the client side:

@@ -16,9 +16,9 @@ import (
 	"strings"
 	"sync"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acpmcp"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acpmcp"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

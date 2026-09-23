@@ -1,9 +1,9 @@
-module github.com/ironpark/go-acp/acpmcp
+module github.com/ironpark/acp-go/acpmcp
 
 go 1.27.0
 
 require (
-	github.com/ironpark/go-acp v0.0.0-00010101000000-000000000000
+	github.com/ironpark/acp-go v0.0.0-00010101000000-000000000000
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 )
 
@@ -21,4 +21,4 @@ require (
 
 // The SDK and this module are developed together; a released acpmcp requires
 // a released SDK version instead.
-replace github.com/ironpark/go-acp => ../
+replace github.com/ironpark/acp-go => ../

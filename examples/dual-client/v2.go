@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/ironpark/go-acp/acp2"
+	"github.com/ironpark/acp-go/acp2"
 )
 
 // v2Client prints the history a session/resume replays; each Turn collects

@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 type echoAgent struct {

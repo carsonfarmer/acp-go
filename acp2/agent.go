@@ -3,9 +3,9 @@ package acp2
 import (
 	"io"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/internal/acpconn"
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // AgentSideConnection is the agent's view of an ACP v2 connection. It serves

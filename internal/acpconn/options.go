@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // Option configures a connection of either protocol version.

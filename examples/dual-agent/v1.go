@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // v1Agent answers each prompt within the session/prompt request.

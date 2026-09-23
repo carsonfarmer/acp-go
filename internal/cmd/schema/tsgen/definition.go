@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 func (g *generator) add(name string, t *tsdef.Type) string {

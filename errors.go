@@ -3,7 +3,7 @@ package acp
 import (
 	"errors"
 
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // RequestError is a JSON-RPC error carried as a Go error.

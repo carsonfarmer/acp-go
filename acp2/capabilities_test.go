@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ironpark/go-acp/acp2"
+	"github.com/ironpark/acp-go/acp2"
 )
 
 type bareAgent struct {

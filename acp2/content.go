@@ -4,7 +4,7 @@ import (
 	"iter"
 	"strings"
 
-	schema "github.com/ironpark/go-acp/schema/v2"
+	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 // TextBlock wraps text as a content block, the usual shape of a prompt or a

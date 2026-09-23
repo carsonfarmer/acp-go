@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // replayAgent replays a loaded session's history before answering the load,

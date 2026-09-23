@@ -4,7 +4,7 @@ package facade
 var V1 = &Spec{
 	Package:    "acp1",
 	Dir:        "acp1",
-	SchemaPath: "github.com/ironpark/go-acp/schema/v1",
+	SchemaPath: "github.com/ironpark/acp-go/schema/v1",
 	ExtraTypes: []string{
 		"SessionID", "SessionInfo", "SessionModeID", "SessionConfigOption", "SessionUpdate",
 		"MessageID", "TerminalID", "ToolCallID", "ToolCallContent", "ToolCallLocation",

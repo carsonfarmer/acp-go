@@ -4,7 +4,7 @@ import (
 	"iter"
 	"sync"
 
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // ErrTurnInProgress reports a prompt on a session whose previous turn has not

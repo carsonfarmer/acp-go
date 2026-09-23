@@ -270,8 +270,8 @@ func (c *openRouter) do(ctx context.Context, method, path string, body []byte) (
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	// Optional headers that attribute the requests to this app on OpenRouter.
-	req.Header.Set("HTTP-Referer", "https://github.com/ironpark/go-acp")
-	req.Header.Set("X-Title", "go-acp open-agent")
+	req.Header.Set("HTTP-Referer", "https://github.com/ironpark/acp-go")
+	req.Header.Set("X-Title", "acp-go open-agent")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

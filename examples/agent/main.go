@@ -15,8 +15,8 @@ import (
 	"os"
 	"sync"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // session holds the state the agent keeps per ACP session.

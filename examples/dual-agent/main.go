@@ -13,9 +13,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acp2"
-	"github.com/ironpark/go-acp/router"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/router"
 )
 
 var info = struct{ name, version string }{"dual-agent", "0.1.0"}

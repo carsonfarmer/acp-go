@@ -26,7 +26,7 @@ SDK는 Go 1.27+ 를 요구하며 `encoding/json/v2` 기반으로 만들어졌습
 ## 설치
 
 ```bash
-go get github.com/ironpark/go-acp
+go get github.com/ironpark/acp-go
 ```
 
 ## 기능

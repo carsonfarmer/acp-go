@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // render prints one update with a type switch over the SessionUpdate union.

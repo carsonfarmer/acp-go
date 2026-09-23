@@ -64,7 +64,7 @@ Zed에서는 `env`로 키를 넘깁니다:
   "agent_servers": {
     "Open Agent": {
       "command": "go",
-      "args": ["run", "-C", "/path/to/go-acp/examples/open-agent", "."],
+      "args": ["run", "-C", "/path/to/acp-go/examples/open-agent", "."],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -141,7 +141,7 @@ $ git clone https://github.com/ironpark/acp-go.git
       "args": [
         "run",
         "-C",
-        "/path/to/go-acp/examples/agent",
+        "/path/to/acp-go/examples/agent",
         "."
       ],
       "env": {}
@@ -149,7 +149,7 @@ $ git clone https://github.com/ironpark/acp-go.git
 ```
 
 > [!NOTE]
->  `/path/to/go-acp/examples/agent`는 클론한 저장소의 경로로 바꾸세요.
+>  `/path/to/acp-go/examples/agent`는 클론한 저장소의 경로로 바꾸세요.
 
 
 3. 명령 팔레트(macOS는 <kbd>⌘⇧P</kbd>, Windows/Linux는 <kbd>ctrl-shift-p</kbd>)에서 `dev: open acp logs` 액션을 실행하면 예제 에이전트와 Zed가 주고받는 메시지를 볼 수 있습니다.

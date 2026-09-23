@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json/jsontext"
 
-	"github.com/ironpark/go-acp/internal/acpconn"
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // ExtCaller sends requests outside the spec. The agent- and client-side

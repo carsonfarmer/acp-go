@@ -24,8 +24,8 @@ import (
 	"net/http/cookiejar"
 	"sync/atomic"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // echoClient prints the history a session/load replays; the turns read

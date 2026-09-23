@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json/jsontext"
 
-	"github.com/ironpark/go-acp/acp2"
+	"github.com/ironpark/acp-go/acp2"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

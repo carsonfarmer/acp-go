@@ -5,7 +5,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // emptyParams stands in for an omitted params member so that requests whose

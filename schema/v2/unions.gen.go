@@ -7,7 +7,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 
-	"github.com/ironpark/go-acp/schema/union"
+	"github.com/ironpark/acp-go/schema/union"
 )
 
 // RequestPermissionSubject is the operation requiring permission.

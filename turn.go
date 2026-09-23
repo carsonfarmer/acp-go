@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/ironpark/go-acp/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // ErrTurnCancelled is the cause of a turn context cancelled through

@@ -6,7 +6,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // A terminal's Ctrl-C signals the foreground process group; the agent must

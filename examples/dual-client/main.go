@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acp2"
-	"github.com/ironpark/go-acp/router"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/router"
 )
 
 func main() {

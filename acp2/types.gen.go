@@ -2,7 +2,7 @@
 
 package acp2
 
-import schema "github.com/ironpark/go-acp/schema/v2"
+import schema "github.com/ironpark/acp-go/schema/v2"
 
 // ProtocolVersion is the ACP protocol version implemented by this package.
 const ProtocolVersion = schema.CurrentProtocolVersion

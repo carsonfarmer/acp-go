@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp2"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp2"
 )
 
 func TestSessionManagerLookup(t *testing.T) {

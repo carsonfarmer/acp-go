@@ -3,7 +3,7 @@ package acp2_test
 import (
 	"testing"
 
-	"github.com/ironpark/go-acp/acp2"
+	"github.com/ironpark/acp-go/acp2"
 )
 
 func TestSessionStreamWithMeta(t *testing.T) {

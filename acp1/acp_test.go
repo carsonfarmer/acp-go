@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
 // testAgent implements the required Agent methods plus the optional terminal

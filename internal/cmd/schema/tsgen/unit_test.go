@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 // parseGenerator builds a generator over source without emitting anything.
@@ -108,7 +108,7 @@ func f() { s := strings.ToUpper("x"); _ = s }
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "encoding/json/jsontext encoding/json/v2 github.com/ironpark/go-acp/schema/union"
+	want := "encoding/json/jsontext encoding/json/v2 github.com/ironpark/acp-go/schema/union"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("got %v, want %s", got, want)
 	}

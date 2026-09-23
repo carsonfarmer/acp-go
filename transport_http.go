@@ -8,7 +8,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // Streamable HTTP carries ACP over one endpoint, following the draft RFD

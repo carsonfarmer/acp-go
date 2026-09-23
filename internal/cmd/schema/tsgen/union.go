@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 // Doc lines of the JSON v2 methods generated types implement.

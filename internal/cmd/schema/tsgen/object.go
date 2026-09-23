@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 // structType emits a struct declaration, omitting the JSON member named skip

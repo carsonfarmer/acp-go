@@ -6,7 +6,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	"github.com/ironpark/go-acp/schema/meta"
+	"github.com/ironpark/acp-go/schema/meta"
 )
 
 // WriteTextFileRequest is a request to write content to a text file.

@@ -3,7 +3,7 @@ package acp1
 import (
 	"context"
 
-	schema "github.com/ironpark/go-acp/schema/v1"
+	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
 // SendOption sets optional fields on an outgoing session update.

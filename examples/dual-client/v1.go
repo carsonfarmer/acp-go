@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // v1Client only receives updates, and each Turn collects its own, so

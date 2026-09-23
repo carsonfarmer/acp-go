@@ -3,8 +3,8 @@ package acp1
 import (
 	"context"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/internal/acpconn"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // RemoteAgent is a connection to an agent outside this process: a child

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsgen"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsgen"
 )
 
 const fixture = `

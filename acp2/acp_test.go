@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp2"
-	schema "github.com/ironpark/go-acp/schema/v2"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp2"
+	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 type testSession struct{ cwd acp2.AbsolutePath }

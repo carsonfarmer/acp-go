@@ -8,8 +8,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // terminals runs the commands an agent asks for, implementing the

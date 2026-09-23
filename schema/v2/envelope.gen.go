@@ -5,7 +5,7 @@ package schema
 import (
 	"encoding/json/jsontext"
 
-	"github.com/ironpark/go-acp/schema/union"
+	"github.com/ironpark/acp-go/schema/union"
 )
 
 // AgentRequest is a JSON-RPC request object.

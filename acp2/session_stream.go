@@ -3,7 +3,7 @@ package acp2
 import (
 	"context"
 
-	schema "github.com/ironpark/go-acp/schema/v2"
+	schema "github.com/ironpark/acp-go/schema/v2"
 )
 
 // SessionStream sends session/update notifications for one session.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	acp "github.com/ironpark/go-acp"
+	acp "github.com/ironpark/acp-go"
 )
 
 // SessionStore is [acp.SessionStore] keyed by v2 session ids.

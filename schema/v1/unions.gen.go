@@ -7,7 +7,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 
-	"github.com/ironpark/go-acp/schema/union"
+	"github.com/ironpark/acp-go/schema/union"
 )
 
 // ToolCallContent is a tagged union discriminated by the "type" member. The zero value

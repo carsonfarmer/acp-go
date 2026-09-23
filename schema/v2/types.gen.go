@@ -6,7 +6,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
-	"github.com/ironpark/go-acp/schema/meta"
+	"github.com/ironpark/acp-go/schema/meta"
 )
 
 // RequestPermissionRequest is a request for user permission to proceed with an operation.

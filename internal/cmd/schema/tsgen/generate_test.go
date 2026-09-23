@@ -11,7 +11,7 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
 )
 
 func TestGeneratedWireTypes(t *testing.T) {
@@ -152,7 +152,7 @@ func writeFixture(t *testing.T, dir string, files Files, tests []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gomod := "module fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/go-acp v0.0.0\n\nreplace github.com/ironpark/go-acp => " + repo + "\n"
+	gomod := "module fixture\n\ngo 1.27.0\n\nrequire github.com/ironpark/acp-go v0.0.0\n\nreplace github.com/ironpark/acp-go => " + repo + "\n"
 	all := map[string][]byte{"go.mod": []byte(gomod), "schema_test.go": tests}
 	maps.Copy(all, files)
 	for name, data := range all {

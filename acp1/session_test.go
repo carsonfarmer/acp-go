@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
 // streamingAgent sends several chunks per turn and blocks the turn until

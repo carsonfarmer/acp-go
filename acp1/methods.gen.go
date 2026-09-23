@@ -12,10 +12,10 @@ import (
 	"context"
 	"encoding/json/jsontext"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/internal/acpconn"
-	"github.com/ironpark/go-acp/internal/jsonrpc"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
+	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
 // Agent is the set of methods every ACP agent must handle.

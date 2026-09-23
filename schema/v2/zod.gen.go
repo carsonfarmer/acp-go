@@ -7,7 +7,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 
-	"github.com/ironpark/go-acp/schema/zod"
+	"github.com/ironpark/acp-go/schema/zod"
 
 	"reflect"
 	"regexp"

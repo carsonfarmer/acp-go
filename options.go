@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/ironpark/go-acp/internal/acpconn"
-	"github.com/ironpark/go-acp/internal/jsonrpc"
+	"github.com/ironpark/acp-go/internal/acpconn"
+	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
 
 // Transport is a bidirectional message transport. Implement it to carry ACP

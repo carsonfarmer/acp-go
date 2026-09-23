@@ -1,4 +1,4 @@
-module github.com/ironpark/go-acp/internal/cmd/schema
+module github.com/ironpark/acp-go/internal/cmd/schema
 
 go 1.27.0
 

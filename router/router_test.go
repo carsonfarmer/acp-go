@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acp2"
-	"github.com/ironpark/go-acp/router"
-	schemav2 "github.com/ironpark/go-acp/schema/v2"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/router"
+	schemav2 "github.com/ironpark/acp-go/schema/v2"
 )
 
 // v1Agent records the initialize request the router hands it.

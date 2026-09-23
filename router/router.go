@@ -24,11 +24,11 @@ import (
 	"math"
 	"sync"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acp2"
-	schemav1 "github.com/ironpark/go-acp/schema/v1"
-	schemav2 "github.com/ironpark/go-acp/schema/v2"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp2"
+	schemav1 "github.com/ironpark/acp-go/schema/v1"
+	schemav2 "github.com/ironpark/acp-go/schema/v2"
 )
 
 const (

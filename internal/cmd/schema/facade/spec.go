@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsdef"
-	"github.com/ironpark/go-acp/internal/cmd/schema/tsgen"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsdef"
+	"github.com/ironpark/acp-go/internal/cmd/schema/tsgen"
 )
 
 // Spec describes one protocol version's façade package.
@@ -291,7 +291,7 @@ func doc(s string) string {
 func (g *emitter) methodsFile(sides []side) {
 	g.header()
 	g.write("// The hand-written half of each façade provides AgentSideConnection and\n// ClientSideConnection with a conn *jsonrpc.Connection field and an agent or\n// client field holding the served interface; the lifecycle and extension\n// methods every connection shares, and everything routed by method name, are\n// generated here.\n\n")
-	g.write("import (\n\t\"context\"\n\t\"encoding/json/jsontext\"\n\n\tacp \"github.com/ironpark/go-acp\"\n\t\"github.com/ironpark/go-acp/internal/acpconn\"\n\t\"github.com/ironpark/go-acp/internal/jsonrpc\"\n\tschema %q\n)\n\n", g.spec.SchemaPath)
+	g.write("import (\n\t\"context\"\n\t\"encoding/json/jsontext\"\n\n\tacp \"github.com/ironpark/acp-go\"\n\t\"github.com/ironpark/acp-go/internal/acpconn\"\n\t\"github.com/ironpark/acp-go/internal/jsonrpc\"\n\tschema %q\n)\n\n", g.spec.SchemaPath)
 	for _, s := range sides {
 		g.interfaces(s)
 	}

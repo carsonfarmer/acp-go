@@ -14,7 +14,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // shoutAgent answers each prompt in capitals.

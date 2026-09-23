@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os/exec"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/acp1"
-	"github.com/ironpark/go-acp/acp2"
-	"github.com/ironpark/go-acp/internal/acpconn"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/acp1"
+	"github.com/ironpark/acp-go/acp2"
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // ClientConnector spawns or connects to an agent with the highest protocol

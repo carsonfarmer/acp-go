@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	acp "github.com/ironpark/go-acp"
+	acp "github.com/ironpark/acp-go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

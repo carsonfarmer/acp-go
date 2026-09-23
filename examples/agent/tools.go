@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // runTurn plans the turn, then works through it: a command in the client's

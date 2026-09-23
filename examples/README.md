@@ -64,7 +64,7 @@ In Zed, give it the key through `env`:
   "agent_servers": {
     "Open Agent": {
       "command": "go",
-      "args": ["run", "-C", "/path/to/go-acp/examples/open-agent", "."],
+      "args": ["run", "-C", "/path/to/acp-go/examples/open-agent", "."],
       "env": { "OPENROUTER_API_KEY": "sk-or-..." }
     }
   }
@@ -141,7 +141,7 @@ $ git clone https://github.com/ironpark/acp-go.git
       "args": [
         "run",
         "-C",
-        "/path/to/go-acp/examples/agent",
+        "/path/to/acp-go/examples/agent",
         "."
       ],
       "env": {}
@@ -149,7 +149,7 @@ $ git clone https://github.com/ironpark/acp-go.git
 ```
 
 > [!NOTE]
->  Make sure to replace `/path/to/go-acp/examples/agent` with the path to your clone of this repository.
+>  Make sure to replace `/path/to/acp-go/examples/agent` with the path to your clone of this repository.
 
 
 3. Run the `dev: open acp logs` action from the command palette (<kbd>⌘⇧P</kbd> on macOS, <kbd>ctrl-shift-p</kbd> on Windows/Linux) to see the messages exchanged between the example agent and Zed.

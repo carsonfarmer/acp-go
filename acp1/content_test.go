@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/ironpark/go-acp/acp1"
-	schema "github.com/ironpark/go-acp/schema/v1"
+	"github.com/ironpark/acp-go/acp1"
+	schema "github.com/ironpark/acp-go/schema/v1"
 )
 
 func TestTexts(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ironpark/go-acp/acp1"
+	"github.com/ironpark/acp-go/acp1"
 )
 
 // maxModelCalls bounds the model calls in one turn, so a model that keeps

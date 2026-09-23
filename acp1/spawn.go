@@ -5,8 +5,8 @@ import (
 	"io"
 	"os/exec"
 
-	acp "github.com/ironpark/go-acp"
-	"github.com/ironpark/go-acp/internal/acpconn"
+	acp "github.com/ironpark/acp-go"
+	"github.com/ironpark/acp-go/internal/acpconn"
 )
 
 // SpawnAgent starts cmd and connects to the agent over its stdio. The
