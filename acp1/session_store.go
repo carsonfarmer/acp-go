@@ -144,6 +144,41 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 	return session, nil
 }
 
+// RunTurn answers a prompt with one turn on the session: it looks the session
+// up, begins its turn, runs run with the turn's context and ends the turn.
+// The response carries the stop reason run returns, or [StopReasonCancelled]
+// once [SessionManager.Cancel] has cancelled the turn, whatever run returned,
+// as the protocol asks. An unknown session, an overlapping prompt
+// ([acp.ErrTurnInProgress]) and any other error from run are returned as is:
+//
+//	func (a *myAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
+//		return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, s *session) (acp1.StopReason, error) {
+//			// ... stream updates with ctx ...
+//			return acp1.StopReasonEndTurn, nil
+//		})
+//	}
+//
+// Use [SessionManager.BeginTurn] for a response with more than a stop reason.
+func (m *SessionManager[T]) RunTurn(ctx context.Context, id SessionID, run func(ctx context.Context, session T) (StopReason, error)) (*PromptResponse, error) {
+	session, err := m.Lookup(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	turn, done, err := m.BeginTurn(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	reason, err := run(turn, session)
+	if context.Cause(turn) == acp.ErrTurnCancelled {
+		return &PromptResponse{StopReason: StopReasonCancelled}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &PromptResponse{StopReason: reason}, nil
+}
+
 // BeginTurn starts a prompt turn on a session. Run the turn's work with the
 // returned context, which [SessionManager.Cancel] cancels with
 // [acp.ErrTurnCancelled], and call done when Prompt returns. A v1 session runs

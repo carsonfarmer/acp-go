@@ -134,18 +134,12 @@ func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsReq
     return a.List(ctx, params) // cwd 필터, 최근에 갱신된 순
 }
 
+// RunTurn은 세션을 찾아 턴 하나를 실행합니다. 매니저의 Cancel이 ctx를 취소하면 턴은 cancelled로
+// 응답되고, 그 사이 들어온 두 번째 프롬프트는 acp.ErrTurnInProgress를 받습니다(v1 세션은 한 번에 한 턴).
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // 매니저의 Cancel이 ctx를 취소
-    if err != nil {
-        return nil, err // acp.ErrTurnInProgress: v1 세션은 한 번에 한 턴
-    }
-    defer done()
-    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-    } else if err != nil {
-        return nil, err
-    }
-    return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
+    return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, s *MySession) (acp1.StopReason, error) {
+        return acp1.StopReasonEndTurn, a.work(ctx, s)
+    })
 }
 ```
 

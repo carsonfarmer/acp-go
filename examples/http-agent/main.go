@@ -52,21 +52,19 @@ func (a *echoAgent) Initialize(_ context.Context, _ *acp1.InitializeRequest) (*a
 }
 
 func (a *echoAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	h, err := a.Lookup(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	stream := acp1.NewSessionStream(a.client, params.SessionID)
-	for text := range acp1.Texts(params.Prompt) {
-		reply := "echo: " + text
-		if err := stream.SendText(ctx, reply); err != nil {
-			return nil, err
+	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, h *history) (acp1.StopReason, error) {
+		stream := acp1.NewSessionStream(a.client, params.SessionID)
+		for text := range acp1.Texts(params.Prompt) {
+			reply := "echo: " + text
+			if err := stream.SendText(ctx, reply); err != nil {
+				return "", err
+			}
+			h.mu.Lock()
+			h.turns = append(h.turns, turn{text, reply})
+			h.mu.Unlock()
 		}
-		h.mu.Lock()
-		h.turns = append(h.turns, turn{text, reply})
-		h.mu.Unlock()
-	}
-	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
+		return acp1.StopReasonEndTurn, nil
+	})
 }
 
 // LoadSession replays the session's history before answering, as the

@@ -88,14 +88,15 @@ v2 has no `fs/*` or `terminal/*` methods — file and shell access go through MC
 a `Turn` ends when the agent reports the idle state.
 
 Overlapping prompts follow each version's rules on both sides. A v1 session runs one turn at a
-time: `ClientSession.Prompt` and `SessionManager.BeginTurn` both refuse a second prompt with
-`acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to running work: `Prompt`
-returns `(*Turn, MessageID, error)` once the message is accepted and joins the running turn, and
-`SessionManager.JoinTurn` hands the agent the running turn's context.
+time: `ClientSession.Prompt` and `SessionManager.RunTurn` (or `BeginTurn`) both refuse a second
+prompt with `acp.ErrTurnInProgress` (`-32600`). In v2 a prompt may contribute to running work:
+`Prompt` returns `(*Turn, MessageID, error)` once the message is accepted and joins the running
+turn, and `SessionManager.StartTurn` (or `JoinTurn`) hands the agent the running turn's context,
+reporting running and idle around its work.
 
 ### Cancellation ordering
 
 A `session/cancel` sent after a prompt always reaches that prompt's turn. `ClientSession.Prompt`
 returns only once the prompt is queued, so a `Cancel` after it follows it on the wire, and a cancel
-that arrives before the agent's handler calls `BeginTurn` or `JoinTurn` still starts that turn
+that arrives before the agent's handler starts its turn still starts that turn
 cancelled with `acp.ErrTurnCancelled`.

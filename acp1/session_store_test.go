@@ -27,6 +27,37 @@ func TestSessionManagerLookup(t *testing.T) {
 	}
 }
 
+func TestSessionManagerRunTurn(t *testing.T) {
+	manager := acp1.NewSessionManager(acp1.NewMemoryStore[string](),
+		func(context.Context, *acp1.NewSessionRequest) (acp1.SessionID, string, error) {
+			return "s1", "state", nil
+		})
+	if _, err := manager.NewSession(t.Context(), &acp1.NewSessionRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	response, err := manager.RunTurn(t.Context(), "s1", func(_ context.Context, s string) (acp1.StopReason, error) {
+		if s != "state" {
+			t.Errorf("run got session %q", s)
+		}
+		return acp1.StopReasonMaxTokens, nil
+	})
+	if err != nil || response.StopReason != acp1.StopReasonMaxTokens {
+		t.Fatalf("RunTurn = %+v, %v", response, err)
+	}
+	failure := errors.New("model unavailable")
+	if _, err := manager.RunTurn(t.Context(), "s1", func(context.Context, string) (acp1.StopReason, error) {
+		return "", failure
+	}); !errors.Is(err, failure) {
+		t.Fatalf("RunTurn error = %v, want the run's", err)
+	}
+	if _, err := manager.RunTurn(t.Context(), "nope", func(context.Context, string) (acp1.StopReason, error) {
+		t.Fatal("ran a turn for an unknown session")
+		return "", nil
+	}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
+		t.Fatalf("RunTurn(nope) = %v, want resource not found", err)
+	}
+}
+
 func TestGeneratedIDs(t *testing.T) {
 	a, b := acp1.GenerateToolCallID(), acp1.GenerateToolCallID()
 	if a == b || !strings.HasPrefix(string(a), "call_") {

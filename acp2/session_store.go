@@ -137,6 +137,56 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 	return session, nil
 }
 
+// StartTurn answers a prompt by starting the session's turn, or by joining
+// the one in progress. A prompt that starts the turn reports running on
+// stream, then runs work in a new goroutine with the turn's context and
+// reports idle with the stop reason work returns, or [StopReasonCancelled]
+// once [SessionManager.CancelSession] has cancelled the turn, before the turn
+// ends. Both reports are sent even after a cancel, so the client's turn always
+// ends. A prompt that arrives while the turn runs joins it: joined is true,
+// work does not run, and the running work picks the new message up from the
+// conversation. An unknown session and a failed running report are returned
+// as errors:
+//
+//	func (a *myAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
+//		stream := acp2.NewSessionStream(a.client, params.SessionID)
+//		id := a.insert(params) // the user message, now part of the conversation
+//		if err := stream.SendUserMessage(ctx, id, params.Prompt...); err != nil {
+//			return nil, err
+//		}
+//		if _, err := a.StartTurn(ctx, params.SessionID, stream, a.work); err != nil {
+//			return nil, err
+//		}
+//		return &acp2.PromptResponse{MessageID: id}, nil
+//	}
+//
+// Work that reports its own state, such as requiring action, uses
+// [SessionManager.JoinTurn].
+func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream *SessionStream, work func(ctx context.Context, session T) StopReason) (joined bool, err error) {
+	session, err := m.Lookup(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	turn, done, joined := m.JoinTurn(ctx, id)
+	if joined {
+		return true, nil
+	}
+	report := context.WithoutCancel(turn)
+	if err := stream.Running(report); err != nil {
+		done()
+		return false, err
+	}
+	go func() {
+		defer done()
+		reason := work(turn, session)
+		if context.Cause(turn) == acp.ErrTurnCancelled {
+			reason = StopReasonCancelled
+		}
+		_ = stream.Idle(report, reason) // the connection is gone if this fails
+	}()
+	return false, nil
+}
+
 // JoinTurn returns the session's foreground work in progress, or starts it.
 // In v2 a prompt may contribute to work that is already running, so a prompt
 // that arrives mid-turn joins it: joined is true, done is a no-op, and the

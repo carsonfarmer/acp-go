@@ -67,27 +67,13 @@ func (a *exampleAgent) Initialize(_ context.Context, params *acp1.InitializeRequ
 	}, nil
 }
 
+// Prompt runs the turn through the embedded manager, whose Cancel cancels the
+// turn's context; a cancelled turn is answered as cancelled.
 func (a *exampleAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	sess, err := a.Lookup(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// The embedded manager's Cancel cancels this context.
-	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
-	if err != nil {
-		return nil, err // a second prompt while this session's turn runs
-	}
-	defer done()
-
-	// JoinTexts skips images, resources and other non-text blocks.
-	if err := a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt)); err != nil {
-		if context.Cause(ctx) == acp.ErrTurnCancelled {
-			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-		}
-		return nil, err
-	}
-	return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
+	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, sess *session) (acp1.StopReason, error) {
+		// JoinTexts skips images, resources and other non-text blocks.
+		return acp1.StopReasonEndTurn, a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt))
+	})
 }
 
 func main() {

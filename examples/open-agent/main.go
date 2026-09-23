@@ -88,31 +88,15 @@ func (a *openAgent) Initialize(_ context.Context, params *acp1.InitializeRequest
 	}, nil
 }
 
+// Prompt runs the turn through the embedded manager, whose Cancel cancels the
+// turn's context, which also aborts the request to the model.
 func (a *openAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	sess, err := a.Lookup(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	// The embedded manager's Cancel cancels this context, which also aborts
-	// the request to the model.
-	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer done()
-
-	stopReason, err := a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt))
-	// The history holds whole exchanges however the turn ended, so it is
-	// always safe to save.
-	a.save(ctx, params.SessionID, sess)
-	if err != nil {
-		if context.Cause(ctx) == acp.ErrTurnCancelled {
-			return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-		}
-		return nil, err
-	}
-	return &acp1.PromptResponse{StopReason: stopReason}, nil
+	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, sess *session) (acp1.StopReason, error) {
+		// The history holds whole exchanges however the turn ended, so it is
+		// always safe to save.
+		defer a.save(ctx, params.SessionID, sess)
+		return a.runTurn(ctx, params.SessionID, sess, acp1.JoinTexts(params.Prompt))
+	})
 }
 
 // LoadSession replays the conversation to the client, which shows it as if

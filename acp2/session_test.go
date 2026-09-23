@@ -81,23 +81,21 @@ func (cancellableAgent) Initialize(context.Context, *acp2.InitializeRequest) (*a
 	return &acp2.InitializeResponse{ProtocolVersion: acp2.ProtocolVersion}, nil
 }
 
+// Prompt starts work that runs until cancelled and reports it ended its
+// turn: StartTurn reports the cancelled stop reason instead.
 func (a *cancellableAgent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
-	turn, done, joined := a.JoinTurn(ctx, params.SessionID)
+	stream := acp2.NewSessionStream(a.client, params.SessionID)
+	joined, err := a.StartTurn(ctx, params.SessionID, stream, func(turn context.Context, _ struct{}) acp2.StopReason {
+		close(a.started)
+		<-turn.Done()
+		return acp2.StopReasonEndTurn
+	})
+	if err != nil {
+		return nil, err
+	}
 	if joined {
 		return &acp2.PromptResponse{MessageID: "user_2"}, nil
 	}
-	stream := acp2.NewSessionStream(a.client, params.SessionID)
-	go func() {
-		defer done()
-		_ = stream.Running(turn)
-		close(a.started)
-		<-turn.Done()
-		reason := schema.StopReasonEndTurn
-		if context.Cause(turn) == acp.ErrTurnCancelled {
-			reason = schema.StopReasonCancelled
-		}
-		_ = stream.Idle(context.Background(), reason)
-	}()
 	return &acp2.PromptResponse{MessageID: "user_1"}, nil
 }
 

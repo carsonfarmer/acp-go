@@ -59,30 +59,24 @@ func (a *v2Agent) Initialize(context.Context, *acp2.InitializeRequest) (*acp2.In
 }
 
 func (a *v2Agent) Prompt(ctx context.Context, params *acp2.PromptRequest) (*acp2.PromptResponse, error) {
-	session, err := a.Lookup(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
 	userMessage, reply := acp2.GenerateMessageID(), acp2.GenerateMessageID()
 	stream := acp2.NewSessionStream(a.client, params.SessionID)
 
 	// The agent must echo the user message it accepted, then report the
-	// work: running, the reply, and idle with a stop reason to end the turn.
-	// These updates may also follow the response, from another goroutine.
+	// work: StartTurn reports running, runs the work after the response and
+	// reports idle with the stop reason the work returns to end the turn.
 	if err := stream.SendUserMessage(ctx, userMessage, params.Prompt...); err != nil {
 		return nil, err
 	}
-	if err := stream.Running(ctx); err != nil {
-		return nil, err
-	}
-	text := "v2 echo: " + acp2.JoinTexts(params.Prompt)
-	if err := stream.SendText(ctx, reply, text); err != nil {
-		return nil, err
-	}
-	session.mu.Lock()
-	session.history = append(session.history, v2Exchange{userMessage, params.Prompt, reply, text})
-	session.mu.Unlock()
-	if err := stream.Idle(ctx, acp2.StopReasonEndTurn); err != nil {
+	_, err := a.StartTurn(ctx, params.SessionID, stream, func(ctx context.Context, session *v2Session) acp2.StopReason {
+		text := "v2 echo: " + acp2.JoinTexts(params.Prompt)
+		_ = stream.SendText(ctx, reply, text) // fails only once the client is gone
+		session.mu.Lock()
+		session.history = append(session.history, v2Exchange{userMessage, params.Prompt, reply, text})
+		session.mu.Unlock()
+		return acp2.StopReasonEndTurn
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &acp2.PromptResponse{MessageID: userMessage}, nil

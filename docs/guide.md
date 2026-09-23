@@ -138,18 +138,13 @@ func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsReq
     return a.List(ctx, params) // cwd filter, most recently updated first
 }
 
+// RunTurn looks the session up and runs one turn: the manager's Cancel cancels
+// ctx and the turn is answered as cancelled; a second prompt meanwhile gets
+// acp.ErrTurnInProgress, since v1 runs one turn per session.
 func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
-    if err != nil {
-        return nil, err // acp.ErrTurnInProgress: v1 runs one turn per session
-    }
-    defer done()
-    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-    } else if err != nil {
-        return nil, err
-    }
-    return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
+    return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, s *MySession) (acp1.StopReason, error) {
+        return acp1.StopReasonEndTurn, a.work(ctx, s)
+    })
 }
 ```
 

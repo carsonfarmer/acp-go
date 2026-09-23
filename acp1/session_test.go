@@ -93,18 +93,14 @@ func (cancellableAgent) Initialize(context.Context, *acp1.InitializeRequest) (*a
 	return &acp1.InitializeResponse{ProtocolVersion: acp1.ProtocolVersion}, nil
 }
 
+// Prompt runs until cancelled and then fails: RunTurn still answers the
+// cancelled turn with the cancelled stop reason.
 func (a cancellableAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-	ctx, done, err := a.BeginTurn(ctx, params.SessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer done()
-	close(a.started)
-	<-ctx.Done()
-	if context.Cause(ctx) == acp.ErrTurnCancelled {
-		return &acp1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
-	}
-	return nil, ctx.Err()
+	return a.RunTurn(ctx, params.SessionID, func(ctx context.Context, _ struct{}) (acp1.StopReason, error) {
+		close(a.started)
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
 }
 
 func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
@@ -128,7 +124,7 @@ func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
 	}
 	<-agent.started
 	// A v1 client that ignores the one-turn rule gets an invalid-request error
-	// from BeginTurn, and the running turn is left alone. Bypass ClientSession,
+	// from RunTurn, and the running turn is left alone. Bypass ClientSession,
 	// which would refuse locally.
 	_, err = conn.Prompt(t.Context(), &acp1.PromptRequest{SessionID: session.ID, Prompt: []acp1.ContentBlock{acp1.TextBlock("again")}})
 	if !acp.IsCode(err, acp.ErrorCodeInvalidRequest) {
