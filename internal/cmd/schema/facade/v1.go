@@ -21,7 +21,7 @@ var V1 = &Spec{
 			Required:  true,
 			Doc: `Agent is the set of methods every ACP agent must handle.
 
-Everything beyond these five methods is optional and gated by a capability
+Everything beyond these four methods is optional and gated by a capability
 the agent advertises from [Agent.Initialize]. Implement the matching optional
 interface and the connection routes the method to it; when it is not
 implemented the peer receives "method not found".
@@ -35,13 +35,6 @@ See protocol docs: [Agent](https://agentclientprotocol.com/protocol/overview#age
 See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)`,
 					CallDoc: `Initialize negotiates the protocol version and exchanges capabilities. It is
 the first call on every connection.`,
-				},
-				{
-					Wire: "authenticate", Name: "Authenticate", Params: "AuthenticateRequest", Response: "AuthenticateResponse",
-					Doc: `Authenticate authenticates the client with one of the advertised methods.
-
-See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)`,
-					CallDoc: `Authenticate authenticates with one of the methods the agent advertised.`,
 				},
 				{
 					Wire: "session/new", Name: "NewSession", Params: "NewSessionRequest", Response: "NewSessionResponse",
@@ -74,6 +67,18 @@ returns with the cancelled stop reason.
 See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)`,
 				},
 			},
+		},
+		{
+			Interface: "Authenticator",
+			Doc: `Authenticator handles authenticate. Implement it when the agent lists
+` + "`authMethods`" + ` in its Initialize response; an agent that needs no
+credentials leaves it out and the method answers "method not found".
+
+See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)`,
+			Methods: []Method{{
+				Wire: "authenticate", Name: "Authenticate", Params: "AuthenticateRequest", Response: "AuthenticateResponse",
+				CallDoc: `Authenticate authenticates with one of the methods the agent advertised.`,
+			}},
 		},
 		{
 			Interface: "SessionLoader",
@@ -221,6 +226,11 @@ See protocol docs: [Client](https://agentclientprotocol.com/protocol/overview#cl
 				{
 					Wire: "session/update", Name: "SessionUpdate", Params: "SessionNotification",
 					Doc: `SessionUpdate is a notification streaming turn progress to the user.
+
+Notifications are handled one at a time on the connection's read loop, which
+keeps updates in order and ahead of the prompt response. The flip side: a
+handler that calls the agent and waits for the answer blocks the loop that
+would read it. Hand such calls to a goroutine.
 
 See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)`,
 					CallDoc: `SessionUpdate streams turn progress to the client.`,

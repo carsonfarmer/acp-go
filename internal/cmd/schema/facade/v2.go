@@ -13,7 +13,8 @@ var V2 = &Spec{
 	ExtraTypes: []string{
 		"SessionID", "SessionInfo", "SessionConfigOption", "SessionUpdate", "MessageID",
 		"ToolCallID", "ContentBlock", "AbsolutePath", "MCPConnectionID", "MCPServerACPID",
-		"StopReason",
+		"StopReason", "ToolCallContent", "ToolCallLocation", "ToolCallStatus", "ToolKind",
+		"AvailableCommand", "Cost",
 	},
 	Agent: []Group{
 		{
@@ -182,7 +183,12 @@ advertise the capability from ` + "`InitializeRequest.Capabilities`" + `.`,
 			Methods: []Method{
 				{
 					Wire: "session/update", Name: "SessionUpdate", Params: "UpdateSessionNotification",
-					Doc:     `SessionUpdate is a notification streaming turn progress to the user.`,
+					Doc: `SessionUpdate is a notification streaming turn progress to the user.
+
+Notifications are handled one at a time on the connection's read loop, which
+keeps updates in order and ahead of the prompt response. The flip side: a
+handler that calls the agent and waits for the answer blocks the loop that
+would read it. Hand such calls to a goroutine.`,
 					CallDoc: `SessionUpdate streams turn progress to the client.`,
 				},
 				{

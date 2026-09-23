@@ -15,9 +15,6 @@ type bareAgent struct {
 func (bareAgent) Initialize(context.Context, *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
 	return nil, nil
 }
-func (bareAgent) Authenticate(context.Context, *acpv1.AuthenticateRequest) (*acpv1.AuthenticateResponse, error) {
-	return nil, nil
-}
 func (bareAgent) Prompt(context.Context, *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
 	return nil, nil
 }

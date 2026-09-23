@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"errors"
 	"testing"
 	"time"
 
@@ -185,7 +184,7 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 		SessionID:  created.SessionID,
 		Cwd:        "/tmp",
 		MCPServers: []schema.MCPServer{},
-	}); !hasCode(err, acp.ErrorCodeResourceNotFound) {
+	}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Errorf("LoadSession after delete: %v, want a resource-not-found error", err)
 	}
 }
@@ -196,8 +195,17 @@ func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 		SessionID: "session_1",
 		ModeID:    "ask",
 	})
-	if !hasCode(err, acp.ErrorCodeMethodNotFound) {
+	if !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("SetSessionMode error = %v, want method not found", err)
+	}
+}
+
+func TestAuthenticateIsOptional(t *testing.T) {
+	_, conn := acpv1.Pipe(t.Context(), func(*acpv1.AgentSideConnection) acpv1.Agent { return bareAgent{} },
+		func(*acpv1.ClientSideConnection) acpv1.Client { return newTestClient() })
+	_, err := conn.Authenticate(t.Context(), &acpv1.AuthenticateRequest{MethodID: "none"})
+	if !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
+		t.Errorf("Authenticate error = %v, want method not found", err)
 	}
 }
 
@@ -205,7 +213,7 @@ func TestInvalidParamsAreRejectedBeforeTheHandler(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
 	// sessionId is required, so validation fails before Prompt is called.
 	_, err := conn.ExtMethod(t.Context(), schema.AgentMethodsSessionPrompt, map[string]any{"prompt": []any{}})
-	if !hasCode(err, acp.ErrorCodeInvalidParams) {
+	if !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
 		t.Errorf("error = %v, want invalid params", err)
 	}
 }
@@ -282,13 +290,9 @@ func TestUnsupportedClientMethodIsMethodNotFound(t *testing.T) {
 		Path:      "/tmp/file",
 		Content:   "data",
 	})
-	if !hasCode(err, acp.ErrorCodeMethodNotFound) {
+	if !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("WriteTextFile error = %v, want method not found", err)
 	}
 }
 
 // hasCode reports whether err is a RequestError with the given code.
-func hasCode(err error, code acp.ErrorCode) bool {
-	var reqErr *acp.RequestError
-	return errors.As(err, &reqErr) && reqErr.Code == code
-}

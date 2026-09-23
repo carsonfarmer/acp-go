@@ -87,5 +87,11 @@ type (
 	MCPConnectionID     = schema.MCPConnectionID
 	MCPServerACPID      = schema.MCPServerACPID
 	StopReason          = schema.StopReason
+	ToolCallContent     = schema.ToolCallContent
+	ToolCallLocation    = schema.ToolCallLocation
+	ToolCallStatus      = schema.ToolCallStatus
+	ToolKind            = schema.ToolKind
+	AvailableCommand    = schema.AvailableCommand
+	Cost                = schema.Cost
 	Meta                = schema.Meta
 )

@@ -99,7 +99,7 @@ func TestExtRouterOverAConnection(t *testing.T) {
 	if err != nil || got.Files != 4 {
 		t.Fatalf("got %+v %v", got, err)
 	}
-	if _, err := acp.CallExt[extResult](t.Context(), client, "_test/other", nil); !hasCode(err, acp.ErrorCodeMethodNotFound) {
+	if _, err := acp.CallExt[extResult](t.Context(), client, "_test/other", nil); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Fatalf("unregistered method: %v", err)
 	}
 }

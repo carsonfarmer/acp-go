@@ -15,6 +15,6 @@ func TextOf(block ContentBlock) (string, bool) {
 }
 
 // ToolText wraps text as tool call output.
-func ToolText(text string) schema.ToolCallContent {
+func ToolText(text string) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentContent{Content: TextBlock(text)})
 }

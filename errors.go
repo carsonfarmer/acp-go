@@ -1,6 +1,10 @@
 package acp
 
-import "github.com/ironpark/go-acp/internal/jsonrpc"
+import (
+	"errors"
+
+	"github.com/ironpark/go-acp/internal/jsonrpc"
+)
 
 // RequestError is a JSON-RPC error carried as a Go error.
 //
@@ -8,6 +12,17 @@ import "github.com/ironpark/go-acp/internal/jsonrpc"
 // receives; any other error becomes an internal error. Errors from the peer
 // are returned to callers in this same shape, so errors.As recovers the code.
 type RequestError = jsonrpc.RequestError
+
+// IsCode reports whether err is, or wraps, a [RequestError] with the given
+// code:
+//
+//	if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
+//		// authenticate, then retry
+//	}
+func IsCode(err error, code ErrorCode) bool {
+	var reqErr *RequestError
+	return errors.As(err, &reqErr) && reqErr.Code == code
+}
 
 // ErrorCode is a JSON-RPC error code.
 type ErrorCode = jsonrpc.ErrorCode

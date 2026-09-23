@@ -2,7 +2,6 @@ package acpv2_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -209,18 +208,18 @@ func TestSessionManagerServesLifecycleMethods(t *testing.T) {
 	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); err != nil {
 		t.Fatalf("DeleteSession: %v", err)
 	}
-	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); !hasCode(err, acp.ErrorCodeResourceNotFound) {
+	if _, err := conn.DeleteSession(ctx, &acpv2.DeleteSessionRequest{SessionID: created.SessionID}); !acp.IsCode(err, acp.ErrorCodeResourceNotFound) {
 		t.Errorf("second delete: %v, want resource not found", err)
 	}
 }
 
 func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
-	if _, err := conn.Login(t.Context(), &acpv2.LoginAuthRequest{MethodID: "oauth"}); !hasCode(err, acp.ErrorCodeMethodNotFound) {
+	if _, err := conn.Login(t.Context(), &acpv2.LoginAuthRequest{MethodID: "oauth"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("Login error = %v, want method not found", err)
 	}
 	_, agentConn := connect(t, newTestAgent(), newTestClient())
-	if _, err := agentConn.ConnectMCP(t.Context(), &acpv2.ConnectMCPRequest{ServerID: "s1"}); !hasCode(err, acp.ErrorCodeMethodNotFound) {
+	if _, err := agentConn.ConnectMCP(t.Context(), &acpv2.ConnectMCPRequest{ServerID: "s1"}); !acp.IsCode(err, acp.ErrorCodeMethodNotFound) {
 		t.Errorf("ConnectMCP error = %v, want method not found", err)
 	}
 }
@@ -228,7 +227,7 @@ func TestUnimplementedOptionalMethodIsMethodNotFound(t *testing.T) {
 func TestInvalidParamsAreRejectedBeforeTheHandler(t *testing.T) {
 	conn, _ := connect(t, newTestAgent(), newTestClient())
 	_, err := conn.ExtMethod(t.Context(), schema.AgentMethodsSessionPrompt, map[string]any{"prompt": []any{}})
-	if !hasCode(err, acp.ErrorCodeInvalidParams) {
+	if !acp.IsCode(err, acp.ErrorCodeInvalidParams) {
 		t.Errorf("error = %v, want invalid params", err)
 	}
 }
@@ -262,9 +261,4 @@ func TestAgentCallsBackIntoTheClient(t *testing.T) {
 	if selected, ok := granted.Outcome.Variant().(schema.RequestPermissionOutcomeSelected); !ok || selected.OptionID != "allow" {
 		t.Errorf("outcome = %#v", granted.Outcome.Variant())
 	}
-}
-
-func hasCode(err error, code acp.ErrorCode) bool {
-	var reqErr *acp.RequestError
-	return errors.As(err, &reqErr) && reqErr.Code == code
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	acp "github.com/ironpark/go-acp"
 	"github.com/ironpark/go-acp/acpv1"
 	schema "github.com/ironpark/go-acp/schema/v1"
 )
@@ -78,5 +79,55 @@ func TestTurnCollectsItsUpdates(t *testing.T) {
 	}
 	if text, err := turn.Text(); err != nil || text != "Hello, world" {
 		t.Fatalf("got %q %v", text, err)
+	}
+}
+
+// cancellableAgent relies on the embedded manager's Cancel to stop its turns.
+type cancellableAgent struct {
+	*acpv1.SessionManager[struct{}]
+	started chan struct{}
+}
+
+func (cancellableAgent) Initialize(context.Context, *acpv1.InitializeRequest) (*acpv1.InitializeResponse, error) {
+	return &acpv1.InitializeResponse{ProtocolVersion: acpv1.ProtocolVersion}, nil
+}
+
+func (a cancellableAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+	ctx, done := a.BeginTurn(ctx, params.SessionID)
+	defer done()
+	close(a.started)
+	<-ctx.Done()
+	if context.Cause(ctx) == acp.ErrTurnCancelled {
+		return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+	}
+	return nil, ctx.Err()
+}
+
+func TestSessionManagerCancelStopsTheTurn(t *testing.T) {
+	agent := cancellableAgent{
+		SessionManager: acpv1.NewSessionManager(acpv1.NewMemoryStore[struct{}](),
+			func(context.Context, *acpv1.NewSessionRequest) (acpv1.SessionID, struct{}, error) {
+				return acpv1.GenerateSessionID(), struct{}{}, nil
+			}),
+		started: make(chan struct{}),
+	}
+	_, conn := acpv1.Pipe(t.Context(), func(*acpv1.AgentSideConnection) acpv1.Agent { return agent },
+		func(*acpv1.ClientSideConnection) acpv1.Client { return newTestClient() })
+
+	session, err := conn.StartSession(t.Context(), &acpv1.NewSessionRequest{Cwd: "/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	turn, err := session.Prompt(t.Context(), acpv1.TextBlock("work"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-agent.started
+	if err := session.Cancel(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	response, err := turn.Wait()
+	if err != nil || response.StopReason != schema.StopReasonCancelled {
+		t.Fatalf("got %+v %v", response, err)
 	}
 }

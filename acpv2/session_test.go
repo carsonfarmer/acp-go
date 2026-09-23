@@ -17,18 +17,14 @@ type v2Agent struct {
 }
 
 func (a *v2Agent) Prompt(ctx context.Context, params *acpv2.PromptRequest) (*acpv2.PromptResponse, error) {
-	send := func(u schema.SessionUpdateVariant) {
-		_ = a.client.SessionUpdate(context.Background(), &acpv2.UpdateSessionNotification{
-			SessionID: params.SessionID,
-			Update:    schema.NewSessionUpdate(u),
-		})
-	}
+	stream := acpv2.NewSessionStream(a.client, params.SessionID)
 	work := func() {
-		send(schema.SessionUpdateStateUpdate{Value: schema.NewStateUpdate(schema.StateUpdateRunning{})})
-		send(schema.SessionUpdateAgentMessageChunk{MessageID: "m1", Content: acpv2.TextBlock("draft")})
-		send(schema.SessionUpdateAgentMessage{MessageID: "m1", Content: []acpv2.ContentBlock{acpv2.TextBlock("Hello")}})
-		send(schema.SessionUpdateAgentMessageChunk{MessageID: "m1", Content: acpv2.TextBlock(", world")})
-		send(schema.SessionUpdateStateUpdate{Value: schema.NewStateUpdate(schema.StateUpdateIdle{StopReason: new(schema.StopReasonEndTurn)})})
+		ctx := context.Background()
+		_ = stream.Running(ctx)
+		_ = stream.SendText(ctx, "m1", "draft")
+		_ = stream.Send(ctx, schema.NewSessionUpdate(schema.SessionUpdateAgentMessage{MessageID: "m1", Content: []acpv2.ContentBlock{acpv2.TextBlock("Hello")}}))
+		_ = stream.SendText(ctx, "m1", ", world")
+		_ = stream.Idle(ctx, schema.StopReasonEndTurn)
 	}
 	if a.idleFirst {
 		work()

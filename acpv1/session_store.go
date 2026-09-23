@@ -38,13 +38,15 @@ type SessionFactory[T any] func(ctx context.Context, params *NewSessionRequest) 
 //		},
 //	)}
 //
-// Embedding it satisfies [Agent]'s NewSession plus [SessionLoader],
+// Embedding it satisfies [Agent]'s NewSession and Cancel plus [SessionLoader],
 // [SessionLister] and [SessionDeleter]; override any of them by declaring the
-// method on the agent itself. The agent still advertises the matching
+// method on the agent itself. Cancel stops the context of the turn started
+// with [SessionManager.BeginTurn]. The agent still advertises the matching
 // capabilities from Initialize — the manager does not do that for it.
 type SessionManager[T any] struct {
 	store   SessionStore[T]
 	factory SessionFactory[T]
+	turns   acp.TurnTracker[SessionID]
 }
 
 // NewSessionManager pairs a store with the factory that fills it.
@@ -57,6 +59,28 @@ func (m *SessionManager[T]) Store() SessionStore[T] { return m.store }
 
 // Session returns the state for a session id.
 func (m *SessionManager[T]) Session(id SessionID) (T, bool) { return m.store.Get(id) }
+
+// BeginTurn starts a prompt turn on a session. Run the turn's work with the
+// returned context, which [SessionManager.Cancel] cancels with
+// [acp.ErrTurnCancelled], and call done when Prompt returns:
+//
+//	func (a *myAgent) Prompt(ctx context.Context, params *acpv1.PromptRequest) (*acpv1.PromptResponse, error) {
+//		ctx, done := a.BeginTurn(ctx, params.SessionID)
+//		defer done()
+//		// ... stream updates with ctx ...
+//		if context.Cause(ctx) == acp.ErrTurnCancelled {
+//			return &acpv1.PromptResponse{StopReason: schema.StopReasonCancelled}, nil
+//		}
+//	}
+func (m *SessionManager[T]) BeginTurn(ctx context.Context, id SessionID) (context.Context, func()) {
+	return m.turns.Begin(ctx, id)
+}
+
+// Cancel cancels the session's turn in progress, if any.
+func (m *SessionManager[T]) Cancel(_ context.Context, params *CancelNotification) error {
+	m.turns.Cancel(params.SessionID)
+	return nil
+}
 
 // NewSession creates a session with the factory and stores it.
 func (m *SessionManager[T]) NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
@@ -88,11 +112,13 @@ func (m *SessionManager[T]) ListSessions(_ context.Context, _ *ListSessionsReque
 	return &ListSessionsResponse{Sessions: sessions}, nil
 }
 
-// DeleteSession removes a session from the store.
+// DeleteSession cancels the session's turn in progress and removes the session
+// from the store.
 func (m *SessionManager[T]) DeleteSession(_ context.Context, params *DeleteSessionRequest) (*DeleteSessionResponse, error) {
 	if _, ok := m.store.Get(params.SessionID); !ok {
 		return nil, acp.ErrResourceNotFound(fmt.Sprintf("session %s", params.SessionID))
 	}
+	m.turns.Cancel(params.SessionID)
 	m.store.Delete(params.SessionID)
 	return &DeleteSessionResponse{}, nil
 }

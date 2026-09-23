@@ -140,6 +140,11 @@ type MCPMessageHandler interface {
 // advertise the capability from `InitializeRequest.Capabilities`.
 type Client interface {
 	// SessionUpdate is a notification streaming turn progress to the user.
+	//
+	// Notifications are handled one at a time on the connection's read loop, which
+	// keeps updates in order and ahead of the prompt response. The flip side: a
+	// handler that calls the agent and waits for the answer blocks the loop that
+	// would read it. Hand such calls to a goroutine.
 	SessionUpdate(ctx context.Context, params *UpdateSessionNotification) error
 
 	// RequestPermission asks the user to authorize a tool call. When the turn

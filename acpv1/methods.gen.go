@@ -18,7 +18,7 @@ import (
 
 // Agent is the set of methods every ACP agent must handle.
 //
-// Everything beyond these five methods is optional and gated by a capability
+// Everything beyond these four methods is optional and gated by a capability
 // the agent advertises from [Agent.Initialize]. Implement the matching optional
 // interface and the connection routes the method to it; when it is not
 // implemented the peer receives "method not found".
@@ -29,11 +29,6 @@ type Agent interface {
 	//
 	// See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
 	Initialize(ctx context.Context, params *InitializeRequest) (*InitializeResponse, error)
-
-	// Authenticate authenticates the client with one of the advertised methods.
-	//
-	// See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)
-	Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error)
 
 	// NewSession creates a conversation session with its own context.
 	//
@@ -50,6 +45,15 @@ type Agent interface {
 	//
 	// See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
 	Cancel(ctx context.Context, params *CancelNotification) error
+}
+
+// Authenticator handles authenticate. Implement it when the agent lists
+// `authMethods` in its Initialize response; an agent that needs no
+// credentials leaves it out and the method answers "method not found".
+//
+// See protocol docs: [Authentication](https://agentclientprotocol.com/protocol/authentication)
+type Authenticator interface {
+	Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error)
 }
 
 // SessionLoader handles session/load. Advertise it with the `loadSession`
@@ -169,6 +173,11 @@ type DocumentHandler interface {
 type Client interface {
 	// SessionUpdate is a notification streaming turn progress to the user.
 	//
+	// Notifications are handled one at a time on the connection's read loop, which
+	// keeps updates in order and ahead of the prompt response. The flip side: a
+	// handler that calls the agent and waits for the answer blocks the loop that
+	// would read it. Hand such calls to a goroutine.
+	//
 	// See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
 	SessionUpdate(ctx context.Context, params *SessionNotification) error
 
@@ -225,11 +234,6 @@ func (c *ClientSideConnection) Initialize(ctx context.Context, params *Initializ
 	return acpconn.Call[InitializeResponse](ctx, c.conn, schema.AgentMethodsInitialize, params)
 }
 
-// Authenticate authenticates with one of the methods the agent advertised.
-func (c *ClientSideConnection) Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error) {
-	return acpconn.Call[AuthenticateResponse](ctx, c.conn, schema.AgentMethodsAuthenticate, params)
-}
-
 // NewSession creates a session. It may fail with an auth-required error.
 func (c *ClientSideConnection) NewSession(ctx context.Context, params *NewSessionRequest) (*NewSessionResponse, error) {
 	return acpconn.Call[NewSessionResponse](ctx, c.conn, schema.AgentMethodsSessionNew, params)
@@ -251,6 +255,11 @@ func (c *ClientSideConnection) Prompt(ctx context.Context, params *PromptRequest
 // See protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)
 func (c *ClientSideConnection) Cancel(ctx context.Context, params *CancelNotification) error {
 	return c.conn.SendNotification(ctx, schema.AgentMethodsSessionCancel, params)
+}
+
+// Authenticate authenticates with one of the methods the agent advertised.
+func (c *ClientSideConnection) Authenticate(ctx context.Context, params *AuthenticateRequest) (*AuthenticateResponse, error) {
+	return acpconn.Call[AuthenticateResponse](ctx, c.conn, schema.AgentMethodsAuthenticate, params)
 }
 
 // LoadSession resumes a session and replays its history as notifications.
@@ -464,12 +473,14 @@ func (c *AgentSideConnection) handleRequest(ctx context.Context, method string, 
 	switch method {
 	case schema.AgentMethodsInitialize:
 		return acpconn.Request(ctx, schema.Validated, params, c.agent.Initialize)
-	case schema.AgentMethodsAuthenticate:
-		return acpconn.Request(ctx, schema.Validated, params, c.agent.Authenticate)
 	case schema.AgentMethodsSessionNew:
 		return acpconn.Request(ctx, schema.Validated, params, c.agent.NewSession)
 	case schema.AgentMethodsSessionPrompt:
 		return acpconn.Request(ctx, schema.Validated, params, c.agent.Prompt)
+	case schema.AgentMethodsAuthenticate:
+		if h, ok := c.agent.(Authenticator); ok {
+			return acpconn.Request(ctx, schema.Validated, params, h.Authenticate)
+		}
 	case schema.AgentMethodsSessionLoad:
 		if h, ok := c.agent.(SessionLoader); ok {
 			return acpconn.Request(ctx, schema.Validated, params, h.LoadSession)
