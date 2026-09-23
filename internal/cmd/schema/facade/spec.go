@@ -210,6 +210,9 @@ func (g *emitter) typesFile(schema *tsdef.Schema) {
 	for _, t := range g.spec.ExtraTypes {
 		g.write("\t%s = schema.%s\n", t, t)
 	}
+	// Meta is declared by the generator rather than the TypeScript schema, for
+	// the _meta member every protocol version reserves.
+	g.write("\tMeta = schema.Meta\n")
 	g.write(")\n")
 }
 

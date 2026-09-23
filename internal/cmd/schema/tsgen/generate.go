@@ -23,6 +23,7 @@ type generator struct {
 	aliases      map[string]bool     // Go names declared with "type X = ..."
 	unmarshalers []string            // json.UnmarshalFromFunc entries for variant interfaces
 	openTags     map[string]openTags // Go union name -> tags known to its Unknown variant
+	usesMeta     bool                // some struct has a _meta field typed as Meta
 	pkg          string
 	buffers      map[string]*bytes.Buffer // output file name -> source being built
 	order        []string                 // buffer creation order, for deterministic output
@@ -124,6 +125,13 @@ func Generate(schema *tsdef.Schema, pkg string) (Files, error) {
 			return nil, fmt.Errorf("%s: %w", g.pending[i].Name, err)
 		}
 	}
+	if g.usesMeta {
+		if err := g.reserve("Meta"); err != nil {
+			return nil, err
+		}
+		g.use(fileTypes)
+		g.write("\n// Meta is the _meta extension object reserved on protocol messages.\ntype Meta = meta.Meta\n")
+	}
 	if len(g.unmarshalers) > 0 {
 		g.use(fileUnions)
 		g.write("\n// Unmarshalers decodes the tagged-union variant interfaces directly, for callers\n// that declare fields of those interface types instead of the wrapper structs:\n//\n//\tjson.Unmarshal(data, &v, json.WithUnmarshalers(schema.Unmarshalers))\nvar Unmarshalers = json.JoinUnmarshalers(\n%s,\n)\n", strings.Join(g.unmarshalers, ",\n"))
@@ -180,7 +188,7 @@ func (g *generator) write(f string, a ...any) { fmt.Fprintf(g.out, f, a...) }
 var importPaths = map[string]string{
 	"json": "encoding/json/v2", "jsontext": "encoding/json/jsontext", "fmt": "fmt",
 	"reflect": "reflect", "regexp": "regexp", "slices": "slices",
-	"union": UnionRuntime, "zod": ZodRuntime,
+	"union": UnionRuntime, "zod": ZodRuntime, "meta": MetaRuntime,
 }
 
 // usedImports parses a body of declarations and returns the sorted import

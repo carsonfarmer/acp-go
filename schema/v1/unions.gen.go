@@ -133,7 +133,7 @@ type ToolCallContentContent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentContent) toolCallContentVariant() {}
@@ -175,7 +175,7 @@ type ToolCallContentDiff struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentDiff) toolCallContentVariant() {}
@@ -213,7 +213,7 @@ type ToolCallContentTerminal struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ToolCallContentTerminal) toolCallContentVariant() {}
@@ -385,7 +385,7 @@ type ContentBlockText struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockText) contentBlockVariant() {}
@@ -429,7 +429,7 @@ type ContentBlockImage struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockImage) contentBlockVariant() {}
@@ -471,7 +471,7 @@ type ContentBlockAudio struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockAudio) contentBlockVariant() {}
@@ -521,7 +521,7 @@ type ContentBlockResourceLink struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResourceLink) contentBlockVariant() {}
@@ -561,7 +561,7 @@ type ContentBlockResource struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ContentBlockResource) contentBlockVariant() {}
@@ -884,7 +884,7 @@ type ElicitationPropertySchemaString struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ElicitationPropertySchemaString) elicitationPropertySchemaVariant() {}
@@ -942,7 +942,7 @@ type ElicitationPropertySchemaNumber struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ElicitationPropertySchemaNumber) elicitationPropertySchemaVariant() {}
@@ -1000,7 +1000,7 @@ type ElicitationPropertySchemaInteger struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ElicitationPropertySchemaInteger) elicitationPropertySchemaVariant() {}
@@ -1050,7 +1050,7 @@ type ElicitationPropertySchemaBoolean struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ElicitationPropertySchemaBoolean) elicitationPropertySchemaVariant() {}
@@ -1110,7 +1110,7 @@ type ElicitationPropertySchemaArray struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (ElicitationPropertySchemaArray) elicitationPropertySchemaVariant() {}
@@ -1533,7 +1533,7 @@ type SessionConfigOptionSelect struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionSelect) sessionConfigOptionVariant() {}
@@ -1579,7 +1579,7 @@ type SessionConfigOptionBoolean struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionConfigOptionBoolean) sessionConfigOptionVariant() {}
@@ -1801,7 +1801,7 @@ type NesSuggestionEdit struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionEdit) nesSuggestionVariant() {}
@@ -1843,7 +1843,7 @@ type NesSuggestionJump struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionJump) nesSuggestionVariant() {}
@@ -1887,7 +1887,7 @@ type NesSuggestionRename struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionRename) nesSuggestionVariant() {}
@@ -1933,7 +1933,7 @@ type NesSuggestionSearchAndReplace struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (NesSuggestionSearchAndReplace) nesSuggestionVariant() {}
@@ -2167,7 +2167,7 @@ type SessionUpdateUserMessageChunk struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateUserMessageChunk) sessionUpdateVariant() {}
@@ -2210,7 +2210,7 @@ type SessionUpdateAgentMessageChunk struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAgentMessageChunk) sessionUpdateVariant() {}
@@ -2253,7 +2253,7 @@ type SessionUpdateAgentThoughtChunk struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAgentThoughtChunk) sessionUpdateVariant() {}
@@ -2312,7 +2312,7 @@ type SessionUpdateToolCall struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateToolCall) sessionUpdateVariant() {}
@@ -2369,7 +2369,7 @@ type SessionUpdateToolCallUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateToolCallUpdate) sessionUpdateVariant() {}
@@ -2410,7 +2410,7 @@ type SessionUpdatePlan struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlan) sessionUpdateVariant() {}
@@ -2448,7 +2448,7 @@ type SessionUpdatePlanUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanUpdate) sessionUpdateVariant() {}
@@ -2486,7 +2486,7 @@ type SessionUpdatePlanRemoved struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdatePlanRemoved) sessionUpdateVariant() {}
@@ -2524,7 +2524,7 @@ type SessionUpdateAvailableCommandsUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateAvailableCommandsUpdate) sessionUpdateVariant() {}
@@ -2562,7 +2562,7 @@ type SessionUpdateCurrentModeUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateCurrentModeUpdate) sessionUpdateVariant() {}
@@ -2600,7 +2600,7 @@ type SessionUpdateConfigOptionUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateConfigOptionUpdate) sessionUpdateVariant() {}
@@ -2640,7 +2640,7 @@ type SessionUpdateSessionInfoUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateSessionInfoUpdate) sessionUpdateVariant() {}
@@ -2682,7 +2682,7 @@ type SessionUpdateUsageUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateUsageUpdate) sessionUpdateVariant() {}
@@ -2724,7 +2724,7 @@ type SessionUpdateNotice struct {
 	// Metadata scoped to this notice.
 	//
 	// Omitted and `null` are equivalent and mean no metadata was supplied.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateNotice) sessionUpdateVariant() {}
@@ -2764,7 +2764,7 @@ type SessionUpdateCompactionUpdate struct {
 	// Human-readable description of why the compaction failed.
 	Error *string `json:"error,omitzero"`
 	// Extensible metadata patch for this compaction.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateCompactionUpdate) sessionUpdateVariant() {}
@@ -2800,7 +2800,7 @@ type SessionUpdateCompactionSummaryChunk struct {
 	// One content block to append.
 	Content ContentBlock `json:"content"`
 	// Metadata scoped to this chunk. Omission and `null` both mean absent.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (SessionUpdateCompactionSummaryChunk) sessionUpdateVariant() {}
@@ -2960,7 +2960,7 @@ type PlanUpdateContentItems struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentItems) planUpdateContentVariant() {}
@@ -3000,7 +3000,7 @@ type PlanUpdateContentFile struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentFile) planUpdateContentVariant() {}
@@ -3040,7 +3040,7 @@ type PlanUpdateContentMarkdown struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (PlanUpdateContentMarkdown) planUpdateContentVariant() {}
@@ -3348,7 +3348,7 @@ type RequestPermissionOutcomeSelected struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (RequestPermissionOutcomeSelected) requestPermissionOutcomeVariant() {}
@@ -3487,7 +3487,7 @@ type CreateElicitationResponseAccept struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (CreateElicitationResponseAccept) createElicitationResponseVariant() {}
@@ -3525,7 +3525,7 @@ type CreateElicitationResponseDecline struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (CreateElicitationResponseDecline) createElicitationResponseVariant() {}
@@ -3563,7 +3563,7 @@ type CreateElicitationResponseCancel struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 func (CreateElicitationResponseCancel) createElicitationResponseVariant() {}
@@ -3607,7 +3607,7 @@ type CreateElicitationResponseCustom struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-	Meta                 map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 

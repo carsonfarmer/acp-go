@@ -15,6 +15,9 @@ const ZodRuntime = "github.com/ironpark/go-acp/schema/zod"
 // UnionRuntime is the import path of the shared raw-union alternative matcher.
 const UnionRuntime = "github.com/ironpark/go-acp/schema/union"
 
+// MetaRuntime is the import path of the shared _meta map type.
+const MetaRuntime = "github.com/ironpark/go-acp/schema/meta"
+
 // zodKinds maps parsed builder names to zod.Kind constant names. Unknown
 // builders fail generation instead of producing an unsupported rule.
 var zodKinds = map[string]string{

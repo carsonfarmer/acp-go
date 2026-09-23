@@ -5,6 +5,8 @@ package schema
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+
+	"github.com/ironpark/go-acp/schema/meta"
 )
 
 // Request for user permission to proceed with an operation.
@@ -38,7 +40,7 @@ type RequestPermissionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Represents an upsert for a tool call that the language model has requested.
@@ -85,7 +87,7 @@ type ToolCallUpdate struct {
 	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Optional annotations for the client. The client can use annotations to inform how objects are used or displayed
@@ -103,7 +105,7 @@ type Annotations struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Text provided to or from an LLM.
@@ -117,7 +119,7 @@ type TextContent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An image provided to or from an LLM.
@@ -135,7 +137,7 @@ type ImageContent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Audio provided to or from an LLM.
@@ -151,7 +153,7 @@ type AudioContent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An optionally-sized icon that can be displayed in a user interface.
@@ -193,7 +195,7 @@ type ResourceLink struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Text-based resource contents.
@@ -209,7 +211,7 @@ type TextResourceContents struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Binary resource contents.
@@ -225,7 +227,7 @@ type BlobResourceContents struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // The contents of a resource, embedded into a prompt or tool call result.
@@ -239,7 +241,7 @@ type EmbeddedResource struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Standard content block (text, images, resources).
@@ -251,7 +253,7 @@ type Content struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Operation metadata for add, delete, and modify changes.
@@ -299,7 +301,7 @@ type Diff struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A display-only reference to an agent-owned terminal.
@@ -315,7 +317,7 @@ type Terminal struct {
 	// and `null` are equivalent and mean no item metadata was provided.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A file location being accessed or modified by a tool.
@@ -334,7 +336,7 @@ type ToolCallLocation struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Permission request details for a tool call.
@@ -358,7 +360,7 @@ type CommandPermissionSubject struct {
 	// these keys. Omitted and `null` are equivalent and mean no subject metadata was provided.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An option presented to the user when requesting permission.
@@ -374,7 +376,7 @@ type PermissionOption struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Session-scoped elicitation, optionally tied to a specific tool call.
@@ -427,7 +429,7 @@ type ElicitationSchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A titled enum option with a const value, human-readable title, and optional description.
@@ -447,7 +449,7 @@ type EnumOption struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Schema for string properties in an elicitation form.
@@ -500,7 +502,7 @@ type StringPropertySchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Schema for number (floating-point) properties in an elicitation form.
@@ -532,7 +534,7 @@ type NumberPropertySchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Schema for integer properties in an elicitation form.
@@ -564,7 +566,7 @@ type IntegerPropertySchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Schema for boolean properties in an elicitation form.
@@ -588,7 +590,7 @@ type BooleanPropertySchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // String item schema for multi-select enum properties.
@@ -602,7 +604,7 @@ type StringMultiSelectItems struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Items definition for titled multi-select enum properties.
@@ -616,7 +618,7 @@ type TitledMultiSelectItems struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Schema for multi-select (array) properties in an elicitation form.
@@ -650,7 +652,7 @@ type MultiSelectPropertySchema struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -668,7 +670,7 @@ type ConnectMCPRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -692,7 +694,7 @@ type MessageMCPRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -710,7 +712,7 @@ type DisconnectMCPRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Allows for sending an arbitrary request that is not part of the ACP spec.
@@ -746,7 +748,7 @@ type InitializeResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Metadata about the implementation of the client or agent.
@@ -769,7 +771,7 @@ type Implementation struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the agent.
@@ -828,7 +830,7 @@ type AgentCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Session capabilities supported by the agent.
@@ -884,7 +886,7 @@ type SessionCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Prompt capabilities supported by the agent in `session/prompt` requests.
@@ -923,7 +925,7 @@ type PromptCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for image content in prompt requests.
@@ -935,7 +937,7 @@ type PromptImageCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for audio content in prompt requests.
@@ -947,7 +949,7 @@ type PromptAudioCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for embedded context in prompt requests.
@@ -959,7 +961,7 @@ type PromptEmbeddedContextCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MCP capabilities supported by the agent for session lifecycle requests.
@@ -990,7 +992,7 @@ type MCPCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for stdio MCP server transports.
@@ -1002,7 +1004,7 @@ type MCPStdioCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for HTTP MCP server transports.
@@ -1014,7 +1016,7 @@ type MCPHTTPCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1032,7 +1034,7 @@ type MCPACPCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for the `session/delete` method.
@@ -1044,7 +1046,7 @@ type SessionDeleteCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for additional session directories support.
@@ -1059,7 +1061,7 @@ type SessionAdditionalDirectoriesCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1077,7 +1079,7 @@ type SessionForkCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Authentication-related extension capabilities supported by the agent.
@@ -1091,7 +1093,7 @@ type AgentAuthCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1109,7 +1111,7 @@ type ProvidersCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // NES capabilities advertised by the agent during initialization.
@@ -1126,7 +1128,7 @@ type NesCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Event capabilities the agent can consume.
@@ -1138,7 +1140,7 @@ type NesEventCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Document event capabilities the agent wants to receive.
@@ -1158,7 +1160,7 @@ type NesDocumentEventCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for `document/didOpen` capability support.
@@ -1168,7 +1170,7 @@ type NesDocumentDidOpenCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for `document/didChange` events.
@@ -1180,7 +1182,7 @@ type NesDocumentDidChangeCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for `document/didClose` capability support.
@@ -1190,7 +1192,7 @@ type NesDocumentDidCloseCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for `document/didSave` capability support.
@@ -1200,7 +1202,7 @@ type NesDocumentDidSaveCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for `document/didFocus` capability support.
@@ -1210,7 +1212,7 @@ type NesDocumentDidFocusCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Context capabilities the agent wants attached to each suggestion request.
@@ -1232,7 +1234,7 @@ type NesContextCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for recent files context.
@@ -1244,7 +1246,7 @@ type NesRecentFilesCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for related snippets context.
@@ -1254,7 +1256,7 @@ type NesRelatedSnippetsCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for edit history context.
@@ -1266,7 +1268,7 @@ type NesEditHistoryCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for user actions context.
@@ -1278,7 +1280,7 @@ type NesUserActionsCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for open files context.
@@ -1288,7 +1290,7 @@ type NesOpenFilesCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for diagnostics context.
@@ -1298,7 +1300,7 @@ type NesDiagnosticsCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An environment variable to set when launching a process.
@@ -1312,7 +1314,7 @@ type EnvVariable struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Terminal-based authentication method.
@@ -1340,7 +1342,7 @@ type AuthMethodTerminal struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Agent handles authentication itself through `auth/login`.
@@ -1358,7 +1360,7 @@ type AuthMethodAgent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to the `auth/login` method.
@@ -1368,7 +1370,7 @@ type LoginAuthResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1386,7 +1388,7 @@ type ListProvidersResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1412,7 +1414,7 @@ type ProviderInfo struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1432,7 +1434,7 @@ type ProviderCurrentConfig struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1448,7 +1450,7 @@ type SetProviderResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1464,7 +1466,7 @@ type DisableProviderResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to the `auth/logout` method.
@@ -1474,7 +1476,7 @@ type LogoutAuthResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response from creating a new session.
@@ -1492,7 +1494,7 @@ type NewSessionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A possible value for a session configuration option.
@@ -1508,7 +1510,7 @@ type SessionConfigSelectOption struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A group of possible values for a session configuration option.
@@ -1524,7 +1526,7 @@ type SessionConfigSelectGroup struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A single-value selector (dropdown) session configuration option payload.
@@ -1553,7 +1555,7 @@ type ListSessionsResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Information about a session returned by session/list
@@ -1577,7 +1579,7 @@ type SessionInfo struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response from deleting a session.
@@ -1587,7 +1589,7 @@ type DeleteSessionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1607,7 +1609,7 @@ type ForkSessionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response from resuming an existing session.
@@ -1619,7 +1621,7 @@ type ResumeSessionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response from closing a session.
@@ -1629,7 +1631,7 @@ type CloseSessionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to `session/set_config_option` method.
@@ -1641,7 +1643,7 @@ type SetSessionConfigOptionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response acknowledging that a user prompt was inserted into the ACP conversation.
@@ -1665,7 +1667,7 @@ type PromptResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to `nes/start`.
@@ -1677,7 +1679,7 @@ type StartNesResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to `nes/suggest`.
@@ -1689,7 +1691,7 @@ type SuggestNesResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A text edit within a suggestion.
@@ -1703,7 +1705,7 @@ type NesTextEdit struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A range in a text document, expressed as start and end positions.
@@ -1717,7 +1719,7 @@ type Range struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A zero-based position in a text document.
@@ -1733,7 +1735,7 @@ type Position struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A text edit suggestion.
@@ -1751,7 +1753,7 @@ type NesEditSuggestion struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A jump-to-location suggestion.
@@ -1767,7 +1769,7 @@ type NesJumpSuggestion struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A rename symbol suggestion.
@@ -1785,7 +1787,7 @@ type NesRenameSuggestion struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A search-and-replace suggestion.
@@ -1805,7 +1807,7 @@ type NesSearchAndReplaceSuggestion struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response from closing an NES session.
@@ -1815,7 +1817,7 @@ type CloseNesResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Allows for sending an arbitrary response to an [`ExtRequest`] that is not part of the ACP spec.
@@ -1851,7 +1853,7 @@ type UpdateSessionNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A streamed item of message content.
@@ -1868,7 +1870,7 @@ type ContentChunk struct {
 	// these keys. This field is chunk-scoped.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A user message upsert.
@@ -1894,7 +1896,7 @@ type UserMessage struct {
 	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An agent message upsert.
@@ -1920,7 +1922,7 @@ type AgentMessage struct {
 	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An agent thought or reasoning message upsert.
@@ -1946,7 +1948,7 @@ type AgentThought struct {
 	// these keys. Omitted means no metadata update; `null` is an explicit clear signal.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Foreground work is in progress.
@@ -1956,7 +1958,7 @@ type RunningStateUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -1984,7 +1986,7 @@ type Usage struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // The agent is ready to process a new prompt.
@@ -2010,7 +2012,7 @@ type IdleStateUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Foreground work is blocked on user action.
@@ -2020,7 +2022,7 @@ type RequiresActionStateUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A streamed item of tool-call content.
@@ -2039,7 +2041,7 @@ type ToolCallContentChunk struct {
 	// these keys. This field is chunk-scoped.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An authoritative replacement snapshot of terminal output bytes.
@@ -2052,7 +2054,7 @@ type TerminalOutput struct {
 	// and `null` are equivalent and mean no snapshot metadata was provided.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Exit information for an agent-owned terminal.
@@ -2074,7 +2076,7 @@ type TerminalExitStatus struct {
 	// and `null` are equivalent and mean no exit metadata was provided.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An upsert for the stored state of an agent-owned terminal.
@@ -2099,7 +2101,7 @@ type TerminalUpdate struct {
 	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A chunk of bytes appended to an agent-owned terminal's output.
@@ -2114,7 +2116,7 @@ type TerminalOutputChunk struct {
 	// equivalent and mean no chunk metadata was provided.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A single entry in the execution plan.
@@ -2135,7 +2137,7 @@ type PlanEntry struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A plan represented as structured entries.
@@ -2152,7 +2154,7 @@ type PlanItems struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2172,7 +2174,7 @@ type PlanFile struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2192,7 +2194,7 @@ type PlanMarkdown struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A content update for a plan identified by ID.
@@ -2204,7 +2206,7 @@ type PlanUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2222,7 +2224,7 @@ type PlanRemoved struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Information about a command.
@@ -2238,7 +2240,7 @@ type AvailableCommand struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // All text that was typed after the command name is provided as input.
@@ -2250,7 +2252,7 @@ type TextCommandInput struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Available commands are ready or have changed
@@ -2262,7 +2264,7 @@ type AvailableCommandsUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Session configuration options have been updated.
@@ -2274,7 +2276,7 @@ type ConfigOptionUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Update to session metadata. All fields are optional to support partial updates.
@@ -2294,7 +2296,7 @@ type SessionInfoUpdate struct {
 	// explicit clear signal. Implementations MUST NOT make assumptions about values at these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Cost information for a session.
@@ -2308,7 +2310,7 @@ type Cost struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Context window and cost update for a session.
@@ -2324,7 +2326,7 @@ type UsageUpdate struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2352,7 +2354,7 @@ type Notice struct {
 	// Metadata scoped to this notice.
 	//
 	// Omitted and `null` are equivalent and mean no metadata was supplied.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2378,7 +2380,7 @@ type CompactionUpdate struct {
 	// Human-readable description of why the compaction failed.
 	Error *string `json:"error,omitzero"`
 	// Extensible metadata patch for this compaction.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2396,7 +2398,7 @@ type CompactionSummaryChunk struct {
 	// One content block to append.
 	Content ContentBlock `json:"content"`
 	// Metadata scoped to this chunk. Omission and `null` both mean absent.
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent by the agent when a URL-based elicitation is complete.
@@ -2410,7 +2412,7 @@ type CompleteElicitationNotification struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2437,7 +2439,7 @@ type MessageMCPNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
@@ -2464,7 +2466,7 @@ type InitializeRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities supported by the client.
@@ -2511,7 +2513,7 @@ type ClientCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Authentication capabilities supported by the client.
@@ -2532,7 +2534,7 @@ type AuthCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Capabilities for terminal authentication methods.
@@ -2546,7 +2548,7 @@ type TerminalAuthCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Elicitation capabilities supported by the client.
@@ -2568,7 +2570,7 @@ type ElicitationCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Form-based elicitation capabilities.
@@ -2582,7 +2584,7 @@ type ElicitationFormCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // URL-based elicitation capabilities.
@@ -2596,7 +2598,7 @@ type ElicitationURLCapabilities struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // NES capabilities advertised by the client during initialization.
@@ -2612,7 +2614,7 @@ type ClientNesCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for jump suggestion support.
@@ -2622,7 +2624,7 @@ type NesJumpCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for rename suggestion support.
@@ -2632,7 +2634,7 @@ type NesRenameCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Marker for search and replace suggestion support.
@@ -2642,7 +2644,7 @@ type NesSearchAndReplaceCapabilities struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for the `auth/login` method.
@@ -2661,7 +2663,7 @@ type LoginAuthRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2677,7 +2679,7 @@ type ListProvidersRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2704,7 +2706,7 @@ type SetProviderRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2722,7 +2724,7 @@ type DisableProviderRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for the `auth/logout` method.
@@ -2738,7 +2740,7 @@ type LogoutAuthRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for creating a new session.
@@ -2760,7 +2762,7 @@ type NewSessionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An HTTP header to set when making requests to the MCP server.
@@ -2774,7 +2776,7 @@ type HTTPHeader struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // HTTP transport configuration for MCP.
@@ -2790,7 +2792,7 @@ type MCPServerHTTP struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2816,7 +2818,7 @@ type MCPServerACP struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Stdio transport configuration for MCP.
@@ -2834,7 +2836,7 @@ type MCPServerStdio struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for listing existing sessions.
@@ -2848,7 +2850,7 @@ type ListSessionsRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for deleting an existing session from `session/list`.
@@ -2862,7 +2864,7 @@ type DeleteSessionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -2895,7 +2897,7 @@ type ForkSessionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for resuming an existing session.
@@ -2929,7 +2931,7 @@ type ResumeSessionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Inclusive replay cursor requesting replay from the start of retained conversation history.
@@ -2939,7 +2941,7 @@ type ReplayFromStart struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for closing an active session.
@@ -2955,7 +2957,7 @@ type CloseSessionRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request parameters for sending a user prompt to the agent.
@@ -2985,7 +2987,7 @@ type PromptRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request to start an NES session.
@@ -3001,7 +3003,7 @@ type StartNesRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A workspace folder.
@@ -3015,7 +3017,7 @@ type WorkspaceFolder struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Repository metadata for an NES session.
@@ -3031,7 +3033,7 @@ type NesRepository struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request for a code suggestion.
@@ -3055,7 +3057,7 @@ type SuggestNesRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Context attached to a suggestion request.
@@ -3077,7 +3079,7 @@ type NesSuggestContext struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A recently accessed file.
@@ -3093,7 +3095,7 @@ type NesRecentFile struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A related code snippet from a file.
@@ -3107,7 +3109,7 @@ type NesRelatedSnippet struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A code excerpt from a file.
@@ -3123,7 +3125,7 @@ type NesExcerpt struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An entry in the edit history.
@@ -3137,7 +3139,7 @@ type NesEditHistoryEntry struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A user action (typing, cursor movement, etc.).
@@ -3155,7 +3157,7 @@ type NesUserAction struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // An open file in the editor.
@@ -3173,7 +3175,7 @@ type NesOpenFile struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A diagnostic (error, warning, etc.).
@@ -3191,7 +3193,7 @@ type NesDiagnostic struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Request to close an NES session.
@@ -3206,7 +3208,7 @@ type CloseNesRequest struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Response to a permission request.
@@ -3218,7 +3220,7 @@ type RequestPermissionResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // The user selected one of the provided options.
@@ -3230,7 +3232,7 @@ type SelectedPermissionOutcome struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // The user accepted the elicitation and provided content.
@@ -3254,7 +3256,7 @@ type ConnectMCPResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // **UNSTABLE**
@@ -3270,7 +3272,7 @@ type DisconnectMCPResponse struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification to cancel ongoing operations for a session.
@@ -3284,7 +3286,7 @@ type CancelSessionNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is opened in the editor.
@@ -3304,7 +3306,7 @@ type DidOpenDocumentNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is edited.
@@ -3322,7 +3324,7 @@ type DidChangeDocumentNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // A content change event for a document.
@@ -3339,7 +3341,7 @@ type TextDocumentContentChangeEvent struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is closed.
@@ -3353,7 +3355,7 @@ type DidCloseDocumentNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file is saved.
@@ -3367,7 +3369,7 @@ type DidSaveDocumentNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a file becomes the active editor tab.
@@ -3387,7 +3389,7 @@ type DidFocusDocumentNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a suggestion is accepted.
@@ -3401,7 +3403,7 @@ type AcceptNesNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification sent when a suggestion is rejected.
@@ -3417,7 +3419,7 @@ type RejectNesNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // Notification to cancel an ongoing request.
@@ -3431,7 +3433,7 @@ type CancelRequestNotification struct {
 	// these keys.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 type CreateElicitationRequestForm struct {
@@ -3454,7 +3456,7 @@ type CreateElicitationRequestForm struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MarshalJSON encodes v with its literal members fixed.
@@ -3484,7 +3486,7 @@ type CreateElicitationRequestForm2 struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MarshalJSON encodes v with its literal members fixed.
@@ -3521,7 +3523,7 @@ type CreateElicitationRequestURL struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MarshalJSON encodes v with its literal members fixed.
@@ -3553,7 +3555,7 @@ type CreateElicitationRequestURL4 struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta Meta `json:"_meta,omitzero"`
 }
 
 // MarshalJSON encodes v with its literal members fixed.
@@ -3591,7 +3593,7 @@ type CreateElicitationRequestObject struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta                 map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
@@ -3613,7 +3615,7 @@ type CreateElicitationRequestObject6 struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta                 map[string]jsontext.Value `json:"_meta,omitzero"`
+	Meta                 Meta                      `json:"_meta,omitzero"`
 	AdditionalProperties map[string]jsontext.Value `json:",embed"`
 }
 
@@ -3627,8 +3629,8 @@ type MultiSelectItemsString struct {
 	// Optional. Omitted and `null` are equivalent and mean no metadata.
 	//
 	// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/v2/draft/extensibility)
-	Meta map[string]jsontext.Value `json:"_meta,omitzero"`
-	Type string                    `json:"type"`
+	Meta Meta   `json:"_meta,omitzero"`
+	Type string `json:"type"`
 }
 
 // MarshalJSON encodes v with its literal members fixed.
@@ -3694,3 +3696,6 @@ type ElicitationURLModeRequestID struct {
 	// The URL to direct the user to.
 	URL string `json:"url"`
 }
+
+// Meta is the _meta extension object reserved on protocol messages.
+type Meta = meta.Meta

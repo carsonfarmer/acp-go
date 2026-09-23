@@ -87,4 +87,5 @@ type (
 	MCPConnectionID     = schema.MCPConnectionID
 	MCPServerACPID      = schema.MCPServerACPID
 	StopReason          = schema.StopReason
+	Meta                = schema.Meta
 )

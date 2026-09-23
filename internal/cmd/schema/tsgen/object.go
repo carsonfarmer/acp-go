@@ -53,6 +53,11 @@ func (g *generator) structType(name string, t *tsdef.Type, skip string) error {
 			}
 			tag += ",omitzero"
 		}
+		if f.Name == "_meta" && expr == "map[string]jsontext.Value" {
+			// The extensibility spec reserves _meta on every message; one
+			// shared type gives it Set/Get helpers in every version.
+			expr, g.usesMeta = "Meta", true
+		}
 		g.write("%s%s %s `json:%q`\n", comment(f.Comment), field, expr, tag)
 	}
 	if t.Element != nil {

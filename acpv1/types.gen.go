@@ -111,4 +111,5 @@ type (
 	AvailableCommand    = schema.AvailableCommand
 	Cost                = schema.Cost
 	StopReason          = schema.StopReason
+	Meta                = schema.Meta
 )
