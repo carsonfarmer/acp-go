@@ -4,41 +4,34 @@
 
 The snippets below illustrate individual APIs; complete runnable programs are in [examples](../examples/README.md).
 
+
+Examples use `acp1` unless stated otherwise. Application types and values such as `MyAgent`, `MyClient`, and `ctx` are supplied by your application.
+
 - [Architecture](#architecture)
 - [Implementing an Agent and Client](#implementing-an-agent-and-client)
-- [Agent](#agent)
-- [Client](#client)
-- [Features](#features)
-- [Cancellation](#cancellation)
-- [Errors](#errors)
-- [Extensions and `_meta`](#extensions-and-_meta)
-- [Serving v1 and v2 together](#serving-v1-and-v2-together)
-- [Transport Layer](#transport-layer)
-- [Middleware](#middleware)
-- [Sessions](#sessions)
-- [SessionStream](#sessionstream)
-- [Unions](#unions)
-- [Optional Fields](#optional-fields)
-- [Connection Options](#connection-options)
+- [Sessions and Updates](#sessions-and-updates)
+- [Connections and Versions](#connections-and-versions)
+- [Errors and Middleware](#errors-and-middleware)
+- [Data and Extensions](#data-and-extensions)
 
 ## Architecture
 
-- **`acp`** (root) — `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore`,
-  `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`)
-- **`acphttp`** — Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio
-  programs do not link them
-- **`acp1.AgentSideConnection`** — serves an `Agent` and calls the peer client
-- **`acp1.ClientSideConnection`** — serves a `Client` and calls the peer agent
-- **`acp1.SpawnAgent`**, **`acp1.Pipe`** — an agent as a child process, or both sides in memory
-- **`acp1.ClientSession`**, **`acp1.Turn`** — prompt a session and read that turn's updates
-- **`acp1.SessionManager`** — session lifecycle and turn cancellation backed by a store
-- **`acp1.SessionStream`** — session updates without rebuilding the union by hand
-- **`acp1.TerminalHandle`** — terminal id and session id bound together
-- **`acp1.CapabilitiesOf`** — capabilities derived from the interfaces an agent implements
-- **`acp2`** — the same façades for the draft ACP v2 (`schema/v2`)
-- **`router.ProtocolRouter`** — one endpoint serving v1 and v2 agents; **`router.ClientConnector`** — the client side, v2 with v1 fallback
-- **`acpmcp`** (separate module, unstable) — MCP-over-ACP on top of the MCP Go SDK: `HostV1`/`HostV2` serve a client's MCP servers, `DialerV1`/`DialerV2` connect an agent to them
-- **`schema/v1`, `schema/v2`** — generated wire types, unions and Zod-based validation
+| Component | Role |
+| --- | --- |
+| `acp` (root) | `Option`s, `Transport` and the stdio transport, `Middleware`, `RequestError`, `SessionStore`, `TurnTracker`, typed extensions (`CallExt`, `ExtRouter`, `ExtMethodHandler`) |
+| `acphttp` | Streamable HTTP and WebSocket transports, following the draft RFD, apart from the root so stdio programs do not link them |
+| `acp1.AgentSideConnection` | serves an `Agent` and calls the peer client |
+| `acp1.ClientSideConnection` | serves a `Client` and calls the peer agent |
+| `acp1.SpawnAgent`, `acp1.Pipe` | an agent as a child process, or both sides in memory |
+| `acp1.ClientSession`, `acp1.Turn` | prompt a session and read that turn's updates |
+| `acp1.SessionManager` | session lifecycle and turn cancellation backed by a store |
+| `acp1.SessionStream` | session updates without rebuilding the union by hand |
+| `acp1.TerminalHandle` | terminal id and session id bound together |
+| `acp1.CapabilitiesOf` | capabilities derived from the interfaces an agent implements |
+| `acp2` | the same façades for the draft ACP v2 (`schema/v2`) |
+| `router.ProtocolRouter` | one endpoint serving v1 and v2 agents; **`router.ClientConnector`** — the client side, v2 with v1 fallback |
+| `acpmcp` (separate module, unstable) | MCP-over-ACP on top of the MCP Go SDK: `HostV1`/`HostV2` serve a client's MCP servers, `DialerV1`/`DialerV2` connect an agent to them |
+| `schema/v1`, `schema/v2` | generated wire types, unions and Zod-based validation |
 
 Incoming parameters are validated with the SDK's own Zod rules before a handler sees them,
 and invalid ones are answered with `-32602` without invoking the handler.
@@ -109,13 +102,104 @@ ended. The agent's stderr goes to the parent's unless `cmd.Stderr` is set. `acp1
 an agent and a client in memory, which is handy in tests.
 
 `Client` requires only `SessionUpdate` and `RequestPermission`; a client whose agent never asks for
-permission can embed `acp1.UnimplementedClient` for both. `SessionUpdate` sees every update,
+permission can embed `acp1.UnimplementedClient` for both.
+
+`SessionUpdate` sees every update,
 including those outside a `Turn`; notifications are handled in order on the read loop, so a handler
-must not wait on a call to the agent. File system, terminal and elicitation support come from
+must not wait on a call to the agent.
+
+File system, terminal and elicitation support come from
 `acp1.FileReader`, `acp1.FileWriter`, `acp1.TerminalHandler` and `acp1.ElicitationHandler`;
 `acp1.ClientCapabilitiesOf(client)` derives the matching flags.
 
-## Features
+## Sessions and Updates
+
+### Sessions
+
+```go
+manager := acp1.NewSessionManager(
+    acp1.NewMemoryStore[*MySession](),
+    func(ctx context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *MySession, error) {
+        return acp1.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
+    },
+)
+
+type MyAgent struct {
+    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession
+}
+
+// Optional: session/new and session/resume report the modes; List describes the session.
+func (s *MySession) SessionModes() *acp1.SessionModeState {
+    return &acp1.SessionModeState{CurrentModeID: s.mode, AvailableModes: myModes}
+}
+func (s *MySession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
+
+func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
+    return a.List(ctx, params) // cwd filter, most recently updated first
+}
+
+func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
+    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
+    if err != nil {
+        return nil, err // acp.ErrTurnInProgress: v1 runs one turn per session
+    }
+    defer done()
+    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
+        return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
+    } else if err != nil {
+        return nil, err
+    }
+    return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
+}
+```
+
+Override any of those by declaring the method on the agent itself. Session state that implements
+`SessionModesReporter` or `SessionConfigOptionsReporter` has its modes and config options reported
+in the session/new and session/resume responses.
+
+The manager leaves out `session/load`, which must
+replay a conversation only the agent knows, and, in v1, the optional `session/list`: an agent that
+lists forwards `ListSessions` to `List`, which describes each session with its state's
+`SessionInfoReporter`.
+
+| Method | Behavior |
+| --- | --- |
+| `Lookup(ctx, id)` | Return the session state or an error to pass back to the caller. |
+| `CloseSession` | Cancel the running turn and keep the session available to resume. |
+| `DeleteSession` | Remove the session; deleting an unknown session also succeeds. |
+
+`acp2.SessionManager` serves the whole v2 session
+baseline, list included, the same way. `acp.SessionStore[ID, T]`, whose methods take the request's
+context and can fail, `acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building
+blocks; each façade aliases the stores with its own session id.
+
+### SessionStream
+
+```go
+stream := acp1.NewSessionStream(client, sessionID)
+
+stream.SendText(ctx, "Hello!")
+stream.SendThought(ctx, "thinking...")
+
+stream.StartToolCall(ctx, toolID, "Reading file", acp1.ToolKindRead)
+stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
+stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
+stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // terminal from conn.NewTerminal
+
+stream.SendPlan(ctx, entries)
+stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
+stream.WithMeta(meta).SendText(ctx, "…")                                       // _meta on each notification
+```
+
+`acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts` (an iterator over a prompt's text blocks),
+`acp1.JoinTexts` (their concatenation) and
+`acp1.ToolText` cover the common text content, and `acp1.ToolDiff` and `acp1.ToolTerminal` the
+other tool output.
+
+Tool call ids must be unique within a session; `acp1.GenerateToolCallID` and
+`acp1.GenerateMessageID` mint random ones, like `GenerateSessionID`. The v2
+`SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
+`Idle` for the explicit turn state.
 
 ### Cancellation
 
@@ -124,40 +208,51 @@ On the receiving side the matching handler's context is cancelled, and the peer 
 `-32800 Request cancelled` unless the handler answers first. This is separate from
 `session/cancel`, which cancels a whole prompt turn (see [Sessions](#sessions)).
 
-### Errors
+## Connections and Versions
 
-Return an `acp.Err…` constructor from a handler to choose the code the peer receives; any other
-error becomes `-32603`. Errors from the peer come back as `*acp.RequestError`:
-
-```go
-if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
-    // authenticate, then retry
-}
-```
-
-### Extensions and `_meta`
+### Transport Layer
 
 ```go
-type MyAgent struct {
-    acp.ExtRouter // implements acp.ExtMethodHandler and acp.ExtNotificationHandler
-    // ...
-}
+// Default: stdio (newline-delimited JSON)
+conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout))
 
-a.HandleExt("_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
-    return &IndexResult{Files: 42}, nil
+// Streamable HTTP and WebSocket for remote agents: one connection, and one agent, per client
+server := acphttp.NewServer(func(ctx context.Context, t acp.Transport) error {
+    return acp1.NewAgentSideConnection(newAgent, t).Start(ctx)
 })
+http.Handle("/acp", server)
 
-result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexParams{Path: "."})
+// The client side of any transport
+agent := acp1.ConnectAgent(ctx, acphttp.NewClientTransport("https://host/acp"), newClient)
+defer agent.Close() // also ends the connection on the server
+
+ws, err := acphttp.DialWebSocket(ctx, "wss://host/acp") // the same endpoint over WebSocket
+agent := acp1.ConnectAgent(ctx, ws, newClient)
 ```
 
-Params that fail to decode get `-32602`, unregistered methods `-32601`, and unregistered
-notifications are ignored. Every `_meta` field is an `acp1.Meta`, which keeps values as raw JSON:
+Both follow the draft RFD the TypeScript and Python SDKs implement, and interoperate with them.
+Streamable HTTP uses `POST` for client messages (`initialize` answers with an
+`Acp-Connection-Id`) and Server-Sent Events streams for the agent's, one per connection and one
+per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the whole connection
+as text frames instead. WebSockets from browser pages on other origins are refused unless
+`acphttp.WithWebSocketOrigins` allows them.
 
-```go
-var meta acp1.Meta
-meta.Set("trace", Trace{ID: "abc"})
-trace, ok, err := params.Meta.Get[Trace]("trace")
-```
+#### Reconnecting
+
+Reconnecting creates a new connection: dial again with the same headers and
+`acphttp.WithCookieJar(jar)`, so a load balancer's affinity cookie routes the client back, then
+`Initialize` and `LoadSession` the saved session id if the agent advertises `loadSession`.
+Messages sent while the client was away are not replayed; the protocol leaves that to v2.
+The `http-client` example shows the flow with `-reconnect`.
+
+#### Temporary disconnections
+
+The transport handles short drops automatically. The HTTP client reopens a dropped event stream, backing off,
+until the server answers that the connection is gone; the server hands a stream to the newer `GET`
+and resends a message whose write failed. The server ends a connection whose client has had no
+stream open for five minutes (`acphttp.WithIdleTimeout`), and both ends of a WebSocket ping every 15
+seconds and close it when the peer stops answering (`acphttp.WithWebSocketPing` on the server,
+`acphttp.WithPingInterval` on the client).
 
 ### Serving v1 and v2 together
 
@@ -203,45 +298,29 @@ agent, err := router.NewClient().WithV1(…).WithV2(…).
     })
 ```
 
-### Transport Layer
+### Connection Options
 
 ```go
-// Default: stdio (newline-delimited JSON)
-conn := acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout))
-
-// Streamable HTTP and WebSocket for remote agents: one connection, and one agent, per client
-server := acphttp.NewServer(func(ctx context.Context, t acp.Transport) error {
-    return acp1.NewAgentSideConnection(newAgent, t).Start(ctx)
-})
-http.Handle("/acp", server)
-
-// The client side of any transport
-agent := acp1.ConnectAgent(ctx, acphttp.NewClientTransport("https://host/acp"), newClient)
-defer agent.Close() // also ends the connection on the server
-
-ws, err := acphttp.DialWebSocket(ctx, "wss://host/acp") // the same endpoint over WebSocket
-agent := acp1.ConnectAgent(ctx, ws, newClient)
+acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
+    acp.WithWriteQueueSize(500),               // outgoing queue depth
+    acp.WithRequestTimeout(30*time.Second),    // default deadline for outgoing calls
+    acp.WithShutdownTimeout(10*time.Second),   // bound Close on in-flight handlers
+    acp.WithErrorHandler(func(err error) {}),  // non-fatal errors
+)
 ```
 
-Both follow the draft RFD the TypeScript and Python SDKs implement, and interoperate with them.
-Streamable HTTP uses `POST` for client messages (`initialize` answers with an
-`Acp-Connection-Id`) and Server-Sent Events streams for the agent's, one per connection and one
-per session. A `GET` with `Upgrade: websocket` on the same endpoint carries the whole connection
-as text frames instead. WebSockets from browser pages on other origins are refused unless
-`acphttp.WithWebSocketOrigins` allows them.
+## Errors and Middleware
 
-Reconnecting is a new connection, as in the other SDKs: dial again with the same headers and
-`acphttp.WithCookieJar(jar)`, so a load balancer's affinity cookie routes the client back, then
-`Initialize` and `LoadSession` the saved session id if the agent advertises `loadSession`.
-Messages sent while the client was away are not replayed; the protocol leaves that to v2.
-The `http-client` example shows the flow with `-reconnect`.
+### Errors
 
-Short drops are handled below that. The HTTP client reopens a dropped event stream, backing off,
-until the server answers that the connection is gone; the server hands a stream to the newer `GET`
-and resends a message whose write failed. The server ends a connection whose client has had no
-stream open for five minutes (`acphttp.WithIdleTimeout`), and both ends of a WebSocket ping every 15
-seconds and close it when the peer stops answering (`acphttp.WithWebSocketPing` on the server,
-`acphttp.WithPingInterval` on the client).
+Return an `acp.Err…` constructor from a handler to choose the code the peer receives; any other
+error becomes `-32603`. Errors from the peer come back as `*acp.RequestError`:
+
+```go
+if acp.IsCode(err, acp.ErrorCodeAuthRequired) {
+    // authenticate, then retry
+}
+```
 
 ### Middleware
 
@@ -274,82 +353,7 @@ authenticated := acp.Middleware{
 }
 ```
 
-### Sessions
-
-```go
-manager := acp1.NewSessionManager(
-    acp1.NewMemoryStore[*MySession](),
-    func(ctx context.Context, params *acp1.NewSessionRequest) (acp1.SessionID, *MySession, error) {
-        return acp1.GenerateSessionID(), &MySession{cwd: params.Cwd}, nil
-    },
-)
-
-type MyAgent struct {
-    *acp1.SessionManager[*MySession] // NewSession, Cancel, DeleteSession, ResumeSession, CloseSession
-}
-
-// Optional: session/new and session/resume report the modes; List describes the session.
-func (s *MySession) SessionModes() *acp1.SessionModeState {
-    return &acp1.SessionModeState{CurrentModeID: s.mode, AvailableModes: myModes}
-}
-func (s *MySession) SessionInfo() acp1.SessionInfo { return acp1.SessionInfo{Cwd: s.cwd} }
-
-func (a *MyAgent) ListSessions(ctx context.Context, params *acp1.ListSessionsRequest) (*acp1.ListSessionsResponse, error) {
-    return a.List(ctx, params) // cwd filter, most recently updated first
-}
-
-func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1.PromptResponse, error) {
-    ctx, done, err := a.BeginTurn(ctx, params.SessionID) // the manager's Cancel cancels ctx
-    if err != nil {
-        return nil, err // acp.ErrTurnInProgress: v1 runs one turn per session
-    }
-    defer done()
-    if err := a.work(ctx); context.Cause(ctx) == acp.ErrTurnCancelled {
-        return &acp1.PromptResponse{StopReason: acp1.StopReasonCancelled}, nil
-    } else if err != nil {
-        return nil, err
-    }
-    return &acp1.PromptResponse{StopReason: acp1.StopReasonEndTurn}, nil
-}
-```
-
-Override any of those by declaring the method on the agent itself. Session state that implements
-`SessionModesReporter` or `SessionConfigOptionsReporter` has its modes and config options reported
-in the session/new and session/resume responses. The manager leaves out `session/load`, which must
-replay a conversation only the agent knows, and, in v1, the optional `session/list`: an agent that
-lists forwards `ListSessions` to `List`, which describes each session with its state's
-`SessionInfoReporter`. `Lookup(ctx, id)` returns a session's state or an error to return as is.
-`CloseSession` cancels the running turn and keeps the session to resume; `DeleteSession` removes
-it, and deleting an unknown session succeeds. `acp2.SessionManager` serves the whole v2 session
-baseline, list included, the same way. `acp.SessionStore[ID, T]`, whose methods take the request's
-context and can fail, `acp.MemoryStore` and `acp.TurnTracker` are the version-neutral building
-blocks; each façade aliases the stores with its own session id.
-
-### SessionStream
-
-```go
-stream := acp1.NewSessionStream(client, sessionID)
-
-stream.SendText(ctx, "Hello!")
-stream.SendThought(ctx, "thinking...")
-
-stream.StartToolCall(ctx, toolID, "Reading file", acp1.ToolKindRead)
-stream.CompleteToolCall(ctx, toolID, acp1.WithToolContent(acp1.ToolText(contents)))
-stream.CompleteToolCall(ctx, editID, acp1.WithToolContent(acp1.ToolDiff(path, &oldText, newText)))
-stream.CompleteToolCall(ctx, runID, acp1.WithToolContent(acp1.ToolTerminal(terminal.ID))) // terminal from conn.NewTerminal
-
-stream.SendPlan(ctx, entries)
-stream.Send(ctx, acp1.SessionUpdateSessionInfoUpdate{Title: new("Refactor")}) // variants without a helper
-stream.WithMeta(meta).SendText(ctx, "…")                                       // _meta on each notification
-```
-
-`acp1.TextBlock`, `acp1.TextOf`, `acp1.Texts` (an iterator over a prompt's text blocks),
-`acp1.JoinTexts` (their concatenation) and
-`acp1.ToolText` cover the common text content, and `acp1.ToolDiff` and `acp1.ToolTerminal` the
-other tool output. Tool call ids must be unique within a session; `acp1.GenerateToolCallID` and
-`acp1.GenerateMessageID` mint random ones, like `GenerateSessionID`. The v2
-`SessionStream` takes a message id on every message and adds `Running`, `RequiresAction` and
-`Idle` for the explicit turn state.
+## Data and Extensions
 
 ### Unions
 
@@ -389,13 +393,26 @@ title := params.ToolCall.GetTitle() // "" when absent
 Read the field itself when absence means something the zero value does not: a terminal's `nil`
 `ExitCode` means a signal ended it, not exit code 0.
 
-### Connection Options
+### Extensions and `_meta`
 
 ```go
-acp1.NewAgentSideConnection(newAgent, acp.NewStdioTransport(os.Stdin, os.Stdout),
-    acp.WithWriteQueueSize(500),               // outgoing queue depth
-    acp.WithRequestTimeout(30*time.Second),    // default deadline for outgoing calls
-    acp.WithShutdownTimeout(10*time.Second),   // bound Close on in-flight handlers
-    acp.WithErrorHandler(func(err error) {}),  // non-fatal errors
-)
+type MyAgent struct {
+    acp.ExtRouter // implements acp.ExtMethodHandler and acp.ExtNotificationHandler
+    // ...
+}
+
+a.HandleExt("_example.com/index", func(ctx context.Context, p *IndexParams) (*IndexResult, error) {
+    return &IndexResult{Files: 42}, nil
+})
+
+result, err := acp.CallExt[IndexResult](ctx, conn, "_example.com/index", IndexParams{Path: "."})
+```
+
+Params that fail to decode get `-32602`, unregistered methods `-32601`, and unregistered
+notifications are ignored. Every `_meta` field is an `acp1.Meta`, which keeps values as raw JSON:
+
+```go
+var meta acp1.Meta
+meta.Set("trace", Trace{ID: "abc"})
+trace, ok, err := params.Meta.Get[Trace]("trace")
 ```
