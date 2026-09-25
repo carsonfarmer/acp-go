@@ -3,6 +3,8 @@ package acp2
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"runtime/debug"
 
 	acp "github.com/ironpark/acp-go"
 	"github.com/ironpark/acp-go/internal/acpconn"
@@ -144,7 +146,8 @@ func (m *SessionManager[T]) Lookup(ctx context.Context, id SessionID) (T, error)
 // reports idle with the stop reason work returns, or [StopReasonCancelled]
 // once [SessionManager.CancelSession] has cancelled the turn, before the turn
 // ends. Both reports are sent even after a cancel, so the client's turn always
-// ends. A prompt that arrives while the turn runs joins it: joined is true,
+// ends; a panic in work is logged and ends the turn with [StopReasonEndTurn].
+// A prompt that arrives while the turn runs joins it: joined is true,
 // work does not run, and the running work picks the new message up from the
 // conversation. An unknown session and a failed running report are returned
 // as errors:
@@ -180,11 +183,19 @@ func (m *SessionManager[T]) StartTurn(ctx context.Context, id SessionID, stream 
 	}
 	go func() {
 		defer done()
-		reason := work(turn, session)
-		if context.Cause(turn) == acp.ErrTurnCancelled {
-			reason = StopReasonCancelled
-		}
-		_ = stream.Idle(report, reason) // the connection is gone if this fails
+		reason := StopReasonEndTurn
+		defer func() {
+			// Out of the connection's reach, a panic would end the process and
+			// every session in it.
+			if r := recover(); r != nil {
+				slog.Error("acp2: turn work panicked", "session", id, "panic", r, "stack", string(debug.Stack()))
+			}
+			if context.Cause(turn) == acp.ErrTurnCancelled {
+				reason = StopReasonCancelled
+			}
+			_ = stream.Idle(report, reason) // the connection is gone if this fails
+		}()
+		reason = work(turn, session)
 	}()
 	return false, nil
 }
