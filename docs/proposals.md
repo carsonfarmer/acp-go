@@ -299,6 +299,29 @@ conversation. Most agents would be satisfied with "replay the updates I sent".
 - **go-acp-sdk's `$/cancel_request` handling.** It cancels its own outgoing call rather than the
   peer's request. acp-go handles this correctly.
 
+## Status
+
+C1–C7 are implemented, each on its own branch off upstream `74e8b95` with its own tests. Each
+branch is one commit and can become a separate PR. All seven merge cleanly together, and the
+combined tree passes every suite.
+
+| Proposal | Branch |
+| --- | --- |
+| C1 | `claude/c1-answer-undecodable-messages` |
+| C2 | `claude/c2-send-respects-caller-context` |
+| C3 | `claude/c3-ignore-unhandled-notifications` |
+| C4 | `claude/c4-sortable-timestamps` |
+| C5 | `claude/c5-recover-turn-panics` |
+| C6 | `claude/c6-read-text-file-lines` |
+| C7 | `claude/c7-ci` |
+
+Two changes from the proposals above:
+- C1 replies only when the lenient re-read finds an id. Garbage with no id has nobody waiting on
+  it, so it is still only logged; it does not get a `null`-id reply. A response that fails to
+  decode now fails the call waiting on it.
+- C3 changes only notifications. Unknown requests without a `_` prefix still go to
+  `ExtMethodHandler`, because an existing test relies on that.
+
 ## Suggested order
 
 1. **Small correctness fixes:** C1, C2, C3, C4, C5, C6 and C7.
