@@ -315,12 +315,15 @@ combined tree passes every suite.
 | C6 | `claude/c6-read-text-file-lines` |
 | C7 | `claude/c7-ci` |
 
-Two changes from the proposals above:
-- C1 replies only when the lenient re-read finds an id. Garbage with no id has nobody waiting on
-  it, so it is still only logged; it does not get a `null`-id reply. A response that fails to
-  decode now fails the call waiting on it.
+Changes from the proposals above:
+- C1 adds no new code path. The outer envelope is read with `AllowDuplicateNames` and
+  `AllowInvalidUTF8`, and the params or result inside it are still decoded strictly. A bad request
+  therefore gets the existing `-32602` reply, and a bad response fails its call.
 - C3 changes only notifications. Unknown requests without a `_` prefix still go to
   `ExtMethodHandler`, because an existing test relies on that.
+- C6 adds only `acp1.LineRange` and the example fix. The `SessionStream` read options were
+  dropped. `LineRange` uses `strings.IndexByte`: it doesn't allocate, and it benchmarked slightly
+  faster than a `strings.Lines` loop.
 
 ## Suggested order
 
