@@ -482,7 +482,9 @@ func (g *emitter) dispatch(s side) {
 			}
 		}
 		if notification {
-			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtNotificationHandler); ok {\n\t\t\treturn h.ServeExtNotification(ctx, method, params)\n\t\t}\n\t}\n\treturn jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
+			// A notification has no response to carry "method not found", and
+			// the protocol asks that one nobody handles be ignored.
+			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtNotificationHandler); ok {\n\t\t\treturn h.ServeExtNotification(ctx, method, params)\n\t\t}\n\t}\n\t// Notifications nobody handles are ignored.\n\treturn nil\n}\n\n", s.serverVar)
 		} else {
 			g.write("\tdefault:\n\t\tif h, ok := c.%s.(ExtMethodHandler); ok {\n\t\t\treturn h.ServeExtMethod(ctx, method, params)\n\t\t}\n\t}\n\treturn nil, jsonrpc.MethodNotFound(method)\n}\n\n", s.serverVar)
 		}

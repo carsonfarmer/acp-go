@@ -567,7 +567,8 @@ func (c *AgentSideConnection) handleNotification(ctx context.Context, method str
 			return h.ServeExtNotification(ctx, method, params)
 		}
 	}
-	return jsonrpc.MethodNotFound(method)
+	// Notifications nobody handles are ignored.
+	return nil
 }
 
 func (c *ClientSideConnection) handleRequest(ctx context.Context, method string, params jsontext.Value) (any, error) {
@@ -615,5 +616,6 @@ func (c *ClientSideConnection) handleNotification(ctx context.Context, method st
 			return h.ServeExtNotification(ctx, method, params)
 		}
 	}
-	return jsonrpc.MethodNotFound(method)
+	// Notifications nobody handles are ignored.
+	return nil
 }
