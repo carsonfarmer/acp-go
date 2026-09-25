@@ -301,8 +301,9 @@ conversation. Most agents would be satisfied with "replay the updates I sent".
 
 ## Status
 
-C1–C7 are implemented, each on its own branch off upstream `74e8b95` with its own tests. Each
-branch is one commit and can become a separate PR. All seven merge cleanly together, and the
+C1–C7 are implemented, each as the smallest change that fixes its problem. New API is added only
+where there's no other way. Each lives on its own branch off upstream `74e8b95`, as one commit
+with its own tests, and can become a separate PR. All seven merge cleanly together, and the
 combined tree passes every suite.
 
 | Proposal | Branch |
@@ -319,8 +320,15 @@ Changes from the proposals above:
 - C1 adds no new code path. The outer envelope is read with `AllowDuplicateNames` and
   `AllowInvalidUTF8`, and the params or result inside it are still decoded strictly. A bad request
   therefore gets the existing `-32602` reply, and a bad response fails its call.
+- C2 adds no helpers. `send` takes the caller's context and gains one `select` case. An abandoned
+  call sends its best-effort `$/cancel_request` from a goroutine.
 - C3 changes only notifications. Unknown requests without a `_` prefix still go to
   `ExtMethodHandler`, because an existing test relies on that.
+- C4 adds no API; `FormatTimestamp`, `SendSessionInfo` and `TitleOf` were dropped. The existing
+  `Compare` parses RFC 3339 and compares times. A timestamp that doesn't parse sorts after every
+  one that does, so the order stays total.
+- C5 adds no option. One deferred `recover` in `StartTurn`'s goroutine logs the panic to
+  `slog.Default` and still reports idle, with `end_turn`.
 - C6 adds only `acp1.LineRange` and the example fix. The `SessionStream` read options were
   dropped. `LineRange` uses `strings.IndexByte`: it doesn't allocate, and it benchmarked slightly
   faster than a `strings.Lines` loop.
