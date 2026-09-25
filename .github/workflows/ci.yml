@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    name: SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            acpmcp/go.sum
+      - name: Format
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Run gofmt on:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race ./...
+      - name: Vet the MCP bridge
+        working-directory: acpmcp
+        run: go vet ./...
+      - name: Test the MCP bridge
+        working-directory: acpmcp
+        run: go test -race ./...
+
+  generator:
+    name: Schema generator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: internal/cmd/schema/go.mod
+          cache-dependency-path: internal/cmd/schema/go.sum
+      # The tree-sitter parser needs CGO and a C compiler, which the runner has.
+      - name: Test
+        working-directory: internal/cmd/schema
+        run: go test ./...
+      - name: Generated code is up to date
+        working-directory: internal/cmd/schema
+        run: go run . -source ../../../schema/typescript -out ../../../schema -facade ../../.. -check
