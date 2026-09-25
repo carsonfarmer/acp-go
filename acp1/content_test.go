@@ -56,3 +56,34 @@ func TestJoinTexts(t *testing.T) {
 		t.Fatalf("JoinTexts = %q, want %q", got, "ab")
 	}
 }
+
+func TestLineRange(t *testing.T) {
+	const lf, crlf = "a\nb\nc\n", "a\r\nb\r\nc"
+	for _, tc := range []struct {
+		content     string
+		line, limit *uint32
+		want        string
+	}{
+		{lf, nil, nil, lf},
+		{lf, new(uint32(0)), nil, lf}, // the schema allows 0; it reads from the first line
+		{lf, new(uint32(2)), nil, "b\nc\n"},
+		{lf, new(uint32(2)), new(uint32(1)), "b\n"},
+		{lf, nil, new(uint32(2)), "a\nb\n"},
+		{lf, new(uint32(3)), new(uint32(5)), "c\n"},
+		{lf, new(uint32(4)), nil, ""},
+		{lf, nil, new(uint32(0)), ""},
+		{crlf, new(uint32(2)), nil, "b\r\nc"}, // line endings are kept as the file has them
+		{crlf, new(uint32(3)), new(uint32(1)), "c"},
+	} {
+		var line uint32
+		if tc.line != nil {
+			line = *tc.line
+		}
+		if got := acp1.LineRange(tc.content, tc.line, tc.limit); got != tc.want {
+			t.Errorf("LineRange(%q, %v, %v) = %q, want %q", tc.content, tc.line, tc.limit, got, tc.want)
+		}
+		if tc.line != nil && *tc.line != line {
+			t.Errorf("LineRange changed the request's line from %d to %d", line, *tc.line)
+		}
+	}
+}

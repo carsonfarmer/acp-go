@@ -58,3 +58,33 @@ func ToolDiff(path string, oldText *string, newText string) ToolCallContent {
 func ToolTerminal(id TerminalID) ToolCallContent {
 	return schema.NewToolCallContent(schema.ToolCallContentTerminal{TerminalID: id})
 }
+
+// LineRange returns the lines of a file's content that a fs/read_text_file
+// request asks for: at most limit lines from the 1-based line, each with its
+// line ending. A nil or zero line starts at the first line and a nil limit
+// reads to the end:
+//
+//	return &acp1.ReadTextFileResponse{Content: acp1.LineRange(string(data), params.Line, params.Limit)}, nil
+func LineRange(content string, line, limit *uint32) string {
+	if line != nil {
+		for n := *line; n > 1; n-- {
+			i := strings.IndexByte(content, '\n')
+			if i < 0 {
+				return ""
+			}
+			content = content[i+1:]
+		}
+	}
+	if limit == nil {
+		return content
+	}
+	end := 0
+	for range *limit {
+		i := strings.IndexByte(content[end:], '\n')
+		if i < 0 {
+			return content
+		}
+		end += i + 1
+	}
+	return content[:end]
+}

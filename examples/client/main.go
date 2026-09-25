@@ -78,7 +78,7 @@ func (c *exampleClient) ReadTextFile(_ context.Context, params *acp1.ReadTextFil
 	if err != nil {
 		return nil, acp.ResourceNotFound(params.Path).WithData(map[string]string{"uri": params.Path})
 	}
-	return &acp1.ReadTextFileResponse{Content: string(content)}, nil
+	return &acp1.ReadTextFileResponse{Content: acp1.LineRange(string(content), params.Line, params.Limit)}, nil
 }
 
 func (c *exampleClient) WriteTextFile(_ context.Context, params *acp1.WriteTextFileRequest) (*acp1.WriteTextFileResponse, error) {
