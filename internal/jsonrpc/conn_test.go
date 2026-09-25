@@ -452,3 +452,23 @@ func TestWriteFailureIsReported(t *testing.T) {
 		t.Fatalf("Start = %v, want the write error", err)
 	}
 }
+
+// A response whose result fails strict decoding still reaches the call
+// waiting on it, which reports the decoding error, instead of being dropped
+// with the call left waiting.
+func TestUndecodableResultReachesTheCall(t *testing.T) {
+	transport := newPipeTransport()
+	conn := start(t, nil, nil, transport)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := conn.SendRequest(ctx, "ping", nil)
+		result <- err
+	}()
+	request := transport.receive(t)
+	transport.in <- jsontext.Value(`{"jsonrpc":"2.0","id":` + string(request["id"]) + `,"result":{"text":"\ud83d"}}`)
+	if err := <-result; errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("the call never saw its response")
+	}
+}

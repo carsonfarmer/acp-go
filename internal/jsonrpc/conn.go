@@ -270,8 +270,13 @@ func (c *Connection) readLoop() error {
 			continue
 		}
 
+		// The envelope is read leniently, so that a duplicate name or invalid
+		// UTF-8, such as the lone surrogate a JavaScript peer sends for a
+		// string cut mid-character, fails the strict decoding of params or
+		// result, which answers the request or fails the call, instead of
+		// dropping a message someone is waiting on.
 		var msg wireMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
+		if err := json.Unmarshal(data, &msg, jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)); err != nil {
 			c.logError(fmt.Errorf("decode jsonrpc message: %w", err))
 			continue
 		}
