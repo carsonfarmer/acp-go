@@ -336,8 +336,9 @@ func (c *Connection) writeLoop() {
 	}
 }
 
-// send encodes and queues a message, dropping it if the connection is closing.
-func (c *Connection) send(msg wireMessage) error {
+// send encodes and queues a message. It gives up when ctx ends while the queue
+// is full, and drops the message if the connection is closing.
+func (c *Connection) send(ctx context.Context, msg wireMessage) error {
 	msg.JSONRPC = Version
 	data, err := json.Marshal(&msg)
 	if err != nil {
@@ -346,13 +347,15 @@ func (c *Connection) send(msg wireMessage) error {
 	select {
 	case c.writeQueue <- data:
 		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-c.ctx.Done():
 		return context.Cause(c.ctx)
 	}
 }
 
 func (c *Connection) trySend(msg wireMessage) {
-	if err := c.send(msg); err != nil && !errors.Is(err, context.Canceled) {
+	if err := c.send(context.Background(), msg); err != nil && !errors.Is(err, context.Canceled) {
 		c.logError(err)
 	}
 }
@@ -540,7 +543,7 @@ func (c *Connection) StartRequest(ctx context.Context, method string, params any
 	key := IDKey(msg.ID)
 	pending := &pendingResponse{result: make(chan responseResult, 1)}
 	c.pending.Store(key, pending)
-	if err := c.send(msg); err != nil {
+	if err := c.send(ctx, msg); err != nil {
 		c.pending.Delete(key)
 		cancel()
 		return nil, err
@@ -556,7 +559,7 @@ func (c *Connection) StartRequest(ctx context.Context, method string, params any
 			}
 			return result.data, nil
 		case <-ctx.Done():
-			c.sendCancelRequest(msg.ID)
+			go c.sendCancelRequest(msg.ID) // the caller need not wait for room in the queue
 			return nil, ctx.Err()
 		case <-c.ctx.Done():
 			return nil, context.Cause(c.ctx)
@@ -576,7 +579,7 @@ func (c *Connection) sendCancelRequest(id jsontext.Value) {
 	select {
 	case <-c.ctx.Done():
 	default:
-		_ = c.send(msg)
+		_ = c.send(context.Background(), msg)
 	}
 }
 
@@ -595,5 +598,5 @@ func (c *Connection) SendNotification(ctx context.Context, method string, params
 		return ctx.Err()
 	default:
 	}
-	return c.send(msg)
+	return c.send(ctx, msg)
 }
