@@ -156,7 +156,7 @@ func (a *MyAgent) Prompt(ctx context.Context, params *acp1.PromptRequest) (*acp1
 `acp1.SessionInfoLister`(façade의 `SessionInfo`에 대한 `acp.SessionInfoLister`)를 구현해 한 번의 쿼리로
 페이지를 응답할 수 있습니다. `ListSessionInfo`는 `acp.SessionListQuery`(cwd 필터, 시작 위치, 페이지
 크기보다 하나 큰 limit)를 받아, 조건에 맞는 세션을 `acp.SessionListPosition.Compare` 순서로 반환합니다.
-`updatedAt`이 최신인 세션이 먼저 오고(문자열로 비교), 시각이 없는 세션은 마지막, 같으면 세션 id
+`updatedAt`이 최신인 세션이 먼저 오고(RFC 3339 시각으로 비교), 시각이 없는 세션은 마지막, 같으면 세션 id
 오름차순이며, 각 세션의 `SessionID`를 채워야 합니다.
 
 | 메서드 | 동작 |

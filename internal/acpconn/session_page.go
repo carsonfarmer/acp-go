@@ -6,6 +6,7 @@ import (
 	"encoding/json/v2"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/ironpark/acp-go/internal/jsonrpc"
 )
@@ -15,7 +16,8 @@ import (
 // cursor token [SessionPager] hands back.
 type SessionPosition struct {
 	// UpdatedAt is the session's last-activity timestamp, the primary sort
-	// key. A session without one sorts after every dated session.
+	// key. A session without one, or with one that is not RFC 3339, sorts
+	// after every session with one.
 	UpdatedAt string `json:"u,omitzero"`
 	// SessionID breaks ties between sessions with the same UpdatedAt.
 	SessionID string `json:"i"`
@@ -24,8 +26,24 @@ type SessionPosition struct {
 // Compare orders two positions the way session/list orders sessions: the
 // newest UpdatedAt first, then session id ascending. A positive result means p
 // sorts after other, so other is on an earlier page.
+//
+// UpdatedAt compares as a time: two RFC 3339 strings order as their times only
+// when they share one width and offset, which time.RFC3339Nano, dropping
+// trailing zeros, does not keep. Timestamps that do not parse sort after
+// those that do, as strings.
 func (p SessionPosition) Compare(other SessionPosition) int {
-	if p.UpdatedAt != other.UpdatedAt {
+	pt, perr := time.Parse(time.RFC3339Nano, p.UpdatedAt)
+	ot, oerr := time.Parse(time.RFC3339Nano, other.UpdatedAt)
+	switch {
+	case perr == nil && oerr == nil:
+		if c := ot.Compare(pt); c != 0 {
+			return c
+		}
+	case perr == nil:
+		return -1
+	case oerr == nil:
+		return 1
+	case p.UpdatedAt != other.UpdatedAt:
 		return strings.Compare(other.UpdatedAt, p.UpdatedAt)
 	}
 	return strings.Compare(p.SessionID, other.SessionID)

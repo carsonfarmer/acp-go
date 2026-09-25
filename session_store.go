@@ -79,9 +79,9 @@ func (s *MemoryStore[ID, T]) List(context.Context) ([]ID, error) {
 // lists the most recently updated sessions first and breaks ties by session
 // id ascending.
 type SessionListPosition struct {
-	// UpdatedAt is the session's last-activity timestamp, compared as a
-	// string, so a store must write every timestamp in one format, such as
-	// RFC 3339 in UTC. A session without one sorts after every dated session.
+	// UpdatedAt is the session's last-activity timestamp, an RFC 3339 string
+	// compared as a time. A session without one, or with one that does not
+	// parse, sorts after every session with one.
 	UpdatedAt string
 	// SessionID breaks ties between sessions with the same UpdatedAt.
 	SessionID string

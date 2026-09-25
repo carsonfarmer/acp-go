@@ -163,8 +163,8 @@ By default each page reads and describes every stored session. A store backed by
 implement `acp1.SessionInfoLister` (`acp.SessionInfoLister` for the façade's `SessionInfo`) to answer
 a page with one query instead: `ListSessionInfo` receives an `acp.SessionListQuery` (cwd filter,
 the position to start after, and a limit one past the page size) and returns matching sessions in
-`acp.SessionListPosition.Compare` order — newest `updatedAt` first, compared as strings, undated
-sessions last, ties by session id — with each `SessionID` set.
+`acp.SessionListPosition.Compare` order — newest `updatedAt` first, compared as RFC 3339 times,
+undated sessions last, ties by session id — with each `SessionID` set.
 
 | Method | Behavior |
 | --- | --- |
